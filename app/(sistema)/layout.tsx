@@ -11,7 +11,7 @@ export default async function LayoutSistema({
   return (
     <div className="min-h-screen flex flex-col bg-fundo text-texto">
       <CabecalhoPrincipal perfil={perfil} />
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6">
+      <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 sm:px-6">
         {children}
       </main>
       <footer className="border-t border-borda bg-superficie py-3 text-center text-xs text-texto-suave">

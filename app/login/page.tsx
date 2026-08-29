@@ -1,56 +1,53 @@
 "use client";
 
-import { useActionState } from "react";
-import { autenticarUsuario, type EstadoLogin } from "./actions";
-import { SeletorTema } from "@/components/ui/theme-switcher";
-import { Shield, Lock, Mail, AlertCircle } from "lucide-react";
-
-const estadoInicial: EstadoLogin = {};
+import { useState, useTransition } from "react";
+import { autenticarUsuario } from "./actions";
+import { Shield, AlertCircle } from "lucide-react";
 
 export default function PaginaLogin() {
-  const [estado, formAction, isPending] = useActionState(
-    autenticarUsuario,
-    estadoInicial
-  );
+  const [isPending, startTransition] = useTransition();
+  const [erro, setErro] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setErro(null);
+
+    const formData = new FormData(e.currentTarget);
+
+    startTransition(async () => {
+      const res = await autenticarUsuario({}, formData);
+      if (res?.erro) {
+        setErro(res.erro);
+      }
+    });
+  };
 
   return (
-    <div className="flex min-h-screen flex-col justify-between bg-fundo px-4 py-8 sm:px-6 lg:px-8">
-      {/* Barra superior de utilitários */}
-      <header className="mx-auto flex w-full max-w-md items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded bg-acento text-white">
-            <Shield className="h-4 w-4" />
+    <div className="flex min-h-screen flex-col items-center justify-center bg-fundo px-4 py-12">
+      <div className="w-full max-w-sm space-y-6">
+        {/* Cabeçalho do Card */}
+        <div className="flex flex-col items-center text-center space-y-2">
+          <div className="flex h-10 w-10 items-center justify-center rounded bg-acento text-white">
+            <Shield className="h-5 w-5" />
           </div>
-          <span className="text-sm font-semibold tracking-tight text-texto">
+          <h1 className="font-heading text-xl font-bold text-texto">
             UNOPAR Parauapebas
-          </span>
+          </h1>
+          <p className="text-xs text-texto-suave">
+            Sistema de Registro e Controle de Protocolos
+          </p>
         </div>
-        <SeletorTema />
-      </header>
 
-      {/* Caixa central de autenticação */}
-      <main className="mx-auto w-full max-w-sm">
+        {/* Card do Formulário */}
         <div className="rounded border border-borda bg-superficie p-6 shadow-sm">
-          <div className="mb-6">
-            <h1 className="text-lg font-semibold text-texto">
-              Registro de Protocolos
-            </h1>
-            <p className="mt-1 text-xs text-texto-suave">
-              Acesso restrito à equipe de atendimento e coordenação do Grupo Edunorte.
-            </p>
-          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {erro && (
+              <div className="flex items-start gap-2 rounded border border-erro/30 bg-erro-fundo p-3 text-xs text-erro">
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>{erro}</span>
+              </div>
+            )}
 
-          {estado.erro && (
-            <div
-              role="alert"
-              className="mb-4 flex items-start gap-2.5 rounded border border-erro/30 bg-erro-fundo p-3 text-xs text-erro"
-            >
-              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-              <span>{estado.erro}</span>
-            </div>
-          )}
-
-          <form action={formAction} className="space-y-4">
             <div>
               <label
                 htmlFor="email"
@@ -58,18 +55,15 @@ export default function PaginaLogin() {
               >
                 E-mail institucional
               </label>
-              <div className="relative">
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  placeholder="usuario@unopar.br"
-                  className="w-full rounded border border-borda bg-fundo px-3 py-2 pl-9 text-xs text-texto placeholder:text-texto-suave/60 focus:border-acento focus:outline-none"
-                />
-                <Mail className="absolute left-3 top-2.5 h-3.5 w-3.5 text-texto-suave" />
-              </div>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                placeholder="seu.email@unopar.br"
+                className="w-full rounded border border-borda bg-fundo px-3 py-2 text-sm text-texto placeholder:text-texto-suave focus:border-acento focus:outline-none"
+              />
             </div>
 
             <div>
@@ -79,18 +73,15 @@ export default function PaginaLogin() {
               >
                 Senha de acesso
               </label>
-              <div className="relative">
-                <input
-                  id="senha"
-                  name="senha"
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                  placeholder="••••••••"
-                  className="w-full rounded border border-borda bg-fundo px-3 py-2 pl-9 text-xs text-texto placeholder:text-texto-suave/60 focus:border-acento focus:outline-none"
-                />
-                <Lock className="absolute left-3 top-2.5 h-3.5 w-3.5 text-texto-suave" />
-              </div>
+              <input
+                id="senha"
+                name="senha"
+                type="password"
+                autoComplete="current-password"
+                required
+                placeholder="••••••••"
+                className="w-full rounded border border-borda bg-fundo px-3 py-2 text-sm text-texto placeholder:text-texto-suave focus:border-acento focus:outline-none"
+              />
             </div>
 
             <button
@@ -103,15 +94,11 @@ export default function PaginaLogin() {
           </form>
         </div>
 
-        <p className="mt-4 text-center text-xs text-texto-suave">
-          Auditoria ativa em todas as operações por IP e credencial.
-        </p>
-      </main>
-
-      {/* Rodapé institucional */}
-      <footer className="mx-auto text-center text-xs text-texto-suave">
-        Sistema de Controle de Chamados © {new Date().getFullYear()} — UNOPAR Parauapebas / Edunorte
-      </footer>
+        {/* Rodapé Institucional */}
+        <div className="text-center text-[11px] text-texto-suave">
+          Acesso restrito e auditado aos colaboradores da unidade.
+        </div>
+      </div>
     </div>
   );
 }

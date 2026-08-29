@@ -82,8 +82,8 @@ export function PainelAuditoria({
       {/* Cabeçalho */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-lg font-semibold text-texto">
-            Logs de Auditoria do Sistema
+          <h1 className="font-heading text-xl font-bold text-texto">
+            Logs de auditoria do sistema
           </h1>
           <p className="text-xs text-texto-suave">
             Rastreamento completo de operações em banco de dados, alterações cadastrais e acessos.
@@ -100,11 +100,11 @@ export function PainelAuditoria({
       </div>
 
       {/* Filtros */}
-      <div className="rounded border border-borda bg-superficie p-3 space-y-2">
+      <div className="rounded border border-borda bg-superficie p-3.5 space-y-3 shadow-sm">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
           <div>
-            <label className="block text-[11px] font-medium text-texto mb-0.5">
-              Buscar (Usuária ou Protocolo)
+            <label className="block text-xs font-medium text-texto mb-1">
+              Buscar (usuária ou protocolo)
             </label>
             <div className="relative">
               <input
@@ -115,22 +115,22 @@ export function PainelAuditoria({
                   if (e.key === "Enter") aplicarFiltro("busca", busca);
                 }}
                 placeholder="Nome ou CS..."
-                className="w-full rounded border border-borda bg-fundo px-2.5 py-1 pl-8 text-xs text-texto placeholder:text-texto-suave/60 focus:border-acento focus:outline-none"
+                className="w-full rounded border border-borda bg-fundo px-2.5 py-1.5 pl-8 text-xs text-texto placeholder:text-texto-suave focus:border-acento focus:outline-none"
               />
-              <Search className="absolute left-2.5 top-1.5 h-3.5 w-3.5 text-texto-suave" />
+              <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-texto-suave" />
             </div>
           </div>
 
           <div>
-            <label className="block text-[11px] font-medium text-texto mb-0.5">
+            <label className="block text-xs font-medium text-texto mb-1">
               Tabela
             </label>
             <select
               value={filtrosAtuais.tabela || ""}
               onChange={(e) => aplicarFiltro("tabela", e.target.value)}
-              className="w-full rounded border border-borda bg-fundo px-2 py-1 text-xs text-texto focus:border-acento focus:outline-none"
+              className="w-full rounded border border-borda bg-fundo px-2.5 py-1.5 text-xs text-texto focus:border-acento focus:outline-none"
             >
-              <option value="">Todas</option>
+              <option value="">Todas as tabelas</option>
               <option value="chamados">chamados</option>
               <option value="motivos">motivos</option>
               <option value="perfis">perfis</option>
@@ -139,42 +139,42 @@ export function PainelAuditoria({
           </div>
 
           <div>
-            <label className="block text-[11px] font-medium text-texto mb-0.5">
+            <label className="block text-xs font-medium text-texto mb-1">
               Operação
             </label>
             <select
               value={filtrosAtuais.operacao || ""}
               onChange={(e) => aplicarFiltro("operacao", e.target.value)}
-              className="w-full rounded border border-borda bg-fundo px-2 py-1 text-xs text-texto focus:border-acento focus:outline-none"
+              className="w-full rounded border border-borda bg-fundo px-2.5 py-1.5 text-xs text-texto focus:border-acento focus:outline-none"
             >
-              <option value="">Todas</option>
-              <option value="INSERT">INSERT</option>
-              <option value="UPDATE">UPDATE</option>
-              <option value="DELETE">DELETE</option>
+              <option value="">Todas as operações</option>
+              <option value="INSERT">INSERT (Criação)</option>
+              <option value="UPDATE">UPDATE (Edição)</option>
+              <option value="DELETE">DELETE (Exclusão)</option>
             </select>
           </div>
 
           <div>
-            <label className="block text-[11px] font-medium text-texto mb-0.5">
-              Data Início
+            <label className="block text-xs font-medium text-texto mb-1">
+              Data de início
             </label>
             <input
               type="date"
               value={filtrosAtuais.data_inicio || ""}
               onChange={(e) => aplicarFiltro("data_inicio", e.target.value)}
-              className="w-full rounded border border-borda bg-fundo px-2 py-1 font-mono text-xs text-texto focus:border-acento focus:outline-none"
+              className="w-full rounded border border-borda bg-fundo px-2.5 py-1.5 font-mono text-xs text-texto focus:border-acento focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="block text-[11px] font-medium text-texto mb-0.5">
-              Data Fim
+            <label className="block text-xs font-medium text-texto mb-1">
+              Data final
             </label>
             <input
               type="date"
               value={filtrosAtuais.data_fim || ""}
               onChange={(e) => aplicarFiltro("data_fim", e.target.value)}
-              className="w-full rounded border border-borda bg-fundo px-2 py-1 font-mono text-xs text-texto focus:border-acento focus:outline-none"
+              className="w-full rounded border border-borda bg-fundo px-2.5 py-1.5 font-mono text-xs text-texto focus:border-acento focus:outline-none"
             />
           </div>
         </div>
@@ -186,7 +186,7 @@ export function PainelAuditoria({
           <button
             type="button"
             onClick={limparFiltros}
-            className="inline-flex items-center gap-1 text-[11px] text-texto-suave hover:text-texto"
+            className="inline-flex items-center gap-1 text-xs text-texto-suave hover:text-texto"
           >
             <RotateCcw className="h-3 w-3" />
             <span>Limpar filtros</span>
@@ -199,13 +199,13 @@ export function PainelAuditoria({
         <table className="tabela-densa">
           <thead>
             <tr>
-              <th className="w-40">Data e Hora</th>
+              <th className="w-40">Data e hora</th>
               <th className="w-24">Operação</th>
               <th className="w-36">Tabela</th>
               <th className="w-28">Protocolo</th>
-              <th>Usuária Responsável</th>
-              <th className="w-28 font-mono">IP</th>
-              <th>Campos Alterados</th>
+              <th>Usuária responsável</th>
+              <th className="w-28 font-mono">Endereço IP</th>
+              <th>Campos alterados</th>
               <th className="w-20 text-right">Detalhes</th>
             </tr>
           </thead>
@@ -237,7 +237,7 @@ export function PainelAuditoria({
                   </td>
                   <td className="font-mono text-xs text-texto">{l.tabela}</td>
                   <td className="font-mono text-xs tabular-nums font-semibold text-acento">
-                    {l.protocolo || "-"}
+                    {l.protocolo || "—"}
                   </td>
                   <td className="text-xs text-texto font-medium">
                     {l.usuario_nome || "Sistema"}
@@ -248,7 +248,7 @@ export function PainelAuditoria({
                   <td className="text-xs text-texto-suave truncate max-w-xs" title={l.campos_alterados?.join(", ")}>
                     {l.campos_alterados && l.campos_alterados.length > 0
                       ? l.campos_alterados.join(", ")
-                      : "-"}
+                      : "—"}
                   </td>
                   <td className="text-right">
                     <button
@@ -302,7 +302,7 @@ export function PainelAuditoria({
             <div className="flex items-center justify-between border-b border-borda/40 pb-2">
               <div className="flex items-center gap-2">
                 <FileText className="h-4 w-4 text-acento" />
-                <h3 className="text-sm font-semibold text-texto">
+                <h3 className="font-heading text-sm font-bold text-texto">
                   Auditoria #{logSelecionado.id} — {logSelecionado.tabela} ({logSelecionado.operacao})
                 </h3>
               </div>
@@ -318,7 +318,7 @@ export function PainelAuditoria({
             <div className="grid grid-cols-2 gap-4 text-xs">
               <div>
                 <span className="font-semibold text-texto-suave block mb-1">
-                  Dados Antes da Operação
+                  Dados antes da operação
                 </span>
                 <pre className="rounded border border-borda bg-superficie p-3 text-[11px] font-mono text-texto overflow-x-auto whitespace-pre-wrap">
                   {logSelecionado.dados_antes
@@ -329,7 +329,7 @@ export function PainelAuditoria({
 
               <div>
                 <span className="font-semibold text-texto-suave block mb-1">
-                  Dados Depois da Operação
+                  Dados depois da operação
                 </span>
                 <pre className="rounded border border-borda bg-superficie p-3 text-[11px] font-mono text-texto overflow-x-auto whitespace-pre-wrap">
                   {logSelecionado.dados_depois
@@ -342,7 +342,7 @@ export function PainelAuditoria({
             {logSelecionado.campos_alterados && (
               <div className="text-xs">
                 <span className="font-semibold text-texto-suave block mb-1">
-                  Campos Efetivamente Modificados
+                  Campos modificados
                 </span>
                 <div className="flex flex-wrap gap-1.5">
                   {logSelecionado.campos_alterados.map((campo) => (

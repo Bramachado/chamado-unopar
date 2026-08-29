@@ -24,6 +24,14 @@ const config: Config = {
         alerta: "var(--alerta)",
         erro: "var(--erro)",
       },
+      fontSize: {
+        "3xl": ["32px", { lineHeight: "1.2" }],
+        "2xl": ["24px", { lineHeight: "1.2" }],
+        lg: ["18px", { lineHeight: "1.3" }],
+        base: ["15px", { lineHeight: "1.5" }],
+        sm: ["13px", { lineHeight: "1.5" }],
+        xs: ["11px", { lineHeight: "1.4" }],
+      },
       borderRadius: {
         DEFAULT: "6px",
         sm: "4px",
@@ -31,8 +39,12 @@ const config: Config = {
         lg: "8px",
       },
       fontFamily: {
-        sans: ["var(--font-sans)", "Inter", "Geist", "sans-serif"],
-        mono: ["var(--font-mono)", "monospace"],
+        sans: ["var(--font-sans)", "IBM Plex Sans", "sans-serif"],
+        heading: ["var(--font-heading)", "Plus Jakarta Sans", "sans-serif"],
+        mono: ["monospace"],
+      },
+      maxWidth: {
+        container: "1400px",
       },
     },
   },

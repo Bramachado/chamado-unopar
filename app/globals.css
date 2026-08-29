@@ -40,7 +40,7 @@
   --superficie: #1A1E22;
   --borda: #2A2F35;
   --texto: #E8EAEC;
-  --texto-suave: #9AA1A9;
+  --texto-suave: #A3AAB2; /* Contraste AA garantido sobre fundo escuro */
   --acento: #38C7B0;
   --acento-hover: #2DA390;
   --sucesso: #4ADE80;
@@ -54,13 +54,13 @@
 body {
   background-color: var(--fundo);
   color: var(--texto);
-  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   min-height: 100vh;
 }
 
 /* Tipografia de dados numéricos alinhados */
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
 }
 
 /* Foco de teclado acessível e visível */
@@ -73,7 +73,7 @@ body {
 .tabela-densa {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.875rem;
+  font-size: 13px;
 }
 
 .tabela-densa th {

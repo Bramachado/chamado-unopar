@@ -25,9 +25,10 @@ interface UsuarioComCredencial extends Perfil {
 interface PainelUsuariosProps {
   usuarios: UsuarioComCredencial[];
   acessosRecentes: (CredencialAcesso & { perfil_alvo_nome?: string; admin_nome?: string })[];
+  perfilAtualId: string;
 }
 
-export function PainelUsuarios({ usuarios, acessosRecentes }: PainelUsuariosProps) {
+export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: PainelUsuariosProps) {
   const [isPending, startTransition] = useTransition();
 
   // Estados de revelação temporária (30s)
@@ -37,6 +38,9 @@ export function PainelUsuarios({ usuarios, acessosRecentes }: PainelUsuariosProp
   // Estados do modal de criação/edição
   const [modalAberto, setModalAberto] = useState(false);
   const [usuarioEditando, setUsuarioEditando] = useState<Perfil | null>(null);
+
+  // Estado do modal de confirmação de desativação
+  const [usuarioDesativando, setUsuarioDesativando] = useState<{ id: string; nome: string; ativo: boolean } | null>(null);
 
   // Mensagens de retorno
   const [mensagemErro, setMensagemErro] = useState<string | null>(null);
@@ -68,11 +72,34 @@ export function PainelUsuarios({ usuarios, acessosRecentes }: PainelUsuariosProp
     });
   };
 
-  const handleAlternarStatus = async (id: string, ativoAtual: boolean) => {
+  const handleConfirmarAlternarStatus = async () => {
+    if (!usuarioDesativando) return;
     setMensagemErro(null);
-    const res = await alternarStatusUsuarioAction(id, !ativoAtual);
+    setMensagemSucesso(null);
+
+    const res = await alternarStatusUsuarioAction(usuarioDesativando.id, !usuarioDesativando.ativo);
     if (!res.sucesso) {
       setMensagemErro(res.erro || "Falha ao alterar status da usuária.");
+    } else {
+      setMensagemSucesso(
+        usuarioDesativando.ativo
+          ? `A conta de ${usuarioDesativando.nome} foi desativada.`
+          : `A conta de ${usuarioDesativando.nome} foi reativada.`
+      );
+    }
+    setUsuarioDesativando(null);
+  };
+
+  const formatarPapel = (papel: string) => {
+    switch (papel) {
+      case "admin":
+        return "Administradora";
+      case "coordenador":
+        return "Coordenadora";
+      case "atendente":
+        return "Atendente";
+      default:
+        return papel;
     }
   };
 
@@ -80,8 +107,8 @@ export function PainelUsuarios({ usuarios, acessosRecentes }: PainelUsuariosProp
     <div className="space-y-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-lg font-semibold text-texto">
-            Gestão de Usuárias e Cofre de Credenciais
+          <h1 className="font-heading text-xl font-bold text-texto">
+            Gestão de usuárias e cofre de credenciais
           </h1>
           <p className="text-xs text-texto-suave">
             Controle de acesso, papéis no sistema e cofre de senhas da plataforma externa sob auditoria estrita.
@@ -97,7 +124,7 @@ export function PainelUsuarios({ usuarios, acessosRecentes }: PainelUsuariosProp
           className="inline-flex items-center gap-1.5 rounded bg-acento px-3 py-1.5 text-xs font-medium text-white transition hover:bg-acento-hover"
         >
           <UserPlus className="h-3.5 w-3.5" />
-          <span>Nova Usuária</span>
+          <span>Nova usuária</span>
         </button>
       </div>
 
@@ -121,7 +148,7 @@ export function PainelUsuarios({ usuarios, acessosRecentes }: PainelUsuariosProp
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 font-semibold text-xs text-acento">
               <Key className="h-4 w-4" />
-              <span>Senha da Plataforma Externa (Visualização Temporária de Segurança)</span>
+              <span>Senha da plataforma externa (visualização temporária)</span>
             </div>
             <div className="flex items-center gap-1 font-mono text-xs font-bold text-acento tabular-nums bg-fundo px-2 py-0.5 rounded border border-acento/30">
               <Clock className="h-3.5 w-3.5" />
@@ -144,7 +171,7 @@ export function PainelUsuarios({ usuarios, acessosRecentes }: PainelUsuariosProp
             </button>
           </div>
           <p className="text-[11px] text-texto-suave">
-            Esta visualização foi registrada em log com seu IP e data/hora. A senha não foi gravada em armazenamento persistente do navegador.
+            Esta visualização foi registrada em log permanente de auditoria com seu endereço IP e data/hora.
           </p>
         </div>
       )}
@@ -154,24 +181,33 @@ export function PainelUsuarios({ usuarios, acessosRecentes }: PainelUsuariosProp
         <table className="tabela-densa">
           <thead>
             <tr>
-              <th>Nome Completo</th>
+              <th>Nome completo</th>
               <th>E-mail</th>
-              <th className="w-28 text-center">Papel</th>
+              <th className="w-32 text-center">Papel</th>
               <th className="w-24 text-center">Status</th>
-              <th className="w-36 text-center">Cofre de Senha</th>
-              <th className="w-28 text-right">Ações</th>
+              <th className="w-36 text-center">Cofre de senha</th>
+              <th className="w-32 text-right">Ações</th>
             </tr>
           </thead>
           <tbody>
             {usuarios.map((u) => {
               const revelandoEsta = senhaRevelada?.perfilId === u.id;
+              const ehPropriaConta = u.id === perfilAtualId;
+
               return (
                 <tr key={u.id}>
-                  <td className="text-xs font-medium text-texto">{u.nome_completo}</td>
+                  <td className="text-xs font-medium text-texto">
+                    {u.nome_completo}
+                    {ehPropriaConta && (
+                      <span className="ml-1.5 rounded bg-acento/10 px-1 py-0.2 text-[9px] font-bold text-acento">
+                        (Você)
+                      </span>
+                    )}
+                  </td>
                   <td className="text-xs text-texto-suave font-mono">{u.email}</td>
                   <td className="text-center">
                     <span
-                      className={`inline-block rounded border px-2 py-0.5 text-[11px] font-medium capitalize ${
+                      className={`inline-block rounded border px-2 py-0.5 text-[11px] font-medium ${
                         u.papel === "admin"
                           ? "bg-acento/10 text-acento border-acento/30 font-semibold"
                           : u.papel === "coordenador"
@@ -179,11 +215,7 @@ export function PainelUsuarios({ usuarios, acessosRecentes }: PainelUsuariosProp
                           : "bg-fundo text-texto-suave border-borda"
                       }`}
                     >
-                      {u.papel === "admin"
-                        ? "Administradora"
-                        : u.papel === "coordenador"
-                        ? "Coordenadora"
-                        : "Atendente"}
+                      {formatarPapel(u.papel)}
                     </span>
                   </td>
                   <td className="text-center">
@@ -191,7 +223,7 @@ export function PainelUsuarios({ usuarios, acessosRecentes }: PainelUsuariosProp
                       className={`inline-block rounded border px-2 py-0.5 text-[11px] font-medium ${
                         u.ativo
                           ? "bg-sucesso/10 text-sucesso border-sucesso/30"
-                          : "bg-erro-fundo text-erro border-erro/30"
+                          : "bg-superficie text-texto-suave border-borda"
                       }`}
                     >
                       {u.ativo ? "Ativa" : "Inativa"}
@@ -206,7 +238,7 @@ export function PainelUsuarios({ usuarios, acessosRecentes }: PainelUsuariosProp
                       title="Revelar senha da plataforma externa sob auditoria"
                     >
                       {revelandoEsta ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                      <span>{revelandoEsta ? "Revelada" : "Revelar Senha"}</span>
+                      <span>{revelandoEsta ? "Revelada" : "Revelar senha"}</span>
                     </button>
                   </td>
                   <td className="text-right">
@@ -221,17 +253,18 @@ export function PainelUsuarios({ usuarios, acessosRecentes }: PainelUsuariosProp
                       >
                         Editar
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => handleAlternarStatus(u.id, u.ativo)}
-                        className={`rounded border px-2 py-0.5 text-[11px] font-medium transition ${
-                          u.ativo
-                            ? "border-erro/30 text-erro hover:bg-erro-fundo"
-                            : "border-sucesso/30 text-sucesso hover:bg-sucesso-fundo"
-                        }`}
-                      >
-                        {u.ativo ? "Desativar" : "Ativar"}
-                      </button>
+
+                      {/* Botão de desativação neutro em repouso; desabilitado na própria conta */}
+                      {!ehPropriaConta && (
+                        <button
+                          type="button"
+                          onClick={() => setUsuarioDesativando({ id: u.id, nome: u.nome_completo, ativo: u.ativo })}
+                          className="rounded border border-borda bg-superficie px-2 py-0.5 text-[11px] font-medium text-texto-suave hover:text-texto hover:bg-fundo"
+                          title={u.ativo ? "Desativar conta desta usuária" : "Reativar conta desta usuária"}
+                        >
+                          {u.ativo ? "Desativar" : "Ativar"}
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -242,10 +275,10 @@ export function PainelUsuarios({ usuarios, acessosRecentes }: PainelUsuariosProp
       </div>
 
       {/* Histórico Geral de Consultas ao Cofre */}
-      <div className="rounded border border-borda bg-superficie p-4 space-y-3 shadow-sm">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-texto-suave border-b border-borda/40 pb-2 flex items-center gap-1.5">
-          <History className="h-3.5 w-3.5" />
-          <span>Últimos Acessos e Revelações de Senha Registrados no Cofre</span>
+      <div className="rounded border border-borda bg-superficie p-5 space-y-3 shadow-sm">
+        <h2 className="text-sm font-semibold text-texto border-b border-borda/40 pb-2 flex items-center gap-1.5">
+          <History className="h-4 w-4 text-acento" />
+          <span>Últimos acessos e revelações de senha registrados no cofre</span>
         </h2>
 
         {acessosRecentes.length === 0 ? (
@@ -269,12 +302,46 @@ export function PainelUsuarios({ usuarios, acessosRecentes }: PainelUsuariosProp
         )}
       </div>
 
+      {/* Modal de Confirmação de Desativação / Reativação */}
+      {usuarioDesativando && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded border border-borda bg-fundo p-5 shadow-lg space-y-3">
+            <h3 className="font-heading text-sm font-bold text-texto">
+              {usuarioDesativando.ativo ? "Confirmar desativação de conta" : "Confirmar reativação de conta"}
+            </h3>
+            <p className="text-xs text-texto-suave">
+              {usuarioDesativando.ativo
+                ? `A usuária ${usuarioDesativando.nome} não poderá mais fazer login no sistema. Deseja prosseguir?`
+                : `A usuária ${usuarioDesativando.nome} voltará a ter acesso ao sistema. Deseja prosseguir?`}
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-borda/40">
+              <button
+                type="button"
+                onClick={() => setUsuarioDesativando(null)}
+                className="rounded border border-borda bg-superficie px-3 py-1.5 text-xs font-medium text-texto hover:bg-fundo"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmarAlternarStatus}
+                className={`rounded px-3 py-1.5 text-xs font-medium text-white ${
+                  usuarioDesativando.ativo ? "bg-erro hover:bg-erro/90" : "bg-sucesso hover:bg-sucesso/90"
+                }`}
+              >
+                {usuarioDesativando.ativo ? "Desativar usuária" : "Reativar usuária"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal de Criação / Edição de Usuária */}
       {modalAberto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded border border-borda bg-fundo p-6 shadow-lg space-y-4">
-            <h2 className="text-sm font-semibold text-texto">
-              {usuarioEditando ? "Editar Usuária" : "Cadastrar Nova Usuária"}
+            <h2 className="font-heading text-sm font-bold text-texto">
+              {usuarioEditando ? "Editar usuária" : "Cadastrar nova usuária"}
             </h2>
 
             <form
@@ -296,21 +363,21 @@ export function PainelUsuarios({ usuarios, acessosRecentes }: PainelUsuariosProp
 
               <div>
                 <label className="block text-xs font-medium text-texto mb-1">
-                  Nome Completo *
+                  Nome completo *
                 </label>
                 <input
                   type="text"
                   name="nome_completo"
                   required
                   defaultValue={usuarioEditando?.nome_completo || ""}
-                  placeholder="Nome da funcionária"
+                  placeholder="Nome da colaboradora"
                   className="w-full rounded border border-borda bg-superficie px-3 py-1.5 text-xs text-texto focus:border-acento focus:outline-none"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-medium text-texto mb-1">
-                  E-mail Institucional *
+                  E-mail institucional *
                 </label>
                 <input
                   type="email"
@@ -324,7 +391,7 @@ export function PainelUsuarios({ usuarios, acessosRecentes }: PainelUsuariosProp
 
               <div>
                 <label className="block text-xs font-medium text-texto mb-1">
-                  Papel no Sistema *
+                  Papel no sistema *
                 </label>
                 <select
                   name="papel"
@@ -340,13 +407,14 @@ export function PainelUsuarios({ usuarios, acessosRecentes }: PainelUsuariosProp
               {!usuarioEditando && (
                 <div>
                   <label className="block text-xs font-medium text-texto mb-1">
-                    Senha de Acesso Inicial ao Sistema *
+                    Senha de acesso inicial (mínimo 8 caracteres) *
                   </label>
                   <input
                     type="password"
                     name="senha_inicial"
                     required
-                    placeholder="Mínimo 6 caracteres"
+                    minLength={8}
+                    placeholder="Mínimo 8 caracteres"
                     className="w-full rounded border border-borda bg-superficie px-3 py-1.5 text-xs text-texto focus:border-acento focus:outline-none"
                   />
                 </div>
@@ -354,16 +422,16 @@ export function PainelUsuarios({ usuarios, acessosRecentes }: PainelUsuariosProp
 
               <div>
                 <label className="block text-xs font-medium text-texto mb-1">
-                  Senha da Plataforma Externa (Cofre Cifrado)
+                  Senha da plataforma externa (cofre cifrado)
                 </label>
                 <input
-                  type="text"
+                  type="password"
                   name="senha_externa"
                   placeholder="Senha usada na plataforma externa"
                   className="w-full rounded border border-borda bg-superficie px-3 py-1.5 text-xs text-texto focus:border-acento focus:outline-none"
                 />
-                <span className="text-[10px] text-texto-suave block mt-0.5">
-                  Será cifrada no servidor com chave AES-256-GCM.
+                <span className="text-[11px] text-texto-suave block mt-0.5">
+                  Será cifrada no servidor com algoritmo AES-256-GCM.
                 </span>
               </div>
 
@@ -379,7 +447,7 @@ export function PainelUsuarios({ usuarios, acessosRecentes }: PainelUsuariosProp
                   type="submit"
                   className="rounded bg-acento px-4 py-1.5 text-xs font-medium text-white hover:bg-acento-hover"
                 >
-                  Salvar
+                  Salvar usuária
                 </button>
               </div>
             </form>

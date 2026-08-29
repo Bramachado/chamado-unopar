@@ -24,13 +24,42 @@ export function PainelPerfil({ perfil, historicoAcessos }: PainelPerfilProps) {
   const [msgSucesso, setMsgSucesso] = useState<string | null>(null);
   const [msgErro, setMsgErro] = useState<string | null>(null);
 
+  const formatarPapel = (papel: string) => {
+    switch (papel) {
+      case "admin":
+        return "Administradora";
+      case "coordenador":
+        return "Coordenadora";
+      case "atendente":
+        return "Atendente";
+      default:
+        return papel;
+    }
+  };
+
+  const calcularForcaSenha = (senha: string) => {
+    if (!senha) return { nivel: 0, rotulo: "", cor: "" };
+    let pontos = 0;
+    if (senha.length >= 8) pontos += 1;
+    if (senha.length >= 12) pontos += 1;
+    if (/[0-9]/.test(senha)) pontos += 1;
+    if (/[a-z]/.test(senha) && /[A-Z]/.test(senha)) pontos += 1;
+    if (/[^a-zA-Z0-9]/.test(senha)) pontos += 1;
+
+    if (pontos <= 2) return { nivel: 1, rotulo: "Fraca", cor: "bg-erro text-erro" };
+    if (pontos <= 4) return { nivel: 2, rotulo: "Média", cor: "bg-alerta text-alerta" };
+    return { nivel: 3, rotulo: "Forte", cor: "bg-sucesso text-sucesso" };
+  };
+
+  const forca = calcularForcaSenha(novaSenhaSistema);
+
   const handleTrocarSenhaSistema = async (e: React.FormEvent) => {
     e.preventDefault();
     setMsgSucesso(null);
     setMsgErro(null);
 
-    if (novaSenhaSistema.length < 6) {
-      setMsgErro("A nova senha do sistema deve ter pelo menos 6 caracteres.");
+    if (novaSenhaSistema.length < 8) {
+      setMsgErro("A nova senha do sistema deve ter no mínimo 8 caracteres.");
       return;
     }
 
@@ -75,10 +104,10 @@ export function PainelPerfil({ perfil, historicoAcessos }: PainelPerfilProps) {
   };
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="mx-auto max-w-[1400px] space-y-6">
       <div>
-        <h1 className="text-lg font-semibold text-texto">Meu Perfil</h1>
-        <p className="text-xs text-texto-suave">
+        <h1 className="font-heading text-xl font-bold text-texto">Meu perfil</h1>
+        <p className="text-sm text-texto-suave">
           Gerenciamento de credenciais próprias e transparência de acessos administrativos.
         </p>
       </div>
@@ -99,23 +128,23 @@ export function PainelPerfil({ perfil, historicoAcessos }: PainelPerfilProps) {
 
       {/* Dados Pessoais */}
       <div className="rounded border border-borda bg-superficie p-5 shadow-sm space-y-3">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-texto-suave border-b border-borda/40 pb-2 flex items-center gap-1.5">
-          <User className="h-3.5 w-3.5" />
-          <span>Informações Cadastrais</span>
+        <h2 className="text-sm font-semibold text-texto-suave border-b border-borda/40 pb-2 flex items-center gap-1.5">
+          <User className="h-4 w-4" />
+          <span>Informações cadastrais</span>
         </h2>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 text-xs">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 text-sm">
           <div>
-            <span className="text-texto-suave block text-[11px]">Nome Completo</span>
+            <span className="text-texto-suave block text-xs">Nome completo</span>
             <span className="font-medium text-texto">{perfil.nome_completo}</span>
           </div>
           <div>
-            <span className="text-texto-suave block text-[11px]">E-mail Institucional</span>
+            <span className="text-texto-suave block text-xs">E-mail institucional</span>
             <span className="font-mono text-texto">{perfil.email}</span>
           </div>
           <div>
-            <span className="text-texto-suave block text-[11px]">Papel no Sistema</span>
-            <span className="font-medium capitalize text-texto">{perfil.papel}</span>
+            <span className="text-texto-suave block text-xs">Papel no sistema</span>
+            <span className="font-medium text-texto">{formatarPapel(perfil.papel)}</span>
           </div>
         </div>
       </div>
@@ -124,37 +153,53 @@ export function PainelPerfil({ perfil, historicoAcessos }: PainelPerfilProps) {
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         {/* Alterar Senha de Acesso ao Sistema */}
         <div className="rounded border border-borda bg-superficie p-5 shadow-sm space-y-4">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-texto-suave border-b border-borda/40 pb-2 flex items-center gap-1.5">
-            <Lock className="h-3.5 w-3.5" />
-            <span>Alterar Senha do Sistema</span>
+          <h2 className="text-sm font-semibold text-texto-suave border-b border-borda/40 pb-2 flex items-center gap-1.5">
+            <Lock className="h-4 w-4" />
+            <span>Alterar senha do sistema</span>
           </h2>
 
           <form onSubmit={handleTrocarSenhaSistema} className="space-y-3">
             <div>
               <label className="block text-xs font-medium text-texto mb-1">
-                Nova Senha de Acesso *
+                Nova senha de acesso (mínimo 8 caracteres) *
               </label>
               <input
                 type="password"
                 required
+                minLength={8}
                 value={novaSenhaSistema}
                 onChange={(e) => setNovaSenhaSistema(e.target.value)}
-                placeholder="Mínimo 6 caracteres"
-                className="w-full rounded border border-borda bg-fundo px-3 py-1.5 text-xs text-texto focus:border-acento focus:outline-none"
+                placeholder="Mínimo 8 caracteres"
+                className="w-full rounded border border-borda bg-fundo px-3 py-2 text-sm text-texto focus:border-acento focus:outline-none"
               />
+              {novaSenhaSistema.length > 0 && (
+                <div className="mt-1.5 flex items-center gap-2">
+                  <div className="flex h-1.5 w-24 gap-1 rounded bg-borda overflow-hidden">
+                    <div
+                      className={`h-full ${
+                        forca.nivel >= 1 ? (forca.nivel === 1 ? "bg-erro w-1/3" : forca.nivel === 2 ? "bg-alerta w-2/3" : "bg-sucesso w-full") : ""
+                      }`}
+                    />
+                  </div>
+                  <span className={`text-[11px] font-medium ${forca.cor.split(" ")[1]}`}>
+                    Força: {forca.rotulo}
+                  </span>
+                </div>
+              )}
             </div>
 
             <div>
               <label className="block text-xs font-medium text-texto mb-1">
-                Confirmar Nova Senha *
+                Confirmar nova senha *
               </label>
               <input
                 type="password"
                 required
+                minLength={8}
                 value={confirmaSenhaSistema}
                 onChange={(e) => setConfirmaSenhaSistema(e.target.value)}
                 placeholder="Repita a nova senha"
-                className="w-full rounded border border-borda bg-fundo px-3 py-1.5 text-xs text-texto focus:border-acento focus:outline-none"
+                className="w-full rounded border border-borda bg-fundo px-3 py-2 text-sm text-texto focus:border-acento focus:outline-none"
               />
             </div>
 
@@ -169,26 +214,26 @@ export function PainelPerfil({ perfil, historicoAcessos }: PainelPerfilProps) {
 
         {/* Atualizar Senha da Plataforma Externa */}
         <div className="rounded border border-borda bg-superficie p-5 shadow-sm space-y-4">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-texto-suave border-b border-borda/40 pb-2 flex items-center gap-1.5">
-            <Key className="h-3.5 w-3.5" />
-            <span>Atualizar Senha da Plataforma Externa</span>
+          <h2 className="text-sm font-semibold text-texto-suave border-b border-borda/40 pb-2 flex items-center gap-1.5">
+            <Key className="h-4 w-4" />
+            <span>Atualizar senha da plataforma externa</span>
           </h2>
 
           <form onSubmit={handleAtualizarSenhaExterna} className="space-y-3">
             <div>
               <label className="block text-xs font-medium text-texto mb-1">
-                Nova Senha da Plataforma Externa *
+                Nova senha da plataforma externa *
               </label>
               <input
                 type="password"
                 required
                 value={novaSenhaExterna}
                 onChange={(e) => setNovaSenhaExterna(e.target.value)}
-                placeholder="Senha que você usa na plataforma externa"
-                className="w-full rounded border border-borda bg-fundo px-3 py-1.5 text-xs text-texto focus:border-acento focus:outline-none"
+                placeholder="Senha usada na plataforma externa"
+                className="w-full rounded border border-borda bg-fundo px-3 py-2 text-sm text-texto focus:border-acento focus:outline-none"
               />
-              <span className="text-[10px] text-texto-suave block mt-1">
-                Esta senha é armazenada de forma cifrada (AES-256-GCM) para permitir consulta auditada pela coordenação/administração.
+              <span className="text-xs text-texto-suave block mt-1.5">
+                Armazenada de forma cifrada. Apenas administradoras podem consultá-la, e toda consulta fica registrada abaixo.
               </span>
             </div>
 
@@ -205,9 +250,9 @@ export function PainelPerfil({ perfil, historicoAcessos }: PainelPerfilProps) {
 
       {/* Histórico de Acessos à Minha Credencial */}
       <div className="rounded border border-borda bg-superficie p-5 shadow-sm space-y-3">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-texto-suave border-b border-borda/40 pb-2 flex items-center gap-1.5">
-          <History className="h-3.5 w-3.5" />
-          <span>Histórico de Consultas à Minha Credencial Externa</span>
+        <h2 className="text-sm font-semibold text-texto-suave border-b border-borda/40 pb-2 flex items-center gap-1.5">
+          <History className="h-4 w-4" />
+          <span>Histórico de consultas à minha credencial externa</span>
         </h2>
         <p className="text-xs text-texto-suave">
           Transparência total: sempre que uma administradora revela sua senha da plataforma externa, o registro permanente aparece aqui.
@@ -223,8 +268,8 @@ export function PainelPerfil({ perfil, historicoAcessos }: PainelPerfilProps) {
               <thead>
                 <tr>
                   <th>Administradora</th>
-                  <th className="w-40">Data e Hora</th>
-                  <th className="w-32 font-mono">Endereço IP</th>
+                  <th className="w-48">Data e hora</th>
+                  <th className="w-36 font-mono">Endereço IP</th>
                 </tr>
               </thead>
               <tbody>

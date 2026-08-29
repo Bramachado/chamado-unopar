@@ -65,7 +65,7 @@ export function FormularioChamado({
       const duplicado = await verificarProtocoloDuplicado(limpo, chamadoInicial?.id);
       if (duplicado) {
         setAvisoDuplicado(
-          `Atenção: Este protocolo já foi cadastrado por ${duplicado.criado_por_nome} em ${new Date(
+          `Atenção: este protocolo já foi cadastrado por ${duplicado.criado_por_nome} em ${new Date(
             duplicado.criado_em
           ).toLocaleDateString("pt-BR")}.`
         );
@@ -127,8 +127,8 @@ export function FormularioChamado({
           <ArrowLeft className="h-3.5 w-3.5" />
           <span>Voltar para chamados</span>
         </Link>
-        <h1 className="text-base font-semibold text-texto">
-          {chamadoInicial ? "Editar Chamado" : "Novo Chamado"}
+        <h1 className="font-heading text-lg font-bold text-texto">
+          {chamadoInicial ? "Editar chamado" : "Novo chamado"}
         </h1>
       </div>
 
@@ -140,25 +140,25 @@ export function FormularioChamado({
       )}
 
       {/* Seção 1: Identificação do Chamado e Aluno */}
-      <div className="rounded border border-borda bg-superficie p-4 space-y-4">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-texto-suave border-b border-borda/40 pb-2">
-          Identificação do Chamado
+      <div className="rounded border border-borda bg-superficie p-5 space-y-4 shadow-sm">
+        <h2 className="text-sm font-semibold text-texto border-b border-borda/40 pb-2">
+          Identificação do chamado
         </h2>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className="block text-xs font-medium text-texto mb-1">
-              Número do Protocolo (CS + 8 dígitos) *
+              Número do protocolo (CS + 8 dígitos) *
             </label>
             <input
               type="text"
               required
-              disabled={!!chamadoInicial} // Protocolo não pode ser alterado após criação
+              disabled={!!chamadoInicial}
               value={protocolo}
               onChange={(e) => handleVerificarProtocolo(e.target.value)}
               placeholder="CS12345678"
               maxLength={10}
-              className="w-full rounded border border-borda bg-fundo px-3 py-1.5 font-mono text-xs text-texto tabular-nums placeholder:text-texto-suave/60 focus:border-acento focus:outline-none disabled:opacity-60"
+              className="w-full rounded border border-borda bg-fundo px-3 py-2 font-mono text-xs text-texto tabular-nums placeholder:text-texto-suave focus:border-acento focus:outline-none disabled:opacity-60"
             />
             {avisoDuplicado && (
               <p className="mt-1 text-[11px] font-medium text-erro flex items-center gap-1">
@@ -173,13 +173,13 @@ export function FormularioChamado({
 
           <div>
             <label className="block text-xs font-medium text-texto mb-1">
-              Catálogo de Motivo *
+              Catálogo de motivo *
             </label>
             <select
               value={motivoId}
               onChange={(e) => setMotivoId(e.target.value)}
               required
-              className="w-full rounded border border-borda bg-fundo px-3 py-1.5 text-xs text-texto focus:border-acento focus:outline-none"
+              className="w-full rounded border border-borda bg-fundo px-3 py-2 text-xs text-texto focus:border-acento focus:outline-none"
             >
               {motivos.map((m) => (
                 <option key={m.id} value={m.id}>
@@ -196,7 +196,7 @@ export function FormularioChamado({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="sm:col-span-2">
             <label className="block text-xs font-medium text-texto mb-1">
-              Nome Completo do Aluno *
+              Nome completo do aluno *
             </label>
             <input
               type="text"
@@ -204,7 +204,7 @@ export function FormularioChamado({
               value={alunoNome}
               onChange={(e) => setAlunoNome(e.target.value)}
               placeholder="Nome do aluno"
-              className="w-full rounded border border-borda bg-fundo px-3 py-1.5 text-xs text-texto placeholder:text-texto-suave/60 focus:border-acento focus:outline-none"
+              className="w-full rounded border border-borda bg-fundo px-3 py-2 text-xs text-texto placeholder:text-texto-suave focus:border-acento focus:outline-none"
             />
             {errosCampo.aluno_nome && (
               <p className="mt-1 text-[11px] text-erro">{errosCampo.aluno_nome}</p>
@@ -213,77 +213,77 @@ export function FormularioChamado({
 
           <div>
             <label className="block text-xs font-medium text-texto mb-1">
-              RA / Matrícula (Opcional)
+              RA / Matrícula (opcional)
             </label>
             <input
               type="text"
               value={alunoRa}
               onChange={(e) => setAlunoRa(e.target.value)}
               placeholder="Ex: 1234567"
-              className="w-full rounded border border-borda bg-fundo px-3 py-1.5 font-mono text-xs text-texto tabular-nums placeholder:text-texto-suave/60 focus:border-acento focus:outline-none"
+              className="w-full rounded border border-borda bg-fundo px-3 py-2 font-mono text-xs text-texto tabular-nums placeholder:text-texto-suave focus:border-acento focus:outline-none"
             />
           </div>
         </div>
 
         <div>
           <label className="block text-xs font-medium text-texto mb-1">
-            Telefone de Contato (com DDD)
+            Telefone de contato (com DDD)
           </label>
           <input
             type="text"
             value={contatoTelefone}
             onChange={(e) => setContatoTelefone(e.target.value)}
             placeholder="(94) 99999-9999"
-            className="w-full rounded border border-borda bg-fundo px-3 py-1.5 font-mono text-xs text-texto tabular-nums placeholder:text-texto-suave/60 focus:border-acento focus:outline-none"
+            className="w-full rounded border border-borda bg-fundo px-3 py-2 font-mono text-xs text-texto tabular-nums placeholder:text-texto-suave focus:border-acento focus:outline-none"
           />
         </div>
       </div>
 
       {/* Seção 2: Prazos e Situação */}
-      <div className="rounded border border-borda bg-superficie p-4 space-y-4">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-texto-suave border-b border-borda/40 pb-2">
-          Controle de Prazo e Status
+      <div className="rounded border border-borda bg-superficie p-5 space-y-4 shadow-sm">
+        <h2 className="text-sm font-semibold text-texto border-b border-borda/40 pb-2">
+          Controle de prazo e situação
         </h2>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
           <div>
             <label className="block text-xs font-medium text-texto mb-1">
-              Data de Solicitação *
+              Data de abertura *
             </label>
             <input
               type="date"
               required
               value={dataSolicitacao}
               onChange={(e) => setDataSolicitacao(e.target.value)}
-              className="w-full rounded border border-borda bg-fundo px-3 py-1.5 font-mono text-xs text-texto tabular-nums focus:border-acento focus:outline-none"
+              className="w-full rounded border border-borda bg-fundo px-3 py-2 font-mono text-xs text-texto tabular-nums focus:border-acento focus:outline-none"
             />
           </div>
 
           <div>
             <label className="block text-xs font-medium text-texto mb-1">
-              Prazo Final *
+              Prazo limite *
             </label>
             <input
               type="date"
               required
               value={prazo}
               onChange={(e) => setPrazo(e.target.value)}
-              className="w-full rounded border border-borda bg-fundo px-3 py-1.5 font-mono text-xs text-texto tabular-nums focus:border-acento focus:outline-none"
+              className="w-full rounded border border-borda bg-fundo px-3 py-2 font-mono text-xs text-texto tabular-nums focus:border-acento focus:outline-none"
             />
           </div>
 
           <div>
             <label className="block text-xs font-medium text-texto mb-1">
-              Situação *
+              Situação atual *
             </label>
             <select
               value={situacao}
               onChange={(e) => setSituacao(e.target.value as "aguardando" | "concluido" | "encerrado")}
-              className="w-full rounded border border-borda bg-fundo px-3 py-1.5 text-xs text-texto focus:border-acento focus:outline-none"
+              className="w-full rounded border border-borda bg-fundo px-3 py-2 text-xs text-texto focus:border-acento focus:outline-none"
             >
-              <option value="aguardando">Aguardando (Em andamento)</option>
-              <option value="concluido">Concluído (Problema resolvido)</option>
-              <option value="encerrado">Encerrado (Fechado sem resolver)</option>
+              <option value="aguardando">Aguardando (em andamento)</option>
+              <option value="concluido">Concluído (resolvido)</option>
+              <option value="encerrado">Encerrado (sem resolver)</option>
             </select>
           </div>
 
@@ -294,7 +294,7 @@ export function FormularioChamado({
             <select
               value={prioridade}
               onChange={(e) => setPrioridade(e.target.value as "normal" | "priorizar")}
-              className="w-full rounded border border-borda bg-fundo px-3 py-1.5 text-xs text-texto focus:border-acento focus:outline-none"
+              className="w-full rounded border border-borda bg-fundo px-3 py-2 text-xs text-texto focus:border-acento focus:outline-none"
             >
               <option value="normal">Normal</option>
               <option value="priorizar">Priorizar</option>
@@ -304,36 +304,36 @@ export function FormularioChamado({
 
         <div>
           <label className="block text-xs font-medium text-texto mb-1">
-            Descrição do Chamado
+            Descrição do chamado
           </label>
           <textarea
             rows={3}
             value={descricao}
             onChange={(e) => setDescricao(e.target.value)}
             placeholder="Detalhes ou contexto da solicitação aberta na plataforma externa..."
-            className="w-full rounded border border-borda bg-fundo px-3 py-2 text-xs text-texto placeholder:text-texto-suave/60 focus:border-acento focus:outline-none"
+            className="w-full rounded border border-borda bg-fundo px-3 py-2 text-xs text-texto placeholder:text-texto-suave focus:border-acento focus:outline-none"
           />
         </div>
 
         <div>
           <label className="block text-xs font-medium text-texto mb-1">
-            Observações Internas
+            Observações internas
           </label>
           <textarea
             rows={2}
             value={observacao}
             onChange={(e) => setObservacao(e.target.value)}
             placeholder="Notas de acompanhamento interno..."
-            className="w-full rounded border border-borda bg-fundo px-3 py-2 text-xs text-texto placeholder:text-texto-suave/60 focus:border-acento focus:outline-none"
+            className="w-full rounded border border-borda bg-fundo px-3 py-2 text-xs text-texto placeholder:text-texto-suave focus:border-acento focus:outline-none"
           />
         </div>
       </div>
 
       {/* Seção 3: Vínculo com Chamado Anterior */}
-      <div className="rounded border border-borda bg-superficie p-4 space-y-3">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-texto-suave border-b border-borda/40 pb-2 flex items-center gap-1.5">
-          <LinkIcon className="h-3.5 w-3.5" />
-          <span>Vínculo com Protocolo Anterior (Reincidência / Continuidade)</span>
+      <div className="rounded border border-borda bg-superficie p-5 space-y-3 shadow-sm">
+        <h2 className="text-sm font-semibold text-texto border-b border-borda/40 pb-2 flex items-center gap-1.5">
+          <LinkIcon className="h-4 w-4 text-acento" />
+          <span>Vínculo com protocolo anterior (reincidência)</span>
         </h2>
 
         {chamadoVinculado ? (
@@ -362,13 +362,13 @@ export function FormularioChamado({
                 value={buscaVinculo}
                 onChange={(e) => setBuscaVinculo(e.target.value)}
                 placeholder="Buscar chamado anterior por protocolo (CS...) ou nome do aluno"
-                className="flex-1 rounded border border-borda bg-fundo px-3 py-1.5 text-xs text-texto placeholder:text-texto-suave/60 focus:border-acento focus:outline-none"
+                className="flex-1 rounded border border-borda bg-fundo px-3 py-2 text-xs text-texto placeholder:text-texto-suave focus:border-acento focus:outline-none"
               />
               <button
                 type="button"
                 onClick={handleBuscarVinculo}
                 disabled={buscandoVinculo}
-                className="rounded border border-borda bg-superficie px-3 py-1.5 text-xs font-medium text-texto hover:bg-fundo disabled:opacity-50"
+                className="rounded border border-borda bg-superficie px-3 py-2 text-xs font-medium text-texto hover:bg-fundo disabled:opacity-50"
               >
                 {buscandoVinculo ? "Buscando..." : "Buscar"}
               </button>

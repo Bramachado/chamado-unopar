@@ -1,252 +1,179 @@
 "use server";
 
-import { z } from "zod";
-import { headers } from "next/headers";
-import { criarClienteServidor } from "@/lib/supabase/server";
 import { criarClienteAdmin } from "@/lib/supabase/admin";
-import { decifrarSenha, cifrarSenha } from "@/lib/crypto/cofre";
+import { obterPerfilAtual } from "@/lib/auth/perfil";
+import { cifrarSenha, decifrarSenha } from "@/lib/crypto/cofre";
+import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 
-export async function revelarSenhaExternaAction(perfilAlvoId: string): Promise<{
-  sucesso: boolean;
-  senhaPlana?: string;
-  erro?: string;
-}> {
-  const supabase = await criarClienteServidor();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { sucesso: false, erro: "Sessão expirada." };
+export async function revelarSenhaExternaAction(perfilIdAlvo: string) {
+  const perfil = await obterPerfilAtual();
+  if (perfil.papel !== "admin") {
+    return { sucesso: false, erro: "Apenas administradoras podem visualizar senhas da plataforma externa." };
   }
 
-  // 1. Validar papel estritamente no servidor
-  const { data: perfilAdmin, error: erroPerfil } = await supabase
-    .from("perfis")
-    .select("papel, ativo")
-    .eq("id", user.id)
-    .single();
+  const supabaseAdmin = criarClienteAdmin();
 
-  if (erroPerfil || !perfilAdmin || perfilAdmin.papel !== "admin" || !perfilAdmin.ativo) {
-    return { sucesso: false, erro: "Acesso negado: apenas administradoras ativas podem revelar senhas (403)." };
-  }
+  // 1. Obter IP e User Agent
+  const headerList = await headers();
+  const ip = headerList.get("x-forwarded-for")?.split(",")[0]?.trim() || headerList.get("x-real-ip") || "127.0.0.1";
+  const userAgent = headerList.get("user-agent") || "Desconhecido";
 
-  const cabecalhos = await headers();
-  const ip = cabecalhos.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
-  const userAgent = cabecalhos.get("user-agent") || "Navegador Desconhecido";
-
-  // 2. Gravar auditoria em credencial_acessos ANTES de retornar o valor
-  const adminClient = criarClienteAdmin();
-  const { error: erroAudit } = await adminClient.from("credencial_acessos").insert({
-    perfil_alvo: perfilAlvoId,
-    admin_id: user.id,
+  // 2. Gravar auditoria em credencial_acessos ANTES de decifrar
+  await supabaseAdmin.from("credencial_acessos").insert({
+    perfil_alvo_id: perfilIdAlvo,
+    acessado_por: perfil.id,
     ip,
     user_agent: userAgent,
-    data_hora: new Date().toISOString(),
   });
 
-  if (erroAudit) {
-    return { sucesso: false, erro: `Falha ao registrar auditoria de acesso: ${erroAudit.message}` };
-  }
-
-  // 3. Buscar credencial cifrada no banco via adminClient
-  const { data: cred, error: erroCred } = await adminClient
+  // 3. Buscar credencial cifrada
+  const { data: cred, error } = await supabaseAdmin
     .from("credenciais_externas")
     .select("senha_cifrada, iv, auth_tag")
-    .eq("perfil_id", perfilAlvoId)
-    .maybeSingle();
+    .eq("perfil_id", perfilIdAlvo)
+    .single();
 
-  if (erroCred || !cred) {
+  if (error || !cred) {
     return { sucesso: false, erro: "Nenhuma credencial externa cadastrada para esta usuária." };
   }
 
+  // 4. Decifrar no servidor
   try {
-    const senhaBuffer = Buffer.from(cred.senha_cifrada, "hex");
-    const ivBuffer = Buffer.from(cred.iv, "hex");
-    const authTagBuffer = Buffer.from(cred.auth_tag, "hex");
-
-    const senhaPlana = decifrarSenha(senhaBuffer, ivBuffer, authTagBuffer);
+    const senhaPlana = decifrarSenha(cred.senha_cifrada, cred.iv, cred.auth_tag);
     return { sucesso: true, senhaPlana };
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Erro desconhecido ao decifrar";
-    return { sucesso: false, erro: `Falha na decifragem criptográfica: ${msg}` };
+    const msg = err instanceof Error ? err.message : "Erro ao decifrar credencial.";
+    return { sucesso: false, erro: msg };
   }
 }
 
-export async function salvarCredencialExternaAction(perfilId: string, senhaPlana: string) {
-  const supabase = await criarClienteServidor();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { sucesso: false, erro: "Sessão expirada." };
+export async function alternarStatusUsuarioAction(idAlvo: string, novoAtivo: boolean) {
+  const perfil = await obterPerfilAtual();
+  if (perfil.papel !== "admin") {
+    return { sucesso: false, erro: "Apenas administradoras podem alterar o status de usuárias." };
   }
 
-  // Validar se é a própria usuária ou se é admin
-  const { data: perfilLogado } = await supabase
+  // Impedir que a administradora desative a própria conta
+  if (perfil.id === idAlvo && !novoAtivo) {
+    return { sucesso: false, erro: "Você não pode desativar sua própria conta de administradora." };
+  }
+
+  const supabaseAdmin = criarClienteAdmin();
+  const { error } = await supabaseAdmin
     .from("perfis")
-    .select("papel, ativo")
-    .eq("id", user.id)
-    .single();
+    .update({ ativo: novoAtivo })
+    .eq("id", idAlvo);
 
-  if (!perfilLogado || !perfilLogado.ativo) {
-    return { sucesso: false, erro: "Acesso negado." };
+  if (error) {
+    return { sucesso: false, erro: error.message };
   }
 
-  if (perfilLogado.papel !== "admin" && user.id !== perfilId) {
-    return { sucesso: false, erro: "Você só pode alterar sua própria senha externa." };
-  }
-
-  if (!senhaPlana || senhaPlana.trim().length === 0) {
-    return { sucesso: false, erro: "Informe uma senha válida." };
-  }
-
-  try {
-    const { senhaCifrada, iv, authTag } = cifrarSenha(senhaPlana);
-    const adminClient = criarClienteAdmin();
-
-    const { error } = await adminClient
-      .from("credenciais_externas")
-      .upsert({
-        perfil_id: perfilId,
-        senha_cifrada: "\\x" + senhaCifrada.toString("hex"),
-        iv: "\\x" + iv.toString("hex"),
-        auth_tag: "\\x" + authTag.toString("hex"),
-        atualizado_em: new Date().toISOString(),
-        atualizado_por: user.id,
-      });
-
-    if (error) {
-      return { sucesso: false, erro: `Erro ao salvar credencial: ${error.message}` };
-    }
-
-    revalidatePath("/usuarios");
-    revalidatePath("/perfil");
-    return { sucesso: true };
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Erro na cifragem";
-    return { sucesso: false, erro: `Falha ao cifrar: ${msg}` };
-  }
+  revalidatePath("/usuarios");
+  return { sucesso: true };
 }
 
-const usuarioSchema = z.object({
-  nome_completo: z.string().trim().min(3, "Informe o nome completo da usuária."),
-  email: z.string().trim().email("Informe um e-mail válido."),
-  papel: z.enum(["admin", "coordenador", "atendente"] as const),
-  senha_inicial: z.string().min(6, "A senha de acesso deve ter pelo menos 6 caracteres.").optional().or(z.literal("")),
-  senha_externa: z.string().optional().or(z.literal("")),
-});
+export async function salvarCredencialExternaAction(perfilIdAlvo: string, senhaPlana: string) {
+  const perfil = await obterPerfilAtual();
+  const ehAdmin = perfil.papel === "admin";
+  const ehPropria = perfil.id === perfilIdAlvo;
 
-export async function criarOuEditarUsuarioAction(
-  _estadoAnterior: { sucesso?: boolean; erro?: string },
-  formData: FormData
-) {
-  const supabase = await criarClienteServidor();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) return { erro: "Sessão expirada." };
-
-  const { data: perfilLogado } = await supabase
-    .from("perfis")
-    .select("papel")
-    .eq("id", user.id)
-    .single();
-
-  if (perfilLogado?.papel !== "admin") {
-    return { erro: "Apenas administradoras podem gerenciar usuárias." };
+  if (!ehAdmin && !ehPropria) {
+    return { sucesso: false, erro: "Permissão negada para atualizar esta credencial." };
   }
 
-  const usuarioId = formData.get("id") ? String(formData.get("id")) : undefined;
-  const dados = {
-    nome_completo: String(formData.get("nome_completo") || ""),
-    email: String(formData.get("email") || ""),
-    papel: String(formData.get("papel") || "atendente") as "admin" | "coordenador" | "atendente",
-    senha_inicial: String(formData.get("senha_inicial") || ""),
-    senha_externa: String(formData.get("senha_externa") || ""),
-  };
+  const { senhaCifrada, iv, authTag } = cifrarSenha(senhaPlana);
+  const supabaseAdmin = criarClienteAdmin();
 
-  const validacao = usuarioSchema.safeParse(dados);
-  if (!validacao.success) {
-    return { erro: validacao.error.issues[0]?.message || "Dados inválidos." };
+  const { error } = await supabaseAdmin
+    .from("credenciais_externas")
+    .upsert({
+      perfil_id: perfilIdAlvo,
+      senha_cifrada: senhaCifrada,
+      iv,
+      auth_tag: authTag,
+      atualizado_em: new Date().toISOString(),
+    });
+
+  if (error) {
+    return { sucesso: false, erro: error.message };
   }
 
-  const adminClient = criarClienteAdmin();
+  revalidatePath("/usuarios");
+  revalidatePath("/perfil");
+  return { sucesso: true };
+}
 
-  if (usuarioId) {
-    // Atualizar perfil
-    const { error: erroPerfil } = await adminClient
+export async function criarOuEditarUsuarioAction(_prevState: unknown, formData: FormData) {
+  const perfil = await obterPerfilAtual();
+  if (perfil.papel !== "admin") {
+    return { erro: "Apenas administradoras podem cadastrar ou editar usuárias." };
+  }
+
+  const id = formData.get("id") as string | null;
+  const nomeCompleto = formData.get("nome_completo") as string;
+  const email = formData.get("email") as string;
+  const papel = formData.get("papel") as "admin" | "coordenador" | "atendente";
+  const senhaInicial = formData.get("senha_inicial") as string | null;
+  const senhaExterna = formData.get("senha_externa") as string | null;
+
+  if (!nomeCompleto || !email || !papel) {
+    return { erro: "Todos os campos obrigatórios devem ser preenchidos." };
+  }
+
+  const supabaseAdmin = criarClienteAdmin();
+
+  if (id) {
+    // Edição
+    const { error: erroPerfil } = await supabaseAdmin
       .from("perfis")
       .update({
-        nome_completo: dados.nome_completo,
-        email: dados.email,
-        papel: dados.papel,
-        atualizado_em: new Date().toISOString(),
+        nome_completo: nomeCompleto,
+        email,
+        papel,
       })
-      .eq("id", usuarioId);
+      .eq("id", id);
 
     if (erroPerfil) return { erro: erroPerfil.message };
 
     // Se informou nova senha externa
-    if (dados.senha_externa) {
-      await salvarCredencialExternaAction(usuarioId, dados.senha_externa);
+    if (senhaExterna && senhaExterna.trim().length > 0) {
+      await salvarCredencialExternaAction(id, senhaExterna.trim());
     }
-
-    revalidatePath("/usuarios");
-    return { sucesso: true };
   } else {
-    // Criar nova usuária no auth.users
-    if (!dados.senha_inicial || dados.senha_inicial.length < 6) {
-      return { erro: "Informe uma senha inicial de pelo menos 6 caracteres para a nova usuária." };
+    // Criação
+    if (!senhaInicial || senhaInicial.length < 8) {
+      return { erro: "A senha inicial deve conter no mínimo 8 caracteres." };
     }
 
-    const { data: novoAuth, error: erroAuth } = await adminClient.auth.admin.createUser({
-      email: dados.email,
-      password: dados.senha_inicial,
+    const { data: authUser, error: erroAuth } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password: senhaInicial,
       email_confirm: true,
       user_metadata: {
-        nome_completo: dados.nome_completo,
-        papel: dados.papel,
+        nome_completo: nomeCompleto,
+        papel,
       },
     });
 
-    if (erroAuth || !novoAuth.user) {
-      return { erro: `Erro ao criar usuária no Auth: ${erroAuth?.message}` };
+    if (erroAuth || !authUser.user) {
+      return { erro: erroAuth?.message || "Erro ao criar usuária no sistema de autenticação." };
     }
+
+    // Sincronizar na tabela perfis
+    await supabaseAdmin.from("perfis").upsert({
+      id: authUser.user.id,
+      nome_completo: nomeCompleto,
+      email,
+      papel,
+      ativo: true,
+    });
 
     // Se informou senha externa
-    if (dados.senha_externa) {
-      await salvarCredencialExternaAction(novoAuth.user.id, dados.senha_externa);
+    if (senhaExterna && senhaExterna.trim().length > 0) {
+      await salvarCredencialExternaAction(authUser.user.id, senhaExterna.trim());
     }
-
-    revalidatePath("/usuarios");
-    return { sucesso: true };
   }
-}
-
-export async function alternarStatusUsuarioAction(id: string, ativo: boolean) {
-  const supabase = await criarClienteServidor();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { sucesso: false, erro: "Sessão expirada." };
-
-  const { data: perfilLogado } = await supabase
-    .from("perfis")
-    .select("papel")
-    .eq("id", user.id)
-    .single();
-
-  if (perfilLogado?.papel !== "admin") {
-    return { sucesso: false, erro: "Apenas administradoras podem desativar contas." };
-  }
-
-  if (id === user.id) {
-    return { sucesso: false, erro: "Você não pode desativar sua própria conta de administradora." };
-  }
-
-  const adminClient = criarClienteAdmin();
-  const { error } = await adminClient
-    .from("perfis")
-    .update({ ativo })
-    .eq("id", id);
-
-  if (error) return { sucesso: false, erro: error.message };
 
   revalidatePath("/usuarios");
   return { sucesso: true };

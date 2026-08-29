@@ -1,4 +1,4 @@
--- Migração 05: Funções e Views de Desempenho e Gamificação
+-- Migração 05: Funções e Views de Desempenho e Produtividade
 -- Sistema de Registro e Controle de Protocolos de Chamados (UNOPAR Parauapebas)
 
 CREATE OR REPLACE FUNCTION public.calcular_ranking_desempenho(
@@ -34,10 +34,10 @@ WITH stats_por_usuario AS (
     COUNT(c.id) FILTER (WHERE c.situacao = 'concluido') AS resolvidos,
     COUNT(c.id) FILTER (WHERE c.situacao = 'encerrado') AS encerrados,
     COUNT(c.id) FILTER (WHERE c.situacao = 'aguardando') AS aguardando,
+    -- Chamados 'aguardando' NÃO entram no volume ponderado (peso 0)
     (
       COUNT(c.id) FILTER (WHERE c.situacao = 'concluido') * 1.0 +
-      COUNT(c.id) FILTER (WHERE c.situacao = 'encerrado') * 0.5 +
-      COUNT(c.id) FILTER (WHERE c.situacao = 'aguardando') * 0.25
+      COUNT(c.id) FILTER (WHERE c.situacao = 'encerrado') * 0.5
     ) AS volume_pond,
     COUNT(c.id) FILTER (WHERE c.situacao = 'concluido' AND c.data_conclusao::date <= c.prazo) AS no_prazo,
     CASE 
@@ -70,20 +70,35 @@ limites_periodo AS (
 ),
 pontuacao_calculada AS (
   SELECT 
-    s.*,
-    -- Pontuação de Volume (40 pontos max)
+    s.usuario_id,
+    s.nome_completo,
+    s.email,
+    s.papel,
+    s.volume_total,
+    s.resolvidos,
+    s.encerrados,
+    s.aguardando,
+    s.volume_pond,
+    s.no_prazo,
+    s.taxa_prazo,
+    s.tempo_medio,
+    -- Se a usuária não tem resolvidos nem encerrados, pontuação é rigorosamente 0
     CASE 
+      WHEN s.resolvidos = 0 AND s.encerrados = 0 THEN 0.0
       WHEN l.max_volume_pond > 0 THEN
         ROUND(40.0 * (s.volume_pond / l.max_volume_pond), 2)
       ELSE 0.0
     END AS pontos_volume,
-    -- Pontuação de Prazo (40 pontos max)
-    ROUND(40.0 * s.taxa_prazo, 2) AS pontos_prazo,
-    -- Pontuação de Agilidade/Tempo Médio (20 pontos max)
+    -- Pontos de Prazo
+    CASE 
+      WHEN s.resolvidos = 0 THEN 0.0
+      ELSE ROUND(40.0 * s.taxa_prazo, 2)
+    END AS pontos_prazo,
+    -- Pontos de Agilidade
     CASE 
       WHEN s.resolvidos = 0 OR s.tempo_medio IS NULL THEN 0.0
       WHEN l.max_tempo = l.min_tempo THEN 20.0
-      ELSE ROUND(20.0 * (1.0 - ((s.tempo_medio - l.min_tempo) / (l.max_tempo - l.min_tempo))), 2)
+      ELSE ROUND(20.0 * (1.0 - ((s.tempo_medio - l.min_tempo) / NULLIF(l.max_tempo - l.min_tempo, 0))), 2)
     END AS pontos_agilidade
   FROM stats_por_usuario s
   CROSS JOIN limites_periodo l
@@ -112,7 +127,12 @@ SELECT
   pontos_volume,
   pontos_prazo,
   pontos_agilidade,
-  ROUND(pontos_volume + pontos_prazo + pontos_agilidade, 2) AS pontos_total
+  ROUND(
+    CASE 
+      WHEN resolvidos = 0 AND encerrados = 0 THEN 0.0
+      ELSE (pontos_volume + pontos_prazo + pontos_agilidade)
+    END, 2
+  ) AS pontos_total
 FROM pontuacao_calculada
 ORDER BY posicao ASC;
 $$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp;

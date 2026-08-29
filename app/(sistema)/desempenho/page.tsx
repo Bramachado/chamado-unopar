@@ -6,70 +6,67 @@ import { ptBR } from "date-fns/locale";
 import { type RankingItem } from "@/types/database";
 
 export default async function PaginaDesempenho() {
-  const perfil = await obterPerfilAtual();
+  const perfilAtual = await obterPerfilAtual();
   const supabase = await criarClienteServidor();
 
   const hoje = new Date();
-  const ano = hoje.getFullYear();
-  const mesAtual = hoje.getMonth() + 1;
-
-  // 1. Mês Corrente
   const inicioMes = format(startOfMonth(hoje), "yyyy-MM-dd");
   const fimMes = format(endOfMonth(hoje), "yyyy-MM-dd");
 
-  // 2. Semestre Letivo
-  let inicioSemestre = "";
-  let fimSemestre = "";
-  let rotuloSemestre = "";
+  const ano = hoje.getFullYear();
+  const mes = hoje.getMonth() + 1;
+  const rotuloSemestre = mes <= 6 ? `${ano}.1` : `${ano}.2`;
+  const inicioSemestre = mes <= 6 ? `${ano}-01-01` : `${ano}-07-01`;
+  const fimSemestre = mes <= 6 ? `${ano}-06-30` : `${ano}-12-31`;
 
-  if (mesAtual <= 6) {
-    inicioSemestre = `${ano}-01-01`;
-    fimSemestre = `${ano}-06-30`;
-    rotuloSemestre = `${ano}.01`;
-  } else {
-    inicioSemestre = `${ano}-07-01`;
-    fimSemestre = `${ano}-12-31`;
-    rotuloSemestre = `${ano}.02`;
-  }
-
-  // Executar função SQL de ranking para o mês corrente
-  const { data: rankingMesData } = await supabase.rpc("calcular_ranking_desempenho", {
+  // 1. Ranking do Mês Corrente
+  const { data: dataRankingMes } = await supabase.rpc("calcular_ranking_desempenho", {
     p_data_inicio: inicioMes,
     p_data_fim: fimMes,
   });
 
-  // Executar função SQL de ranking para o semestre letivo
-  const { data: rankingSemestreData } = await supabase.rpc("calcular_ranking_desempenho", {
+  // 2. Ranking do Semestre Letivo
+  const { data: dataRankingSemestre } = await supabase.rpc("calcular_ranking_desempenho", {
     p_data_inicio: inicioSemestre,
     p_data_fim: fimSemestre,
   });
 
-  // 3. Calcular evolução pessoal dos últimos 6 meses
-  const evolucaoPessoal: { mes: string; pontos: number; taxaPrazo: number }[] = [];
+  const rankingMes: RankingItem[] = (dataRankingMes as unknown as RankingItem[]) || [];
+  const rankingSemestre: RankingItem[] = (dataRankingSemestre as unknown as RankingItem[]) || [];
+
+  // 3. Evolução Pessoal e Média da Equipe dos últimos 6 meses
+  const evolucaoPessoal: { mes: string; minhaPontuacao: number; mediaEquipe: number }[] = [];
+
   for (let i = 5; i >= 0; i--) {
     const d = subMonths(hoje, i);
-    const iMes = format(startOfMonth(d), "yyyy-MM-dd");
-    const fMes = format(endOfMonth(d), "yyyy-MM-dd");
+    const ini = format(startOfMonth(d), "yyyy-MM-dd");
+    const fim = format(endOfMonth(d), "yyyy-MM-dd");
     const rotulo = format(d, "MMM/yy", { locale: ptBR });
 
-    const { data: rankMesHist } = await supabase.rpc("calcular_ranking_desempenho", {
-      p_data_inicio: iMes,
-      p_data_fim: fMes,
+    const { data: rankingHist } = await supabase.rpc("calcular_ranking_desempenho", {
+      p_data_inicio: ini,
+      p_data_fim: fim,
     });
 
-    const linhaUser = (rankMesHist as RankingItem[] || []).find((r) => r.usuario_id === perfil.id);
+    const lista = (rankingHist as unknown as RankingItem[]) || [];
+    const meuItem = lista.find((r) => r.usuario_id === perfilAtual.id);
+    const minhaPontuacao = meuItem?.pontos_total ?? 0;
+
+    const somaEquipe = lista.reduce((acc, curr) => acc + (curr.pontos_total || 0), 0);
+    const mediaEquipe = lista.length > 0 ? Math.round((somaEquipe / lista.length) * 10) / 10 : 0;
+
     evolucaoPessoal.push({
       mes: rotulo,
-      pontos: Number(linhaUser?.pontos_total || 0),
-      taxaPrazo: Number(linhaUser?.taxa_prazo || 0),
+      minhaPontuacao,
+      mediaEquipe,
     });
   }
 
   return (
     <PainelDesempenho
-      rankingMes={(rankingMesData as RankingItem[]) || []}
-      rankingSemestre={(rankingSemestreData as RankingItem[]) || []}
-      perfilAtual={perfil}
+      rankingMes={rankingMes}
+      rankingSemestre={rankingSemestre}
+      perfilAtual={perfilAtual}
       evolucaoPessoal={evolucaoPessoal}
       rotuloSemestre={rotuloSemestre}
     />
