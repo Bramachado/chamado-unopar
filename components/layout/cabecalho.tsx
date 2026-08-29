@@ -106,10 +106,10 @@ export function CabecalhoPrincipal({ perfil }: CabecalhoProps) {
               <li key={rota.href}>
                 <Link
                   href={rota.href}
-                  className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition ${
+                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition ${
                     ativo
-                      ? "bg-fundo text-acento border border-borda shadow-sm"
-                      : "text-texto-suave hover:bg-fundo/50 hover:text-texto"
+                      ? "bg-acento text-white shadow-xs"
+                      : "text-texto-suave hover:bg-fundo hover:text-texto"
                   }`}
                 >
                   <Icone className="h-3.5 w-3.5" />

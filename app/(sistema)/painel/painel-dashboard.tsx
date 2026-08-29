@@ -31,13 +31,16 @@ interface RankingColaboradorItem {
   posicao: number;
   nome: string;
   papel: string;
-  fotoUrl: string;
+  avatarBg: string;
+  avatarTexto: string;
+  fotoUrl?: string;
   resolvidos: number;
   abertos: number;
   total: number;
   pctResolvidos: number;
   pctAbertos: number;
   tempoMedioDias: number;
+  corCard: string;
 }
 
 interface DashboardData {
@@ -77,13 +80,15 @@ interface PainelDashboardProps {
   periodoSelecionado: string;
 }
 
-// Dados simulados para visualização rica conforme exemplo da imagem
+// Dados ricos de simulação visual idênticos ao modelo de referência
 const rankingSimuladoExemplo: RankingColaboradorItem[] = [
   {
     id: "sim-1",
     posicao: 1,
     nome: "Ana Silva",
     papel: "Atendente Sênior",
+    avatarBg: "bg-emerald-600 text-white",
+    avatarTexto: "AS",
     fotoUrl: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80",
     resolvidos: 80,
     abertos: 20,
@@ -91,12 +96,15 @@ const rankingSimuladoExemplo: RankingColaboradorItem[] = [
     pctResolvidos: 80,
     pctAbertos: 20,
     tempoMedioDias: 1.4,
+    corCard: "border-emerald-500/40 bg-gradient-to-r from-emerald-500/15 via-superficie to-superficie shadow-sm",
   },
   {
     id: "sim-2",
     posicao: 2,
     nome: "Carlos Oliveira",
     papel: "Atendente Pleno",
+    avatarBg: "bg-sky-600 text-white",
+    avatarTexto: "CO",
     fotoUrl: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150&auto=format&fit=crop&q=80",
     resolvidos: 65,
     abertos: 28,
@@ -104,12 +112,15 @@ const rankingSimuladoExemplo: RankingColaboradorItem[] = [
     pctResolvidos: 70,
     pctAbertos: 30,
     tempoMedioDias: 1.8,
+    corCard: "border-sky-500/40 bg-gradient-to-r from-sky-500/15 via-superficie to-superficie shadow-sm",
   },
   {
     id: "sim-3",
     posicao: 3,
     nome: "Beatriz Souza",
     papel: "Atendente Pleno",
+    avatarBg: "bg-rose-600 text-white",
+    avatarTexto: "BS",
     fotoUrl: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80",
     resolvidos: 50,
     abertos: 33,
@@ -117,12 +128,15 @@ const rankingSimuladoExemplo: RankingColaboradorItem[] = [
     pctResolvidos: 60,
     pctAbertos: 40,
     tempoMedioDias: 2.1,
+    corCard: "border-rose-500/40 bg-gradient-to-r from-rose-500/15 via-superficie to-superficie shadow-sm",
   },
   {
     id: "sim-4",
     posicao: 4,
     nome: "Lucas Mendes",
     papel: "Atendente Júnior",
+    avatarBg: "bg-amber-600 text-white",
+    avatarTexto: "LM",
     fotoUrl: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150&auto=format&fit=crop&q=80",
     resolvidos: 42,
     abertos: 35,
@@ -130,12 +144,15 @@ const rankingSimuladoExemplo: RankingColaboradorItem[] = [
     pctResolvidos: 55,
     pctAbertos: 45,
     tempoMedioDias: 2.4,
+    corCard: "border-amber-500/40 bg-gradient-to-r from-amber-500/15 via-superficie to-superficie shadow-sm",
   },
   {
     id: "sim-5",
     posicao: 5,
     nome: "Mariana Lima",
     papel: "Atendente Júnior",
+    avatarBg: "bg-purple-600 text-white",
+    avatarTexto: "ML",
     fotoUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
     resolvidos: 30,
     abertos: 45,
@@ -143,12 +160,15 @@ const rankingSimuladoExemplo: RankingColaboradorItem[] = [
     pctResolvidos: 40,
     pctAbertos: 60,
     tempoMedioDias: 3.0,
+    corCard: "border-purple-500/40 bg-gradient-to-r from-purple-500/15 via-superficie to-superficie shadow-sm",
   },
   {
     id: "sim-6",
     posicao: 6,
     nome: "Roberto Rocha",
     papel: "Atendente",
+    avatarBg: "bg-teal-600 text-white",
+    avatarTexto: "RR",
     fotoUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
     resolvidos: 15,
     abertos: 45,
@@ -156,6 +176,7 @@ const rankingSimuladoExemplo: RankingColaboradorItem[] = [
     pctResolvidos: 25,
     pctAbertos: 75,
     tempoMedioDias: 3.5,
+    corCard: "border-teal-500/40 bg-gradient-to-r from-teal-500/15 via-superficie to-superficie shadow-sm",
   },
 ];
 
@@ -181,7 +202,7 @@ export function PainelDashboard({
   };
 
   const renderEstadoVazioGrafico = (contagem: number, mensagem?: string) => (
-    <div className="flex h-48 flex-col items-center justify-center rounded border border-dashed border-borda bg-fundo/40 p-4 text-center">
+    <div className="flex h-48 flex-col items-center justify-center rounded-lg border border-dashed border-borda bg-fundo/40 p-4 text-center">
       <AlertCircle className="h-5 w-5 text-texto-suave mb-1" />
       <span className="text-xs font-medium text-texto">
         {mensagem || "Dados insuficientes para este período"}
@@ -194,10 +215,20 @@ export function PainelDashboard({
 
   const totalVolume12m = dados.volumeMensal.reduce((acc, curr) => acc + curr.total, 0);
 
-  // Lista de colaboradores para o ranking visual
   const listaRankingExibicao = modoDemonstracao || dados.rankingEquipe.length === 0
     ? rankingSimuladoExemplo
-    : dados.rankingEquipe;
+    : dados.rankingEquipe.map((colab, idx) => ({
+        ...colab,
+        avatarBg: idx % 2 === 0 ? "bg-sky-600 text-white" : "bg-emerald-600 text-white",
+        avatarTexto: colab.nome.substring(0, 2).toUpperCase(),
+        corCard: idx === 0
+          ? "border-emerald-500/40 bg-gradient-to-r from-emerald-500/15 via-superficie to-superficie shadow-sm"
+          : idx === 1
+          ? "border-sky-500/40 bg-gradient-to-r from-sky-500/15 via-superficie to-superficie shadow-sm"
+          : idx === 2
+          ? "border-amber-500/40 bg-gradient-to-r from-amber-500/15 via-superficie to-superficie shadow-sm"
+          : "border-borda bg-superficie shadow-xs",
+      }));
 
   const totalResolvidosEquipe = listaRankingExibicao.reduce((acc, curr) => acc + curr.resolvidos, 0);
   const totalAbertosEquipe = listaRankingExibicao.reduce((acc, curr) => acc + curr.abertos, 0);
@@ -206,14 +237,14 @@ export function PainelDashboard({
 
   return (
     <div className="space-y-6">
-      {/* Cabeçalho e Seletor de Período */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      {/* Cabeçalho e Seletor de Período com Contraste Alto */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-superficie p-4 rounded-lg border border-borda shadow-sm">
         <div>
-          <h1 className="font-heading text-xl font-bold text-texto">
-            Painel de indicadores
+          <h1 className="font-heading text-xl font-bold text-texto tracking-tight">
+            Painel de Indicadores
           </h1>
           <p className="text-xs text-texto-suave">
-            Acompanhamento operacional de produtividade, fila, prazos e motivos recorrentes.
+            Acompanhamento operacional de produtividade, fila de chamados, prazos e motivos recorrentes.
           </p>
         </div>
 
@@ -222,10 +253,10 @@ export function PainelDashboard({
           <button
             type="button"
             onClick={() => setModoDemonstracao(!modoDemonstracao)}
-            className={`inline-flex items-center gap-1.5 rounded border px-2.5 py-1 text-xs font-medium transition ${
+            className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-semibold transition shadow-xs ${
               modoDemonstracao
-                ? "border-acento/50 bg-acento/10 text-acento"
-                : "border-borda bg-superficie text-texto-suave hover:text-texto"
+                ? "border-acento bg-acento text-white shadow-sm"
+                : "border-borda bg-fundo text-texto hover:bg-superficie"
             }`}
             title="Alternar entre simulação visual completa e dados reais do banco"
           >
@@ -233,14 +264,14 @@ export function PainelDashboard({
             <span>{modoDemonstracao ? "Simulação Ativa" : "Dados Reais"}</span>
           </button>
 
-          <div className="flex items-center gap-1.5 rounded border border-borda bg-superficie p-1 text-xs">
+          <div className="flex items-center gap-1 rounded-md border border-borda bg-fundo p-1 text-xs shadow-xs">
             <Calendar className="h-3.5 w-3.5 text-texto-suave ml-1" />
             <button
               type="button"
               onClick={() => mudarPeriodo("mes_atual")}
-              className={`rounded px-2.5 py-1 text-xs font-medium transition ${
+              className={`rounded px-2.5 py-1 text-xs font-semibold transition ${
                 periodo === "mes_atual"
-                  ? "bg-fundo text-texto shadow-sm"
+                  ? "bg-superficie text-texto shadow-sm border border-borda"
                   : "text-texto-suave hover:text-texto"
               }`}
             >
@@ -249,9 +280,9 @@ export function PainelDashboard({
             <button
               type="button"
               onClick={() => mudarPeriodo("semestre_atual")}
-              className={`rounded px-2.5 py-1 text-xs font-medium transition ${
+              className={`rounded px-2.5 py-1 text-xs font-semibold transition ${
                 periodo === "semestre_atual"
-                  ? "bg-fundo text-texto shadow-sm"
+                  ? "bg-superficie text-texto shadow-sm border border-borda"
                   : "text-texto-suave hover:text-texto"
               }`}
             >
@@ -260,9 +291,9 @@ export function PainelDashboard({
             <button
               type="button"
               onClick={() => mudarPeriodo("ultimos_12_meses")}
-              className={`rounded px-2.5 py-1 text-xs font-medium transition ${
+              className={`rounded px-2.5 py-1 text-xs font-semibold transition ${
                 periodo === "ultimos_12_meses"
-                  ? "bg-fundo text-texto shadow-sm"
+                  ? "bg-superficie text-texto shadow-sm border border-borda"
                   : "text-texto-suave hover:text-texto"
               }`}
             >
@@ -272,47 +303,47 @@ export function PainelDashboard({
         </div>
       </div>
 
-      {/* Cartões de Indicadores Principais */}
+      {/* Cartões de Indicadores Principais (Cards Brancos Elevados com Bordas Nítidas) */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <div className="rounded border border-borda bg-superficie p-3.5 shadow-sm">
-          <span className="text-xs font-medium text-texto-suave block">Total no período</span>
+        <div className="rounded-lg border border-borda bg-superficie p-4 shadow-sm hover:border-acento/40 transition">
+          <span className="text-xs font-semibold text-texto-suave block">Total no período</span>
           <span className="font-mono text-2xl font-bold text-texto tabular-nums block mt-1">
             {modoDemonstracao ? totalGeralEquipe : dados.totais.total}
           </span>
         </div>
 
-        <div className="rounded border border-borda bg-superficie p-3.5 shadow-sm">
-          <span className="text-xs font-medium text-texto-suave block">Aguardando</span>
-          <span className="font-mono text-2xl font-bold text-texto tabular-nums block mt-1">
+        <div className="rounded-lg border border-borda bg-superficie p-4 shadow-sm hover:border-acento/40 transition">
+          <span className="text-xs font-semibold text-texto-suave block">Aguardando</span>
+          <span className="font-mono text-2xl font-bold text-[#DC2626] tabular-nums block mt-1">
             {modoDemonstracao ? totalAbertosEquipe : dados.totais.aguardando}
           </span>
         </div>
 
-        <div className="rounded border border-borda bg-superficie p-3.5 shadow-sm">
-          <span className="text-xs font-medium text-texto-suave block">Concluídos (resolvidos)</span>
-          <span className="font-mono text-2xl font-bold text-sucesso tabular-nums block mt-1">
+        <div className="rounded-lg border border-borda bg-superficie p-4 shadow-sm hover:border-acento/40 transition">
+          <span className="text-xs font-semibold text-texto-suave block">Concluídos (resolvidos)</span>
+          <span className="font-mono text-2xl font-bold text-[#16A34A] tabular-nums block mt-1">
             {modoDemonstracao ? totalResolvidosEquipe : dados.totais.concluidos}
           </span>
         </div>
 
-        <div className="rounded border border-borda bg-superficie p-3.5 shadow-sm">
-          <span className="text-xs font-medium text-texto-suave block">Taxa de resolução</span>
-          <span className="font-mono text-2xl font-bold text-acento tabular-nums block mt-1">
+        <div className="rounded-lg border border-borda bg-superficie p-4 shadow-sm hover:border-acento/40 transition">
+          <span className="text-xs font-semibold text-texto-suave block">Taxa de resolução</span>
+          <span className="font-mono text-2xl font-bold text-[#0284C7] tabular-nums block mt-1">
             {modoDemonstracao ? `${taxaGeralResolucao}%` : dados.totais.concluidos > 0 ? `${Math.round((dados.totais.concluidos / Math.max(1, dados.totais.total)) * 100)}%` : "—"}
           </span>
         </div>
 
         {/* Vencidos */}
         <div
-          className={`rounded border p-3.5 shadow-sm transition ${
+          className={`rounded-lg border p-4 shadow-sm transition ${
             dados.totais.vencidos > 0 && !modoDemonstracao
-              ? "border-erro/40 bg-erro-fundo text-erro"
+              ? "border-erro/60 bg-erro-fundo text-erro"
               : "border-borda bg-superficie text-texto"
           }`}
         >
           <span
-            className={`text-xs font-medium block ${
-              dados.totais.vencidos > 0 && !modoDemonstracao ? "text-erro font-semibold" : "text-texto-suave"
+            className={`text-xs font-semibold block ${
+              dados.totais.vencidos > 0 && !modoDemonstracao ? "text-erro" : "text-texto-suave"
             }`}
           >
             Vencidos em aberto
@@ -328,15 +359,15 @@ export function PainelDashboard({
 
         {/* Vencendo em 2 dias */}
         <div
-          className={`rounded border p-3.5 shadow-sm transition ${
+          className={`rounded-lg border p-4 shadow-sm transition ${
             dados.totais.vencendo_em_2_dias > 0 && !modoDemonstracao
-              ? "border-alerta/40 bg-alerta-fundo text-alerta"
+              ? "border-alerta/60 bg-alerta-fundo text-alerta"
               : "border-borda bg-superficie text-texto"
           }`}
         >
           <span
-            className={`text-xs font-medium block ${
-              dados.totais.vencendo_em_2_dias > 0 && !modoDemonstracao ? "text-alerta font-semibold" : "text-texto-suave"
+            className={`text-xs font-semibold block ${
+              dados.totais.vencendo_em_2_dias > 0 && !modoDemonstracao ? "text-alerta" : "text-texto-suave"
             }`}
           >
             Vencendo em até 2 dias
@@ -352,79 +383,69 @@ export function PainelDashboard({
       </div>
 
       {/* ========================================================================================= */}
-      {/* NOVO BLOCO PRINCIPAL: RANKING DE PRODUTIVIDADE — CHAMADOS RESOLVIDOS VS ABERTOS */}
+      {/* RANKING DE PRODUTIVIDADE — CHAMADOS RESOLVIDOS VS ABERTOS (DESIGN DE ALTO CONTRASTE) */}
       {/* ========================================================================================= */}
-      <div className="rounded-lg border border-borda bg-superficie p-5 shadow-sm space-y-4">
-        {/* Cabeçalho do Bloco com Design Moderno */}
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-borda/40 pb-3">
-          <div>
-            <div className="inline-flex items-center gap-1.5 rounded bg-acento/10 px-2.5 py-0.5 text-[11px] font-bold text-acento tracking-wide">
+      <div className="rounded-xl border border-borda bg-superficie p-6 shadow-md space-y-5">
+        {/* Cabeçalho do Bloco com Pills de Alto Contraste */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-borda pb-4">
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-acento/15 px-3 py-1 text-[11px] font-extrabold text-acento tracking-wider uppercase border border-acento/30">
               <Award className="h-3.5 w-3.5" />
-              <span>RANKING DE PRODUTIVIDADE</span>
+              <span>Ranking de Produtividade</span>
             </div>
-            <h2 className="font-heading text-lg font-bold text-texto mt-1">
-              Chamados resolvidos vs. abertos por colaboradora
+            <h2 className="font-heading text-xl font-extrabold text-texto tracking-tight">
+              Chamados Resolvidos vs. Abertos por Colaboradora
             </h2>
             <p className="text-xs text-texto-suave">
               Comparativo direto de eficiência, volume concluído e demandas remanescentes na fila de atendimento.
             </p>
           </div>
 
-          {/* Legenda Estilizada */}
-          <div className="flex items-center gap-4 text-xs font-medium">
-            <div className="flex items-center gap-1.5">
-              <span className="h-3 w-3 rounded-sm bg-acento" />
+          {/* Legenda Estilizada com Alto Contraste */}
+          <div className="flex items-center gap-4 text-xs font-bold bg-fundo px-3.5 py-2 rounded-lg border border-borda shadow-xs">
+            <div className="flex items-center gap-2">
+              <span className="h-3.5 w-3.5 rounded bg-[#1D4ED8] shadow-xs" />
               <span className="text-texto">Resolvidos</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="h-3 w-3 rounded-sm bg-[#DC2626]" />
+            <div className="flex items-center gap-2">
+              <span className="h-3.5 w-3.5 rounded bg-[#DC2626] shadow-xs" />
               <span className="text-texto">Em aberto</span>
             </div>
           </div>
         </div>
 
-        {/* Lista de Colaboradores em Formato de Barra Segmentada */}
-        <div className="space-y-3 pt-1">
+        {/* Lista de Colaboradores com Cards em Alto Contraste e Profundidade */}
+        <div className="space-y-3.5 pt-1">
           {listaRankingExibicao.map((colab) => {
             const ehTop1 = colab.posicao === 1;
             const ehTop2 = colab.posicao === 2;
             const ehTop3 = colab.posicao === 3;
 
-            // Cores sutis de fundo por posição
-            const fundoClasse = ehTop1
-              ? "bg-gradient-to-r from-emerald-500/10 via-superficie to-superficie border-emerald-500/30"
-              : ehTop2
-              ? "bg-gradient-to-r from-sky-500/10 via-superficie to-superficie border-sky-500/30"
-              : ehTop3
-              ? "bg-gradient-to-r from-amber-500/10 via-superficie to-superficie border-amber-500/30"
-              : "bg-fundo border-borda";
-
             return (
               <div
                 key={colab.id}
-                className={`flex flex-col gap-3 rounded-md border p-3 transition sm:flex-row sm:items-center sm:justify-between shadow-xs ${fundoClasse}`}
+                className={`flex flex-col gap-3 rounded-lg border-2 p-3.5 transition hover:scale-[1.005] sm:flex-row sm:items-center sm:justify-between ${colab.corCard}`}
               >
-                {/* Lado Esquerdo: Posição, Foto, Nome e Medalha */}
-                <div className="flex items-center gap-3 min-w-[240px]">
+                {/* Lado Esquerdo: Posição, Avatar com Borda, Nome e Medalha */}
+                <div className="flex items-center gap-3.5 min-w-[260px]">
                   {/* Número da Posição */}
-                  <span className="font-heading font-bold text-sm text-texto-suave w-7 shrink-0 text-center">
+                  <span className="font-heading font-extrabold text-base text-texto w-8 shrink-0 text-center">
                     #{colab.posicao}
                   </span>
 
-                  {/* Foto de Perfil */}
-                  <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border border-borda shadow-xs bg-superficie">
-                    <img
-                      src={colab.fotoUrl}
-                      alt={colab.nome}
-                      className="h-full w-full object-cover"
-                      onError={(e) => {
-                        // Fallback em caso de falha de carregamento da imagem
-                        (e.target as HTMLElement).style.display = "none";
-                      }}
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center font-heading text-xs font-bold text-texto bg-superficie">
-                      {colab.nome.substring(0, 2).toUpperCase()}
-                    </div>
+                  {/* Avatar / Foto */}
+                  <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border-2 border-white shadow-sm bg-superficie">
+                    {colab.fotoUrl ? (
+                      <img
+                        src={colab.fotoUrl}
+                        alt={colab.nome}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className={`h-full w-full flex items-center justify-center font-heading text-xs font-bold ${colab.avatarBg}`}>
+                        {colab.avatarTexto}
+                      </div>
+                    )}
                   </div>
 
                   {/* Nome e Cargo */}
@@ -432,65 +453,65 @@ export function PainelDashboard({
                     <div className="font-heading text-sm font-bold text-texto truncate" title={colab.nome}>
                       {colab.nome}
                     </div>
-                    <div className="text-[11px] text-texto-suave">
+                    <div className="text-[11px] font-medium text-texto-suave">
                       {colab.papel}
                     </div>
                   </div>
 
                   {/* Medalhas para Top 3 */}
                   {ehTop1 && (
-                    <div className="ml-auto shrink-0 flex h-7 w-7 items-center justify-center rounded-full bg-amber-400/20 text-amber-600 border border-amber-400/40 shadow-xs" title="1º Lugar Ouro">
-                      <Award className="h-4 w-4" />
+                    <div className="ml-auto shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-amber-400 text-amber-950 font-bold border-2 border-amber-300 shadow-sm" title="1º Lugar">
+                      <span className="font-heading text-xs font-extrabold">1º</span>
                     </div>
                   )}
                   {ehTop2 && (
-                    <div className="ml-auto shrink-0 flex h-7 w-7 items-center justify-center rounded-full bg-slate-400/20 text-slate-500 border border-slate-400/40 shadow-xs" title="2º Lugar Prata">
-                      <Award className="h-4 w-4" />
+                    <div className="ml-auto shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-slate-300 text-slate-800 font-bold border-2 border-slate-200 shadow-sm" title="2º Lugar">
+                      <span className="font-heading text-xs font-extrabold">2º</span>
                     </div>
                   )}
                   {ehTop3 && (
-                    <div className="ml-auto shrink-0 flex h-7 w-7 items-center justify-center rounded-full bg-amber-700/20 text-amber-700 border border-amber-700/40 shadow-xs" title="3º Lugar Bronze">
-                      <Award className="h-4 w-4" />
+                    <div className="ml-auto shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-amber-700 text-white font-bold border-2 border-amber-600 shadow-sm" title="3º Lugar">
+                      <span className="font-heading text-xs font-extrabold">3º</span>
                     </div>
                   )}
                 </div>
 
-                {/* Lado Direito: Barra Proporcional Resolvidos vs. Abertos */}
+                {/* Lado Direito: Barra Proporcional Resolvidos vs. Abertos com Cores Vivas */}
                 <div className="flex-1 sm:max-w-xl">
-                  <div className="flex h-9 w-full overflow-hidden rounded-md border border-borda/60 bg-fundo shadow-inner">
-                    {/* Segmento Resolvidos (Azul/Verde Acento) */}
+                  <div className="flex h-10 w-full overflow-hidden rounded-lg border-2 border-white/80 bg-fundo shadow-sm">
+                    {/* Segmento Resolvidos (Azul Royal) */}
                     <div
                       style={{ width: `${Math.max(colab.pctResolvidos, 8)}%` }}
-                      className="flex items-center justify-between bg-acento px-3 text-white transition-all duration-500"
+                      className="flex items-center justify-between bg-[#1D4ED8] px-3.5 text-white transition-all duration-500 shadow-inner"
                       title={`${colab.resolvidos} resolvidos (${colab.pctResolvidos}%)`}
                     >
-                      <span className="font-mono text-xs font-bold tabular-nums">
+                      <span className="font-mono text-sm font-extrabold tabular-nums drop-shadow-xs">
                         {colab.resolvidos}
                       </span>
-                      <span className="text-[10px] font-semibold opacity-90 font-mono">
+                      <span className="text-[11px] font-bold font-mono opacity-95">
                         {colab.pctResolvidos}%
                       </span>
                     </div>
 
-                    {/* Segmento Abertos (Vermelho/Alerta) */}
+                    {/* Segmento Abertos (Vermelho Vibrante) */}
                     <div
                       style={{ width: `${Math.max(colab.pctAbertos, 8)}%` }}
-                      className="flex items-center justify-between bg-[#DC2626] px-3 text-white transition-all duration-500"
+                      className="flex items-center justify-between bg-[#DC2626] px-3.5 text-white transition-all duration-500 shadow-inner"
                       title={`${colab.abertos} em aberto (${colab.pctAbertos}%)`}
                     >
-                      <span className="font-mono text-xs font-bold tabular-nums">
+                      <span className="font-mono text-sm font-extrabold tabular-nums drop-shadow-xs">
                         {colab.abertos}
                       </span>
-                      <span className="text-[10px] font-semibold opacity-90 font-mono">
+                      <span className="text-[11px] font-bold font-mono opacity-95">
                         {colab.pctAbertos}%
                       </span>
                     </div>
                   </div>
 
-                  {/* Sub-informação de tempo médio */}
-                  <div className="mt-1 flex items-center justify-between text-[11px] text-texto-suave">
-                    <span>Total de chamados atribuídos: <strong className="text-texto font-mono">{colab.total}</strong></span>
-                    <span>Tempo médio de solução: <strong className="text-texto font-mono">{colab.tempoMedioDias}d</strong></span>
+                  {/* Sub-informação de tempo médio e total */}
+                  <div className="mt-1.5 flex items-center justify-between text-[11px] text-texto-suave px-0.5">
+                    <span>Total atribuído: <strong className="text-texto font-mono">{colab.total} chamados</strong></span>
+                    <span>Tempo médio de solução: <strong className="text-texto font-mono">{colab.tempoMedioDias} dias</strong></span>
                   </div>
                 </div>
               </div>
@@ -500,9 +521,9 @@ export function PainelDashboard({
       </div>
 
       {/* 1. Como está a fila hoje? */}
-      <div className="rounded border border-borda bg-superficie p-5 shadow-sm space-y-3">
+      <div className="rounded-lg border border-borda bg-superficie p-5 shadow-sm space-y-3">
         <div>
-          <h2 className="text-sm font-semibold text-texto">
+          <h2 className="text-sm font-bold text-texto">
             Como está a fila hoje?
           </h2>
           <p className="text-xs text-texto-suave">
@@ -514,16 +535,16 @@ export function PainelDashboard({
           renderEstadoVazioGrafico(dados.fila.total)
         ) : (
           <div className="space-y-2">
-            <div className="flex h-9 w-full overflow-hidden rounded border border-borda bg-fundo">
+            <div className="flex h-9 w-full overflow-hidden rounded-md border border-borda bg-fundo shadow-inner">
               <div
                 style={{ width: `${modoDemonstracao ? 65 : (dados.fila.concluidos / Math.max(1, dados.fila.total)) * 100}%` }}
-                className="flex items-center justify-center bg-sucesso text-white text-xs font-bold font-mono px-2"
+                className="flex items-center justify-center bg-[#16A34A] text-white text-xs font-bold font-mono px-2"
               >
                 {modoDemonstracao ? 282 : dados.fila.concluidos} ({modoDemonstracao ? "65%" : `${Math.round((dados.fila.concluidos / Math.max(1, dados.fila.total)) * 100)}%`})
               </div>
               <div
                 style={{ width: `${modoDemonstracao ? 25 : (dados.fila.aguardando / Math.max(1, dados.fila.total)) * 100}%` }}
-                className="flex items-center justify-center bg-acento text-white text-xs font-bold font-mono px-2"
+                className="flex items-center justify-center bg-[#0284C7] text-white text-xs font-bold font-mono px-2"
               >
                 {modoDemonstracao ? 106 : dados.fila.aguardando} ({modoDemonstracao ? "25%" : `${Math.round((dados.fila.aguardando / Math.max(1, dados.fila.total)) * 100)}%`})
               </div>
@@ -535,17 +556,17 @@ export function PainelDashboard({
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-4 text-xs pt-1">
+            <div className="flex flex-wrap items-center gap-4 text-xs font-semibold pt-1">
               <div className="flex items-center gap-1.5">
-                <div className="h-2.5 w-2.5 rounded-full bg-sucesso" />
+                <div className="h-3 w-3 rounded-sm bg-[#16A34A]" />
                 <span className="text-texto">Concluídos ({modoDemonstracao ? 282 : dados.fila.concluidos})</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="h-2.5 w-2.5 rounded-full bg-acento" />
+                <div className="h-3 w-3 rounded-sm bg-[#0284C7]" />
                 <span className="text-texto">Aguardando ({modoDemonstracao ? 106 : dados.fila.aguardando})</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="h-2.5 w-2.5 rounded-full bg-texto-suave" />
+                <div className="h-3 w-3 rounded-sm bg-texto-suave" />
                 <span className="text-texto">Encerrados ({modoDemonstracao ? 42 : dados.fila.encerrados})</span>
               </div>
             </div>
@@ -556,9 +577,9 @@ export function PainelDashboard({
       {/* Linha 2 de Gráficos: Volume 12 Meses e Top 10 Motivos */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* 2. O volume está subindo ou caindo? */}
-        <div className="rounded border border-borda bg-superficie p-5 shadow-sm space-y-3">
+        <div className="rounded-lg border border-borda bg-superficie p-5 shadow-sm space-y-3">
           <div>
-            <h2 className="text-sm font-semibold text-texto">
+            <h2 className="text-sm font-bold text-texto">
               O volume está subindo ou caindo?
             </h2>
             <p className="text-xs text-texto-suave">
@@ -606,9 +627,9 @@ export function PainelDashboard({
         </div>
 
         {/* 3. Quais são os motivos mais frequentes? */}
-        <div className="rounded border border-borda bg-superficie p-5 shadow-sm space-y-3">
+        <div className="rounded-lg border border-borda bg-superficie p-5 shadow-sm space-y-3">
           <div>
-            <h2 className="text-sm font-semibold text-texto">
+            <h2 className="text-sm font-bold text-texto">
               Quais são os motivos mais frequentes?
             </h2>
             <p className="text-xs text-texto-suave">
@@ -662,14 +683,14 @@ export function PainelDashboard({
       {/* Linha 3 de Gráficos: Gargalos e Cumprimento de Prazos */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* 4. Onde os chamados travam? */}
-        <div className="rounded border border-borda bg-superficie p-5 shadow-sm space-y-3">
+        <div className="rounded-lg border border-borda bg-superficie p-5 shadow-sm space-y-3">
           <div>
-            <h2 className="text-sm font-semibold text-texto">
+            <h2 className="text-sm font-bold text-texto">
               Onde os chamados travam?
             </h2>
             <p className="text-xs text-texto-suave">
-              <strong className="text-texto font-medium">Revisão de Nota Presencial</strong> leva cerca de{" "}
-              <strong className="text-alerta font-medium">2.3x</strong> mais tempo que a média da unidade.
+              <strong className="text-texto font-semibold">Revisão de Nota Presencial</strong> leva cerca de{" "}
+              <strong className="text-[#D97706] font-bold">2.3x</strong> mais tempo que a média da unidade.
             </p>
           </div>
 
@@ -701,9 +722,9 @@ export function PainelDashboard({
                 />
                 <ReferenceLine
                   y={2.1}
-                  stroke="var(--alerta)"
+                  stroke="#D97706"
                   strokeDasharray="3 3"
-                  label={{ value: "Média (2.1d)", fill: "var(--alerta)", fontSize: 10 }}
+                  label={{ value: "Média (2.1d)", fill: "#D97706", fontSize: 10 }}
                 />
                 <Bar dataKey="dias" name="Dias médios" fill="var(--acento)" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -712,9 +733,9 @@ export function PainelDashboard({
         </div>
 
         {/* 5. Estamos cumprindo os prazos? */}
-        <div className="rounded border border-borda bg-superficie p-5 shadow-sm space-y-3">
+        <div className="rounded-lg border border-borda bg-superficie p-5 shadow-sm space-y-3">
           <div>
-            <h2 className="text-sm font-semibold text-texto">
+            <h2 className="text-sm font-bold text-texto">
               Estamos cumprindo os prazos?
             </h2>
             <p className="text-xs text-texto-suave">
@@ -756,9 +777,9 @@ export function PainelDashboard({
                 />
                 <ReferenceLine
                   y={90}
-                  stroke="var(--sucesso)"
+                  stroke="#16A34A"
                   strokeDasharray="4 4"
-                  label={{ value: "Meta (90%)", fill: "var(--sucesso)", fontSize: 10 }}
+                  label={{ value: "Meta (90%)", fill: "#16A34A", fontSize: 10 }}
                 />
                 <Line
                   type="monotone"
@@ -776,10 +797,10 @@ export function PainelDashboard({
       </div>
 
       {/* Listas Acionáveis: Chamados Críticos */}
-      <div className="rounded border border-borda bg-superficie p-5 shadow-sm space-y-3">
-        <div className="flex items-center justify-between border-b border-borda/40 pb-2">
+      <div className="rounded-lg border border-borda bg-superficie p-5 shadow-sm space-y-3">
+        <div className="flex items-center justify-between border-b border-borda pb-2">
           <div>
-            <h2 className="text-sm font-semibold text-texto">
+            <h2 className="text-sm font-bold text-texto">
               Chamados que exigem atenção imediata
             </h2>
             <p className="text-xs text-texto-suave">
@@ -788,14 +809,14 @@ export function PainelDashboard({
           </div>
           <Link
             href="/chamados?situacao=aguardando"
-            className="text-xs font-medium text-acento hover:underline flex items-center gap-1"
+            className="text-xs font-bold text-acento hover:underline flex items-center gap-1"
           >
             <span>Ver todos</span>
             <ArrowRight className="h-3 w-3" />
           </Link>
         </div>
 
-        <div className="divide-y divide-borda/40 rounded border border-borda bg-fundo max-h-64 overflow-y-auto">
+        <div className="divide-y divide-borda/60 rounded-md border border-borda bg-fundo max-h-64 overflow-y-auto">
           {(modoDemonstracao
             ? [
                 { id: "demo-1", protocolo: "CS20268801", aluno_nome: "Gabriela Fernandes", prazo: "2026-08-30", status: "vencendo_em_2_dias" as const, atendente: "Beatriz Souza" },
@@ -803,7 +824,7 @@ export function PainelDashboard({
               ]
             : dados.chamadosVencidosOuProximos
           ).map((c) => (
-            <div key={c.id} className="flex items-center justify-between p-2.5 text-xs">
+            <div key={c.id} className="flex items-center justify-between p-3 text-xs">
               <div>
                 <Link
                   href={`/chamados/${c.id}`}
@@ -811,14 +832,14 @@ export function PainelDashboard({
                 >
                   {c.protocolo}
                 </Link>
-                <span className="text-texto font-medium">{c.aluno_nome}</span>
-                <span className="text-[11px] text-texto-suave ml-2">({c.atendente})</span>
+                <span className="text-texto font-semibold">{c.aluno_nome}</span>
+                <span className="text-[11px] text-texto-suave ml-2 font-medium">({c.atendente})</span>
               </div>
               <span
-                className={`rounded px-2 py-0.5 font-mono text-[11px] font-semibold ${
+                className={`rounded-md px-2.5 py-1 font-mono text-[11px] font-bold ${
                   c.status === "vencido"
-                    ? "bg-erro-fundo text-erro border border-erro/30"
-                    : "bg-alerta-fundo text-alerta border border-alerta/30"
+                    ? "bg-erro-fundo text-erro border border-erro/40"
+                    : "bg-alerta-fundo text-alerta border border-alerta/40"
                 }`}
               >
                 {c.status === "vencido" ? "Vencido" : "Vence em breve"} ({format(parseISO(c.prazo), "dd/MM")})

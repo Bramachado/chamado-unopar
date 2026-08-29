@@ -4,27 +4,31 @@
 
 :root,
 [data-theme="claro"] {
-  --fundo: #FFFFFF;
-  --superficie: #F7F7F5;
-  --borda: #E3E3E0;
-  --texto: #16181A;
-  --texto-suave: #6B6F76;
-  --acento: #0E6F63;
-  --acento-hover: #095047;
-  --sucesso: #15803D;
+  --fundo: #F1F5F9; /* Fundo slate suave para destacar os cards brancos com profundidade */
+  --superficie: #FFFFFF; /* Superfície branca pura e nítida */
+  --superficie-destaque: #F8FAFC;
+  --borda: #CBD5E1; /* Borda bem definida para alto contraste */
+  --borda-suave: #E2E8F0;
+  --texto: #0F172A; /* Slate 900 de alto contraste */
+  --texto-suave: #475569; /* Slate 600 com contraste > 5.5:1 (AA+) */
+  --acento: #0284C7; /* Azul institucional vibrante */
+  --acento-hover: #0369A1;
+  --sucesso: #16A34A;
   --sucesso-fundo: #DCFCE7;
-  --alerta: #B45309;
+  --alerta: #D97706;
   --alerta-fundo: #FEF3C7;
-  --erro: #B91C1C;
+  --erro: #DC2626;
   --erro-fundo: #FEE2E2;
 }
 
 [data-theme="sepia"] {
-  --fundo: #EFE9DD;
-  --superficie: #E6DFD1;
-  --borda: #D6CDBB;
+  --fundo: #E8E1D1;
+  --superficie: #F4EFE6;
+  --superficie-destaque: #EDE5D8;
+  --borda: #C9BFA8;
+  --borda-suave: #D9D0BE;
   --texto: #25211A;
-  --texto-suave: #6E6656;
+  --texto-suave: #5C5446;
   --acento: #0E6F63;
   --acento-hover: #095047;
   --sucesso: #166534;
@@ -36,13 +40,15 @@
 }
 
 [data-theme="escuro"] {
-  --fundo: #131619;
-  --superficie: #1A1E22;
-  --borda: #2A2F35;
-  --texto: #E8EAEC;
-  --texto-suave: #A3AAB2; /* Contraste AA garantido sobre fundo escuro */
-  --acento: #38C7B0;
-  --acento-hover: #2DA390;
+  --fundo: #0B0E12;
+  --superficie: #141920;
+  --superficie-destaque: #1C222C;
+  --borda: #2D3748;
+  --borda-suave: #222933;
+  --texto: #F1F5F9;
+  --texto-suave: #94A3B8;
+  --acento: #38BDF8;
+  --acento-hover: #0EA5E9;
   --sucesso: #4ADE80;
   --sucesso-fundo: #14532D;
   --alerta: #FBBF24;
@@ -77,21 +83,21 @@ body {
 }
 
 .tabela-densa th {
-  background-color: var(--superficie);
+  background-color: var(--superficie-destaque);
   border-bottom: 1px solid var(--borda);
-  padding: 0.5rem 0.75rem;
+  padding: 0.6rem 0.85rem;
   text-align: left;
   font-weight: 600;
   color: var(--texto-suave);
-  height: 40px;
+  height: 42px;
 }
 
 .tabela-densa td {
-  border-bottom: 1px solid var(--borda);
-  padding: 0.5rem 0.75rem;
-  height: 40px;
+  border-bottom: 1px solid var(--borda-suave);
+  padding: 0.6rem 0.85rem;
+  height: 42px;
 }
 
 .tabela-densa tr:hover td {
-  background-color: var(--superficie);
+  background-color: var(--superficie-destaque);
 }

@@ -178,6 +178,8 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
         posicao: index + 1,
         nome: c.nome,
         papel: c.papel,
+        avatarBg: index % 2 === 0 ? "bg-sky-600 text-white" : "bg-emerald-600 text-white",
+        avatarTexto: c.nome.substring(0, 2).toUpperCase(),
         fotoUrl: `https://images.unsplash.com/photo-${1570295999919 + index * 1000}?w=150&auto=format&fit=crop&q=80`,
         resolvidos: c.resolvidos,
         abertos: c.abertos,
@@ -185,6 +187,13 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
         pctResolvidos,
         pctAbertos,
         tempoMedioDias,
+        corCard: index === 0
+          ? "border-emerald-500/40 bg-gradient-to-r from-emerald-500/15 via-superficie to-superficie shadow-sm"
+          : index === 1
+          ? "border-sky-500/40 bg-gradient-to-r from-sky-500/15 via-superficie to-superficie shadow-sm"
+          : index === 2
+          ? "border-amber-500/40 bg-gradient-to-r from-amber-500/15 via-superficie to-superficie shadow-sm"
+          : "border-borda bg-superficie shadow-xs",
       };
     });
 
