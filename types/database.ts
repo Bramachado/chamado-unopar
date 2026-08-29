@@ -64,6 +64,18 @@ export interface Chamado {
   excluido_por?: string | null;
 }
 
+export interface ArquivoChamado {
+  id: string;
+  chamado_id: string;
+  nome_original: string;
+  caminho_storage: string;
+  tamanho_bytes?: number | null;
+  tipo_mime?: string | null;
+  descricao?: string | null;
+  criado_por: string;
+  criado_em: string;
+}
+
 export interface LogAuditoria {
   id: number;
   tabela: string;
