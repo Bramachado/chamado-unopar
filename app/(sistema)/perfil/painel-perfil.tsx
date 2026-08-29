@@ -6,7 +6,7 @@ import { salvarCredencialExternaAction } from "../usuarios/actions";
 import { criarClienteBrowser } from "@/lib/supabase/client";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { User, Lock, Key, History, Check, AlertCircle } from "lucide-react";
+import { User, Lock, Key, History, Check, AlertCircle, ShieldCheck } from "lucide-react";
 
 interface PainelPerfilProps {
   perfil: Perfil;
@@ -59,230 +59,257 @@ export function PainelPerfil({ perfil, historicoAcessos }: PainelPerfilProps) {
     setMsgErro(null);
 
     if (novaSenhaSistema.length < 8) {
-      setMsgErro("A nova senha do sistema deve ter no mínimo 8 caracteres.");
+      setMsgErro("A nova senha deve ter no mínimo 8 caracteres.");
       return;
     }
 
     if (novaSenhaSistema !== confirmaSenhaSistema) {
-      setMsgErro("A confirmação de senha não confere.");
+      setMsgErro("A confirmação de senha não coincide com a nova senha digitada.");
       return;
     }
 
-    const supabase = criarClienteBrowser();
-    const { error } = await supabase.auth.updateUser({
-      password: novaSenhaSistema,
-    });
+    startTransition(async () => {
+      const supabase = criarClienteBrowser();
+      const { error } = await supabase.auth.updateUser({
+        password: novaSenhaSistema,
+      });
 
-    if (error) {
-      setMsgErro(`Erro ao atualizar senha: ${error.message}`);
-    } else {
-      setNovaSenhaSistema("");
-      setConfirmaSenhaSistema("");
-      setMsgSucesso("Sua senha de acesso ao sistema foi alterada com sucesso.");
-    }
+      if (error) {
+        setMsgErro(`Erro ao atualizar senha: ${error.message}`);
+      } else {
+        setMsgSucesso("Sua senha de acesso ao sistema foi atualizada com sucesso.");
+        setNovaSenhaSistema("");
+        setConfirmaSenhaSistema("");
+      }
+    });
   };
 
-  const handleAtualizarSenhaExterna = async (e: React.FormEvent) => {
+  const handleSalvarSenhaExterna = async (e: React.FormEvent) => {
     e.preventDefault();
     setMsgSucesso(null);
     setMsgErro(null);
 
-    if (!novaSenhaExterna || novaSenhaExterna.trim().length === 0) {
-      setMsgErro("Informe a nova senha da plataforma externa.");
+    if (!novaSenhaExterna.trim()) {
+      setMsgErro("Digite a senha da plataforma externa.");
       return;
     }
 
     startTransition(async () => {
       const res = await salvarCredencialExternaAction(perfil.id, novaSenhaExterna);
-      if (res.sucesso) {
-        setNovaSenhaExterna("");
-        setMsgSucesso("Senha da plataforma externa atualizada e cifrada com sucesso no cofre.");
+      if (!res.sucesso) {
+        setMsgErro(res.erro || "Falha ao salvar senha da plataforma externa.");
       } else {
-        setMsgErro(res.erro || "Falha ao salvar senha no cofre.");
+        setMsgSucesso("Senha da plataforma externa atualizada e armazenada de forma cifrada.");
+        setNovaSenhaExterna("");
       }
     });
   };
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-6">
-      <div>
-        <h1 className="font-heading text-xl font-bold text-texto">Meu perfil</h1>
-        <p className="text-sm text-texto-suave">
-          Gerenciamento de credenciais próprias e transparência de acessos administrativos.
-        </p>
+    <div className="mx-auto max-w-4xl space-y-6">
+      {/* Cabeçalho */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between bg-superficie p-4 rounded-xl border border-borda shadow-sm">
+        <div>
+          <h1 className="font-heading text-xl font-bold text-texto tracking-tight">
+            Meu Perfil e Segurança
+          </h1>
+          <p className="text-xs text-texto-suave">
+            Dados cadastrais, troca de senha e gestão da sua credencial da plataforma externa.
+          </p>
+        </div>
+
+        <div className="inline-flex items-center gap-1.5 rounded-full bg-acento/15 px-3 py-1 text-xs font-bold text-acento border border-acento/30">
+          <ShieldCheck className="h-4 w-4" />
+          <span>Conta Segura</span>
+        </div>
       </div>
 
       {msgSucesso && (
-        <div className="flex items-center gap-2 rounded border border-sucesso/30 bg-sucesso-fundo p-3 text-xs text-sucesso">
+        <div className="flex items-center gap-2 rounded-xl border border-sucesso/40 bg-sucesso-fundo p-4 text-xs font-bold text-sucesso shadow-sm">
           <Check className="h-4 w-4 shrink-0" />
           <span>{msgSucesso}</span>
         </div>
       )}
 
       {msgErro && (
-        <div className="flex items-start gap-2 rounded border border-erro/30 bg-erro-fundo p-3 text-xs text-erro">
+        <div className="flex items-start gap-2 rounded-xl border border-erro/40 bg-erro-fundo p-4 text-xs font-bold text-erro shadow-sm">
           <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
           <span>{msgErro}</span>
         </div>
       )}
 
-      {/* Dados Pessoais */}
-      <div className="rounded border border-borda bg-superficie p-5 shadow-sm space-y-3">
-        <h2 className="text-sm font-semibold text-texto-suave border-b border-borda/40 pb-2 flex items-center gap-1.5">
-          <User className="h-4 w-4" />
-          <span>Informações cadastrais</span>
-        </h2>
+      {/* Cartão de Identificação */}
+      <div className="rounded-xl border border-borda bg-superficie p-6 shadow-sm space-y-4">
+        <div className="flex items-center gap-2 border-b border-borda pb-3">
+          <User className="h-4 w-4 text-acento" />
+          <h2 className="font-heading text-sm font-bold text-texto">
+            Identificação Cadastral
+          </h2>
+        </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 text-sm">
-          <div>
-            <span className="text-texto-suave block text-xs">Nome completo</span>
-            <span className="font-medium text-texto">{perfil.nome_completo}</span>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 text-xs">
+          <div className="rounded-lg border border-borda/60 bg-fundo p-3.5">
+            <span className="font-semibold text-texto-suave block text-[11px]">Nome Completo</span>
+            <span className="text-texto font-bold text-sm block mt-0.5">{perfil.nome_completo}</span>
           </div>
-          <div>
-            <span className="text-texto-suave block text-xs">E-mail institucional</span>
-            <span className="font-mono text-texto">{perfil.email}</span>
+
+          <div className="rounded-lg border border-borda/60 bg-fundo p-3.5">
+            <span className="font-semibold text-texto-suave block text-[11px]">E-mail Institucional</span>
+            <span className="text-texto font-mono font-bold block mt-0.5">{perfil.email}</span>
           </div>
-          <div>
-            <span className="text-texto-suave block text-xs">Papel no sistema</span>
-            <span className="font-medium text-texto">{formatarPapel(perfil.papel)}</span>
+
+          <div className="rounded-lg border border-borda/60 bg-fundo p-3.5">
+            <span className="font-semibold text-texto-suave block text-[11px]">Papel no Sistema</span>
+            <span className="inline-block rounded-md border border-acento/40 bg-acento/15 px-2.5 py-0.5 text-xs font-bold text-acento mt-1">
+              {formatarPapel(perfil.papel)}
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Formulários de Senha */}
+      {/* Formulários de Senhas em 2 Colunas */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        {/* Alterar Senha de Acesso ao Sistema */}
-        <div className="rounded border border-borda bg-superficie p-5 shadow-sm space-y-4">
-          <h2 className="text-sm font-semibold text-texto-suave border-b border-borda/40 pb-2 flex items-center gap-1.5">
-            <Lock className="h-4 w-4" />
-            <span>Alterar senha do sistema</span>
-          </h2>
+        {/* Formulário 1: Troca de Senha do Sistema */}
+        <div className="rounded-xl border border-borda bg-superficie p-6 shadow-sm space-y-4">
+          <div className="flex items-center gap-2 border-b border-borda pb-3">
+            <Lock className="h-4 w-4 text-acento" />
+            <h2 className="font-heading text-sm font-bold text-texto">
+              Senha de Acesso ao Sistema
+            </h2>
+          </div>
 
-          <form onSubmit={handleTrocarSenhaSistema} className="space-y-3">
+          <form onSubmit={handleTrocarSenhaSistema} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-texto mb-1">
-                Nova senha de acesso (mínimo 8 caracteres) *
+              <label className="block text-xs font-bold text-texto mb-1.5">
+                Nova Senha (mínimo 8 caracteres) *
               </label>
               <input
                 type="password"
                 required
-                minLength={8}
                 value={novaSenhaSistema}
                 onChange={(e) => setNovaSenhaSistema(e.target.value)}
-                placeholder="Mínimo 8 caracteres"
-                className="w-full rounded border border-borda bg-fundo px-3 py-2 text-sm text-texto focus:border-acento focus:outline-none"
+                placeholder="••••••••"
+                minLength={8}
+                className="w-full rounded-lg border border-borda bg-fundo px-3 py-2 text-xs text-texto focus:border-acento focus:outline-none shadow-xs"
               />
-              {novaSenhaSistema.length > 0 && (
-                <div className="mt-1.5 flex items-center gap-2">
-                  <div className="flex h-1.5 w-24 gap-1 rounded bg-borda overflow-hidden">
+
+              {/* Indicador de Força de Senha */}
+              {novaSenhaSistema && (
+                <div className="mt-2 space-y-1">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-texto-suave font-medium">Força da senha:</span>
+                    <span className={`font-bold ${forca.nivel === 1 ? "text-erro" : forca.nivel === 2 ? "text-alerta" : "text-sucesso"}`}>
+                      {forca.rotulo}
+                    </span>
+                  </div>
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-borda">
                     <div
-                      className={`h-full ${
-                        forca.nivel >= 1 ? (forca.nivel === 1 ? "bg-erro w-1/3" : forca.nivel === 2 ? "bg-alerta w-2/3" : "bg-sucesso w-full") : ""
-                      }`}
+                      style={{ width: `${(forca.nivel / 3) * 100}%` }}
+                      className={`h-full ${forca.nivel === 1 ? "bg-erro" : forca.nivel === 2 ? "bg-alerta" : "bg-sucesso"}`}
                     />
                   </div>
-                  <span className={`text-[11px] font-medium ${forca.cor.split(" ")[1]}`}>
-                    Força: {forca.rotulo}
-                  </span>
                 </div>
               )}
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-texto mb-1">
-                Confirmar nova senha *
+              <label className="block text-xs font-bold text-texto mb-1.5">
+                Confirmar Nova Senha *
               </label>
               <input
                 type="password"
                 required
-                minLength={8}
                 value={confirmaSenhaSistema}
                 onChange={(e) => setConfirmaSenhaSistema(e.target.value)}
-                placeholder="Repita a nova senha"
-                className="w-full rounded border border-borda bg-fundo px-3 py-2 text-sm text-texto focus:border-acento focus:outline-none"
+                placeholder="••••••••"
+                minLength={8}
+                className="w-full rounded-lg border border-borda bg-fundo px-3 py-2 text-xs text-texto focus:border-acento focus:outline-none shadow-xs"
               />
             </div>
 
             <button
               type="submit"
-              className="w-full rounded bg-acento py-2 px-3 text-xs font-medium text-white transition hover:bg-acento-hover"
+              disabled={isPending || novaSenhaSistema.length < 8}
+              className="w-full rounded-lg bg-acento px-4 py-2.5 text-xs font-bold text-white transition hover:bg-acento-hover disabled:opacity-50 shadow-sm"
             >
-              Salvar nova senha do sistema
+              {isPending ? "Atualizando..." : "Alterar Senha do Sistema"}
             </button>
           </form>
         </div>
 
-        {/* Atualizar Senha da Plataforma Externa */}
-        <div className="rounded border border-borda bg-superficie p-5 shadow-sm space-y-4">
-          <h2 className="text-sm font-semibold text-texto-suave border-b border-borda/40 pb-2 flex items-center gap-1.5">
-            <Key className="h-4 w-4" />
-            <span>Atualizar senha da plataforma externa</span>
-          </h2>
+        {/* Formulário 2: Senha da Plataforma Externa (Cofre) */}
+        <div className="rounded-xl border border-borda bg-superficie p-6 shadow-sm space-y-4">
+          <div className="flex items-center gap-2 border-b border-borda pb-3">
+            <Key className="h-4 w-4 text-acento" />
+            <h2 className="font-heading text-sm font-bold text-texto">
+              Senha da Plataforma Externa
+            </h2>
+          </div>
 
-          <form onSubmit={handleAtualizarSenhaExterna} className="space-y-3">
+          <p className="text-xs text-texto-suave leading-relaxed">
+            Armazenada de forma cifrada. Apenas administradoras podem consultá-la, e toda consulta fica registrada abaixo.
+          </p>
+
+          <form onSubmit={handleSalvarSenhaExterna} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-texto mb-1">
-                Nova senha da plataforma externa *
+              <label className="block text-xs font-bold text-texto mb-1.5">
+                Atualizar Senha da Plataforma Externa *
               </label>
               <input
                 type="password"
                 required
                 value={novaSenhaExterna}
                 onChange={(e) => setNovaSenhaExterna(e.target.value)}
-                placeholder="Senha usada na plataforma externa"
-                className="w-full rounded border border-borda bg-fundo px-3 py-2 text-sm text-texto focus:border-acento focus:outline-none"
+                placeholder="Senha de acesso ao PAD externo..."
+                className="w-full rounded-lg border border-borda bg-fundo px-3 py-2 text-xs text-texto focus:border-acento focus:outline-none shadow-xs"
               />
-              <span className="text-xs text-texto-suave block mt-1.5">
-                Armazenada de forma cifrada. Apenas administradoras podem consultá-la, e toda consulta fica registrada abaixo.
-              </span>
             </div>
 
             <button
               type="submit"
-              disabled={isPending}
-              className="w-full rounded border border-borda bg-fundo py-2 px-3 text-xs font-medium text-texto transition hover:bg-superficie disabled:opacity-50"
+              disabled={isPending || !novaSenhaExterna}
+              className="w-full rounded-lg bg-acento px-4 py-2.5 text-xs font-bold text-white transition hover:bg-acento-hover disabled:opacity-50 shadow-sm"
             >
-              {isPending ? "Cifrando e salvando..." : "Atualizar senha no cofre"}
+              {isPending ? "Cifrando e salvando..." : "Salvar no Cofre Cifrado"}
             </button>
           </form>
         </div>
       </div>
 
-      {/* Histórico de Acessos à Minha Credencial */}
-      <div className="rounded border border-borda bg-superficie p-5 shadow-sm space-y-3">
-        <h2 className="text-sm font-semibold text-texto-suave border-b border-borda/40 pb-2 flex items-center gap-1.5">
-          <History className="h-4 w-4" />
-          <span>Histórico de consultas à minha credencial externa</span>
-        </h2>
-        <p className="text-xs text-texto-suave">
-          Transparência total: sempre que uma administradora revela sua senha da plataforma externa, o registro permanente aparece aqui.
-        </p>
+      {/* Histórico de Quem Consultou Sua Senha (Auditoria Transparente) */}
+      <div className="rounded-xl border border-borda bg-superficie p-6 shadow-sm space-y-3">
+        <div className="flex items-center gap-2 border-b border-borda pb-3">
+          <History className="h-4 w-4 text-acento" />
+          <h2 className="font-heading text-sm font-bold text-texto">
+            Histórico de Consultas à sua Senha Externa
+          </h2>
+        </div>
 
         {historicoAcessos.length === 0 ? (
-          <p className="text-xs text-texto-suave py-2">
-            Sua credencial nunca foi consultada por nenhuma administradora.
+          <p className="text-xs text-texto-suave">
+            Nenhuma administradora consultou sua senha externa até o momento.
           </p>
         ) : (
-          <div className="overflow-x-auto rounded border border-borda bg-fundo">
+          <div className="overflow-x-auto rounded-lg border border-borda bg-fundo">
             <table className="tabela-densa">
               <thead>
                 <tr>
-                  <th>Administradora</th>
-                  <th className="w-48">Data e hora</th>
-                  <th className="w-36 font-mono">Endereço IP</th>
+                  <th>Data e Hora</th>
+                  <th>Administradora Responsável</th>
+                  <th>Endereço IP</th>
                 </tr>
               </thead>
               <tbody>
-                {historicoAcessos.map((h) => (
-                  <tr key={h.id}>
-                    <td className="text-xs font-medium text-texto">
-                      {h.admin_nome || "Administradora"}
+                {historicoAcessos.map((a) => (
+                  <tr key={a.id}>
+                    <td className="font-mono text-xs tabular-nums text-texto-suave font-semibold">
+                      {format(parseISO(a.data_hora), "dd/MM/yyyy HH:mm:ss", { locale: ptBR })}
                     </td>
-                    <td className="font-mono text-xs tabular-nums text-texto-suave">
-                      {format(parseISO(h.data_hora), "dd/MM/yyyy 'às' HH:mm:ss", { locale: ptBR })}
+                    <td className="text-xs font-bold text-texto">
+                      {a.admin_nome || "Administradora"}
                     </td>
-                    <td className="font-mono text-xs tabular-nums text-texto-suave">
-                      {h.ip || "127.0.0.1"}
+                    <td className="font-mono text-xs text-texto-suave tabular-nums">
+                      {a.ip || "127.0.0.1"}
                     </td>
                   </tr>
                 ))}

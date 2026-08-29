@@ -78,33 +78,33 @@ export function PainelAuditoria({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Cabeçalho */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-superficie p-4 rounded-xl border border-borda shadow-sm">
         <div>
-          <h1 className="font-heading text-xl font-bold text-texto">
-            Logs de auditoria do sistema
+          <h1 className="font-heading text-xl font-bold text-texto tracking-tight">
+            Logs de Auditoria do Sistema
           </h1>
           <p className="text-xs text-texto-suave">
-            Rastreamento completo de operações em banco de dados, alterações cadastrais e acessos.
+            Rastreamento completo de operações em banco de dados, alterações cadastrais, arquivos e acessos.
           </p>
         </div>
 
         <Link
           href={`/auditoria/exportar?${searchParams.toString()}`}
-          className="inline-flex items-center gap-1.5 rounded border border-borda bg-superficie px-3 py-1.5 text-xs font-medium text-texto transition hover:bg-fundo"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-borda bg-fundo px-4 py-2 text-xs font-bold text-texto transition hover:bg-superficie shadow-xs"
         >
-          <Download className="h-3.5 w-3.5" />
+          <Download className="h-4 w-4 text-texto-suave" />
           <span>Exportar CSV</span>
         </Link>
       </div>
 
       {/* Filtros */}
-      <div className="rounded border border-borda bg-superficie p-3.5 space-y-3 shadow-sm">
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="rounded-xl border border-borda bg-superficie p-5 space-y-4 shadow-sm">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <div>
-            <label className="block text-xs font-medium text-texto mb-1">
-              Buscar (usuária ou protocolo)
+            <label className="block text-xs font-bold text-texto mb-1">
+              Buscar (Usuária ou Protocolo)
             </label>
             <div className="relative">
               <input
@@ -115,23 +115,24 @@ export function PainelAuditoria({
                   if (e.key === "Enter") aplicarFiltro("busca", busca);
                 }}
                 placeholder="Nome ou CS..."
-                className="w-full rounded border border-borda bg-fundo px-2.5 py-1.5 pl-8 text-xs text-texto placeholder:text-texto-suave focus:border-acento focus:outline-none"
+                className="w-full rounded-lg border border-borda bg-fundo pl-8 pr-3 py-2 text-xs font-medium text-texto placeholder:text-texto-suave focus:border-acento focus:outline-none shadow-xs"
               />
-              <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-texto-suave" />
+              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-texto-suave" />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-texto mb-1">
+            <label className="block text-xs font-bold text-texto mb-1">
               Tabela
             </label>
             <select
               value={filtrosAtuais.tabela || ""}
               onChange={(e) => aplicarFiltro("tabela", e.target.value)}
-              className="w-full rounded border border-borda bg-fundo px-2.5 py-1.5 text-xs text-texto focus:border-acento focus:outline-none"
+              className="w-full rounded-lg border border-borda bg-fundo px-3 py-2 text-xs font-medium text-texto focus:border-acento focus:outline-none shadow-xs"
             >
               <option value="">Todas as tabelas</option>
               <option value="chamados">chamados</option>
+              <option value="arquivos">arquivos</option>
               <option value="motivos">motivos</option>
               <option value="perfis">perfis</option>
               <option value="credenciais_externas">credenciais_externas</option>
@@ -139,13 +140,13 @@ export function PainelAuditoria({
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-texto mb-1">
+            <label className="block text-xs font-bold text-texto mb-1">
               Operação
             </label>
             <select
               value={filtrosAtuais.operacao || ""}
               onChange={(e) => aplicarFiltro("operacao", e.target.value)}
-              className="w-full rounded border border-borda bg-fundo px-2.5 py-1.5 text-xs text-texto focus:border-acento focus:outline-none"
+              className="w-full rounded-lg border border-borda bg-fundo px-3 py-2 text-xs font-medium text-texto focus:border-acento focus:outline-none shadow-xs"
             >
               <option value="">Todas as operações</option>
               <option value="INSERT">INSERT (Criação)</option>
@@ -155,38 +156,38 @@ export function PainelAuditoria({
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-texto mb-1">
-              Data de início
+            <label className="block text-xs font-bold text-texto mb-1">
+              Data de Início
             </label>
             <input
               type="date"
               value={filtrosAtuais.data_inicio || ""}
               onChange={(e) => aplicarFiltro("data_inicio", e.target.value)}
-              className="w-full rounded border border-borda bg-fundo px-2.5 py-1.5 font-mono text-xs text-texto focus:border-acento focus:outline-none"
+              className="w-full rounded-lg border border-borda bg-fundo px-3 py-2 font-mono text-xs font-semibold text-texto focus:border-acento focus:outline-none shadow-xs"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-texto mb-1">
-              Data final
+            <label className="block text-xs font-bold text-texto mb-1">
+              Data Final
             </label>
             <input
               type="date"
               value={filtrosAtuais.data_fim || ""}
               onChange={(e) => aplicarFiltro("data_fim", e.target.value)}
-              className="w-full rounded border border-borda bg-fundo px-2.5 py-1.5 font-mono text-xs text-texto focus:border-acento focus:outline-none"
+              className="w-full rounded-lg border border-borda bg-fundo px-3 py-2 font-mono text-xs font-semibold text-texto focus:border-acento focus:outline-none shadow-xs"
             />
           </div>
         </div>
 
-        <div className="flex items-center justify-between border-t border-borda/40 pt-2 text-xs">
+        <div className="flex items-center justify-between border-t border-borda pt-3 text-xs">
           <span className="text-texto-suave">
             Total de <strong>{totalRegistros}</strong> registros de auditoria.
           </span>
           <button
             type="button"
             onClick={limparFiltros}
-            className="inline-flex items-center gap-1 text-xs text-texto-suave hover:text-texto"
+            className="inline-flex items-center gap-1 text-xs font-bold text-texto-suave hover:text-texto"
           >
             <RotateCcw className="h-3 w-3" />
             <span>Limpar filtros</span>
@@ -195,51 +196,51 @@ export function PainelAuditoria({
       </div>
 
       {/* Tabela de Logs */}
-      <div className="overflow-x-auto rounded border border-borda bg-fundo shadow-sm">
+      <div className="overflow-x-auto rounded-xl border border-borda bg-superficie shadow-sm">
         <table className="tabela-densa">
           <thead>
             <tr>
-              <th className="w-40">Data e hora</th>
-              <th className="w-24">Operação</th>
+              <th className="w-44">Data e Hora</th>
+              <th className="w-28 text-center">Operação</th>
               <th className="w-36">Tabela</th>
-              <th className="w-28">Protocolo</th>
-              <th>Usuária responsável</th>
-              <th className="w-28 font-mono">Endereço IP</th>
-              <th>Campos alterados</th>
+              <th className="w-32">Protocolo</th>
+              <th>Usuária Responsável</th>
+              <th className="w-32 font-mono">Endereço IP</th>
+              <th>Campos Alterados</th>
               <th className="w-20 text-right">Detalhes</th>
             </tr>
           </thead>
           <tbody>
             {logs.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-8 text-center text-xs text-texto-suave">
+                <td colSpan={8} className="py-12 text-center text-xs text-texto-suave font-medium">
                   Nenhum log de auditoria encontrado.
                 </td>
               </tr>
             ) : (
               logs.map((l) => (
                 <tr key={l.id}>
-                  <td className="font-mono text-xs tabular-nums text-texto-suave">
+                  <td className="font-mono text-xs tabular-nums text-texto-suave font-semibold">
                     {format(parseISO(l.criado_em), "dd/MM/yyyy HH:mm:ss", { locale: ptBR })}
                   </td>
-                  <td>
+                  <td className="text-center">
                     <span
-                      className={`inline-block rounded border px-1.5 py-0.2 font-mono text-[10px] font-bold ${
+                      className={`inline-block rounded-md border px-2 py-0.5 font-mono text-[10px] font-bold ${
                         l.operacao === "INSERT"
-                          ? "bg-sucesso/10 text-sucesso border-sucesso/30"
+                          ? "bg-sucesso/15 text-sucesso border-sucesso/40"
                           : l.operacao === "UPDATE"
-                          ? "bg-alerta-fundo text-alerta border-alerta/30"
-                          : "bg-erro-fundo text-erro border-erro/30"
+                          ? "bg-alerta-fundo text-alerta border-alerta/40"
+                          : "bg-erro-fundo text-erro border-erro/40"
                       }`}
                     >
                       {l.operacao}
                     </span>
                   </td>
-                  <td className="font-mono text-xs text-texto">{l.tabela}</td>
-                  <td className="font-mono text-xs tabular-nums font-semibold text-acento">
+                  <td className="font-mono text-xs text-texto font-bold">{l.tabela}</td>
+                  <td className="font-mono text-xs tabular-nums font-bold text-acento">
                     {l.protocolo || "—"}
                   </td>
-                  <td className="text-xs text-texto font-medium">
+                  <td className="text-xs text-texto font-bold">
                     {l.usuario_nome || "Sistema"}
                   </td>
                   <td className="font-mono text-xs tabular-nums text-texto-suave">
@@ -254,10 +255,10 @@ export function PainelAuditoria({
                     <button
                       type="button"
                       onClick={() => setLogSelecionado(l)}
-                      className="rounded p-1 text-texto-suave hover:bg-superficie hover:text-texto"
+                      className="rounded-md p-1.5 text-texto-suave hover:bg-fundo hover:text-acento transition"
                       title="Inspecionar dados antes e depois"
                     >
-                      <Eye className="h-3.5 w-3.5" />
+                      <Eye className="h-4 w-4" />
                     </button>
                   </td>
                 </tr>
@@ -269,28 +270,28 @@ export function PainelAuditoria({
 
       {/* Paginação */}
       <div className="flex items-center justify-between border-t border-borda pt-3 text-xs">
-        <div className="text-texto-suave">
+        <div className="text-texto-suave font-medium">
           Página <strong>{paginaAtual}</strong> de <strong>{totalPaginas}</strong>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           <button
             type="button"
             disabled={paginaAtual <= 1 || isPending}
             onClick={() => mudarPagina(paginaAtual - 1)}
-            className="flex items-center gap-1 rounded border border-borda bg-superficie px-2 py-1 text-xs text-texto transition hover:bg-fundo disabled:opacity-40"
+            className="flex items-center gap-1 rounded-lg border border-borda bg-superficie px-3 py-1.5 text-xs font-bold text-texto transition hover:bg-fundo disabled:opacity-40 shadow-xs"
           >
-            <ChevronLeft className="h-3.5 w-3.5" />
+            <ChevronLeft className="h-4 w-4" />
             <span>Anterior</span>
           </button>
           <button
             type="button"
             disabled={paginaAtual >= totalPaginas || isPending}
             onClick={() => mudarPagina(paginaAtual + 1)}
-            className="flex items-center gap-1 rounded border border-borda bg-superficie px-2 py-1 text-xs text-texto transition hover:bg-fundo disabled:opacity-40"
+            className="flex items-center gap-1 rounded-lg border border-borda bg-superficie px-3 py-1.5 text-xs font-bold text-texto transition hover:bg-fundo disabled:opacity-40 shadow-xs"
           >
             <span>Próxima</span>
-            <ChevronRight className="h-3.5 w-3.5" />
+            <ChevronRight className="h-4 w-4" />
           </button>
         </div>
       </div>
@@ -298,10 +299,10 @@ export function PainelAuditoria({
       {/* Modal de Inspeção Antes / Depois */}
       {logSelecionado && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-2xl rounded border border-borda bg-fundo p-5 shadow-lg space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-borda/40 pb-2">
+          <div className="w-full max-w-2xl rounded-xl border border-borda bg-fundo p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-borda pb-3">
               <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-acento" />
+                <FileText className="h-5 w-5 text-acento" />
                 <h3 className="font-heading text-sm font-bold text-texto">
                   Auditoria #{logSelecionado.id} — {logSelecionado.tabela} ({logSelecionado.operacao})
                 </h3>
@@ -309,18 +310,18 @@ export function PainelAuditoria({
               <button
                 type="button"
                 onClick={() => setLogSelecionado(null)}
-                className="text-texto-suave hover:text-texto"
+                className="text-texto-suave hover:text-texto font-bold"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
               <div>
-                <span className="font-semibold text-texto-suave block mb-1">
-                  Dados antes da operação
+                <span className="font-bold text-texto-suave block mb-1">
+                  Dados Antes da Operação
                 </span>
-                <pre className="rounded border border-borda bg-superficie p-3 text-[11px] font-mono text-texto overflow-x-auto whitespace-pre-wrap">
+                <pre className="rounded-lg border border-borda bg-superficie p-3 text-[11px] font-mono text-texto overflow-x-auto whitespace-pre-wrap shadow-inner">
                   {logSelecionado.dados_antes
                     ? JSON.stringify(logSelecionado.dados_antes, null, 2)
                     : "null (Registro novo)"}
@@ -328,10 +329,10 @@ export function PainelAuditoria({
               </div>
 
               <div>
-                <span className="font-semibold text-texto-suave block mb-1">
-                  Dados depois da operação
+                <span className="font-bold text-texto-suave block mb-1">
+                  Dados Depois da Operação
                 </span>
-                <pre className="rounded border border-borda bg-superficie p-3 text-[11px] font-mono text-texto overflow-x-auto whitespace-pre-wrap">
+                <pre className="rounded-lg border border-borda bg-superficie p-3 text-[11px] font-mono text-texto overflow-x-auto whitespace-pre-wrap shadow-inner">
                   {logSelecionado.dados_depois
                     ? JSON.stringify(logSelecionado.dados_depois, null, 2)
                     : "null (Excluído)"}
@@ -341,14 +342,14 @@ export function PainelAuditoria({
 
             {logSelecionado.campos_alterados && (
               <div className="text-xs">
-                <span className="font-semibold text-texto-suave block mb-1">
-                  Campos modificados
+                <span className="font-bold text-texto-suave block mb-1">
+                  Campos Modificados
                 </span>
                 <div className="flex flex-wrap gap-1.5">
                   {logSelecionado.campos_alterados.map((campo) => (
                     <span
                       key={campo}
-                      className="rounded border border-acento/30 bg-acento/10 px-2 py-0.5 font-mono text-[11px] font-semibold text-acento"
+                      className="rounded-md border border-acento/40 bg-acento/15 px-2.5 py-0.5 font-mono text-[11px] font-bold text-acento"
                     >
                       {campo}
                     </span>

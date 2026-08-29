@@ -35,20 +35,6 @@ export type EstadoSalvarChamado = {
   errosCampo?: Record<string, string>;
 };
 
-export interface FiltrosChamados {
-  busca?: string;
-  situacao?: string;
-  prioridade?: string;
-  motivo_id?: string;
-  responsavel_id?: string;
-  data_inicio?: string;
-  data_fim?: string;
-  pagina?: number;
-  por_pagina?: number;
-  ordenar_por?: string;
-  direcao?: "asc" | "desc";
-}
-
 export async function verificarProtocoloDuplicado(protocolo: string, chamadoAtualId?: string) {
   const supabase = await criarClienteServidor();
   const limpo = protocolo.trim().toUpperCase();
@@ -161,8 +147,14 @@ export async function salvarChamado(
     };
   }
 
+  let finalChamadoId = chamadoId;
+
   if (chamadoId) {
-    // Atualização
+    // Atualização Colaborativa: registra quem fez a edição e data_conclusao se for concluído
+    const dataConclusao = (payload.situacao === "concluido" || payload.situacao === "encerrado")
+      ? new Date().toISOString()
+      : null;
+
     const { error } = await supabase
       .from("chamados")
       .update({
@@ -175,20 +167,23 @@ export async function salvarChamado(
         prioridade: payload.prioridade as PrioridadeChamado,
         data_solicitacao: payload.data_solicitacao,
         prazo: payload.prazo,
+        data_conclusao: dataConclusao,
         chamado_vinculado_id: payload.chamado_vinculado_id ? payload.chamado_vinculado_id : null,
         observacao: payload.observacao,
+        atualizado_por: user.id,
+        atualizado_em: new Date().toISOString(),
       })
       .eq("id", chamadoId);
 
     if (error) {
       return { erro: `Erro ao atualizar chamado: ${error.message}` };
     }
-
-    revalidatePath("/chamados");
-    revalidatePath(`/chamados/${chamadoId}`);
-    return { sucesso: true, chamadoId };
   } else {
-    // Criação (criado_por forçado ao auth.uid() no RLS)
+    // Criação inicial
+    const dataConclusao = (payload.situacao === "concluido" || payload.situacao === "encerrado")
+      ? new Date().toISOString()
+      : null;
+
     const { data, error } = await supabase
       .from("chamados")
       .insert({
@@ -202,6 +197,7 @@ export async function salvarChamado(
         prioridade: payload.prioridade as PrioridadeChamado,
         data_solicitacao: payload.data_solicitacao,
         prazo: payload.prazo,
+        data_conclusao: dataConclusao,
         chamado_vinculado_id: payload.chamado_vinculado_id ? payload.chamado_vinculado_id : null,
         observacao: payload.observacao,
         criado_por: user.id,
@@ -213,15 +209,100 @@ export async function salvarChamado(
       return { erro: `Erro ao cadastrar chamado: ${error?.message || "falha desconhecida"}` };
     }
 
-    revalidatePath("/chamados");
-    return { sucesso: true, chamadoId: data.id };
+    finalChamadoId = data.id;
   }
+
+  // Upload e vinculação de arquivos enviados no formulário
+  const arquivos = formData.getAll("arquivos") as File[];
+  if (finalChamadoId && arquivos && arquivos.length > 0) {
+    for (const arq of arquivos) {
+      if (arq && arq.size > 0 && arq.name) {
+        const nomeSanitizado = arq.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+        const caminhoStorage = `${finalChamadoId}/${Date.now()}_${nomeSanitizado}`;
+
+        // Inserir registro na tabela public.arquivos
+        await supabase.from("arquivos").insert({
+          chamado_id: finalChamadoId,
+          nome_original: arq.name,
+          caminho_storage: caminhoStorage,
+          tamanho_bytes: arq.size,
+          tipo_mime: arq.type || "application/octet-stream",
+          criado_por: user.id,
+        });
+      }
+    }
+  }
+
+  revalidatePath("/chamados");
+  if (finalChamadoId) {
+    revalidatePath(`/chamados/${finalChamadoId}`);
+  }
+
+  return { sucesso: true, chamadoId: finalChamadoId };
+}
+
+export async function anexarArquivoAction(formData: FormData) {
+  const supabase = await criarClienteServidor();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { sucesso: false, erro: "Sessão expirada." };
+  }
+
+  const chamadoId = String(formData.get("chamado_id"));
+  const descricao = String(formData.get("descricao") || "");
+  const arquivos = formData.getAll("arquivos") as File[];
+
+  if (!chamadoId || !arquivos || arquivos.length === 0) {
+    return { sucesso: false, erro: "Nenhum arquivo informado." };
+  }
+
+  for (const arq of arquivos) {
+    if (arq && arq.size > 0 && arq.name) {
+      const nomeSanitizado = arq.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const caminhoStorage = `${chamadoId}/${Date.now()}_${nomeSanitizado}`;
+
+      await supabase.from("arquivos").insert({
+        chamado_id: chamadoId,
+        nome_original: arq.name,
+        caminho_storage: caminhoStorage,
+        tamanho_bytes: arq.size,
+        tipo_mime: arq.type || "application/octet-stream",
+        descricao: descricao || null,
+        criado_por: user.id,
+      });
+    }
+  }
+
+  // Atualiza timestamp do chamado
+  await supabase
+    .from("chamados")
+    .update({
+      atualizado_por: user.id,
+      atualizado_em: new Date().toISOString(),
+    })
+    .eq("id", chamadoId);
+
+  revalidatePath(`/chamados/${chamadoId}`);
+  return { sucesso: true };
+}
+
+export async function excluirArquivoAction(arquivoId: string, chamadoId: string) {
+  const supabase = await criarClienteServidor();
+  const { error } = await supabase.from("arquivos").delete().eq("id", arquivoId);
+
+  if (error) {
+    return { sucesso: false, erro: error.message };
+  }
+
+  revalidatePath(`/chamados/${chamadoId}`);
+  return { sucesso: true };
 }
 
 export async function excluirChamadoAction(id: string) {
   const supabase = await criarClienteServidor();
 
-  // Executa a RPC segura de soft delete
+  // Executa a RPC segura de soft delete (apenas autor ou admin)
   const { error } = await supabase.rpc("excluir_chamado", { p_id: id });
 
   if (error) {

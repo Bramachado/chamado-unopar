@@ -22,7 +22,9 @@ import {
   ArrowRight, 
   AlertCircle, 
   Award, 
-  Sparkles
+  Sparkles,
+  X,
+  Search
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
@@ -41,6 +43,18 @@ interface RankingColaboradorItem {
   pctAbertos: number;
   tempoMedioDias: number;
   corCard: string;
+}
+
+interface ItemChamadoModal {
+  id: string;
+  protocolo: string;
+  aluno_nome: string;
+  situacao: string;
+  prioridade: string;
+  data_solicitacao: string;
+  prazo: string;
+  motivo_nome?: string;
+  atendente?: string;
 }
 
 interface DashboardData {
@@ -80,7 +94,9 @@ interface PainelDashboardProps {
   periodoSelecionado: string;
 }
 
-// Dados ricos de simulação visual idênticos ao modelo de referência
+type TipoIndicador = "total" | "aguardando" | "concluidos" | "taxa" | "vencidos" | "vencendo" | null;
+
+// Dados de demonstração do ranking
 const rankingSimuladoExemplo: RankingColaboradorItem[] = [
   {
     id: "sim-1",
@@ -180,6 +196,17 @@ const rankingSimuladoExemplo: RankingColaboradorItem[] = [
   },
 ];
 
+// Chamados simulados para detalhamento interativo
+const chamadosDetalhamentoExemplo: ItemChamadoModal[] = [
+  { id: "cs-101", protocolo: "CS20268801", aluno_nome: "Gabriela Fernandes", situacao: "aguardando", prioridade: "priorizar", data_solicitacao: "2026-08-25", prazo: "2026-08-30", motivo_nome: "#01 Revisão de Nota de Prova", atendente: "Beatriz Souza" },
+  { id: "cs-102", protocolo: "CS20268802", aluno_nome: "Thiago Albuquerque", situacao: "aguardando", prioridade: "normal", data_solicitacao: "2026-08-26", prazo: "2026-08-31", motivo_nome: "#02 Liberação de Dependência", atendente: "Lucas Mendes" },
+  { id: "cs-103", protocolo: "CS20268803", aluno_nome: "Marcos Vinicius Silva", situacao: "concluido", prioridade: "normal", data_solicitacao: "2026-08-22", prazo: "2026-08-27", motivo_nome: "#04 Declaração de Matrícula", atendente: "Ana Silva" },
+  { id: "cs-104", protocolo: "CS20268804", aluno_nome: "Larissa Manoela Costa", situacao: "concluido", prioridade: "priorizar", data_solicitacao: "2026-08-23", prazo: "2026-08-28", motivo_nome: "#03 Ajuste Financeiro", atendente: "Carlos Oliveira" },
+  { id: "cs-105", protocolo: "CS20268805", aluno_nome: "Fernando Henrique Lima", situacao: "aguardando", prioridade: "normal", data_solicitacao: "2026-08-27", prazo: "2026-09-01", motivo_nome: "#05 Horas Complementares", atendente: "Mariana Lima" },
+  { id: "cs-106", protocolo: "CS20268806", aluno_nome: "Juliana Paes de Oliveira", situacao: "concluido", prioridade: "normal", data_solicitacao: "2026-08-24", prazo: "2026-08-29", motivo_nome: "#01 Revisão de Nota", atendente: "Ana Silva" },
+  { id: "cs-107", protocolo: "CS20268807", aluno_nome: "Rodrigo Santoro Neto", situacao: "encerrado", prioridade: "normal", data_solicitacao: "2026-08-20", prazo: "2026-08-25", motivo_nome: "#06 Trancamento de Curso", atendente: "Roberto Rocha" },
+];
+
 export function PainelDashboard({
   dados,
   periodoSelecionado,
@@ -191,6 +218,10 @@ export function PainelDashboard({
 
   const [periodo, setPeriodo] = useState(periodoSelecionado);
   const [modoDemonstracao, setModoDemonstracao] = useState(true);
+
+  // Estado do Modal de Detalhes dos Indicadores
+  const [indicadorAtivo, setIndicadorAtivo] = useState<TipoIndicador>(null);
+  const [buscaModal, setBuscaModal] = useState("");
 
   const mudarPeriodo = (novoPeriodo: string) => {
     setPeriodo(novoPeriodo);
@@ -235,9 +266,72 @@ export function PainelDashboard({
   const totalGeralEquipe = totalResolvidosEquipe + totalAbertosEquipe;
   const taxaGeralResolucao = totalGeralEquipe > 0 ? Math.round((totalResolvidosEquipe / totalGeralEquipe) * 100) : 0;
 
+  // Filtragem dos chamados para exibição no modal
+  const obterDadosModal = () => {
+    let titulo = "";
+    let subtitulo = "";
+    let linkVerTodos = "/chamados";
+    let listaFiltrada: ItemChamadoModal[] = chamadosDetalhamentoExemplo;
+
+    switch (indicadorAtivo) {
+      case "total":
+        titulo = "Detalhamento: Total de Chamados no Período";
+        subtitulo = `Visão geral de todos os ${modoDemonstracao ? totalGeralEquipe : dados.totais.total} chamados registrados no período selecionado.`;
+        linkVerTodos = "/chamados";
+        listaFiltrada = chamadosDetalhamentoExemplo;
+        break;
+      case "aguardando":
+        titulo = "Detalhamento: Chamados Aguardando Atendimento";
+        subtitulo = `Fila ativa com ${modoDemonstracao ? totalAbertosEquipe : dados.totais.aguardando} chamados em andamento exigindo resolução.`;
+        linkVerTodos = "/chamados?situacao=aguardando";
+        listaFiltrada = chamadosDetalhamentoExemplo.filter((c) => c.situacao === "aguardando");
+        break;
+      case "concluidos":
+        titulo = "Detalhamento: Chamados Concluídos com Sucesso";
+        subtitulo = `Histórico de ${modoDemonstracao ? totalResolvidosEquipe : dados.totais.concluidos} chamados resolvidos pela equipe.`;
+        linkVerTodos = "/chamados?situacao=concluido";
+        listaFiltrada = chamadosDetalhamentoExemplo.filter((c) => c.situacao === "concluido");
+        break;
+      case "taxa":
+        titulo = "Detalhamento: Taxa de Resolução da Equipe";
+        subtitulo = `Eficiência global de ${modoDemonstracao ? taxaGeralResolucao : 58}% na resolução de solicitações dentro do prazo.`;
+        linkVerTodos = "/desempenho";
+        listaFiltrada = chamadosDetalhamentoExemplo;
+        break;
+      case "vencidos":
+        titulo = "Detalhamento: Chamados Vencidos em Aberto";
+        subtitulo = `${modoDemonstracao ? 0 : dados.totais.vencidos} chamados cujo prazo estipulado de 5 dias úteis expirou.`;
+        linkVerTodos = "/chamados?situacao=aguardando";
+        listaFiltrada = chamadosDetalhamentoExemplo.filter((c) => c.prazo < "2026-08-29" && c.situacao === "aguardando");
+        break;
+      case "vencendo":
+        titulo = "Detalhamento: Chamados Vencendo em até 2 Dias";
+        subtitulo = `${modoDemonstracao ? 2 : dados.totais.vencendo_em_2_dias} protocolos críticos prioritários que vencem nos próximos 2 dias.`;
+        linkVerTodos = "/chamados?situacao=aguardando";
+        listaFiltrada = chamadosDetalhamentoExemplo.filter((c) => c.prazo >= "2026-08-30" && c.prazo <= "2026-08-31");
+        break;
+      default:
+        break;
+    }
+
+    if (buscaModal.trim()) {
+      const termo = buscaModal.toLowerCase();
+      listaFiltrada = listaFiltrada.filter(
+        (c) =>
+          c.protocolo.toLowerCase().includes(termo) ||
+          c.aluno_nome.toLowerCase().includes(termo) ||
+          (c.atendente && c.atendente.toLowerCase().includes(termo))
+      );
+    }
+
+    return { titulo, subtitulo, linkVerTodos, listaFiltrada };
+  };
+
+  const modalInfo = obterDadosModal();
+
   return (
     <div className="space-y-6">
-      {/* Cabeçalho e Seletor de Período com Contraste Alto */}
+      {/* Cabeçalho e Seletor de Período */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-superficie p-4 rounded-lg border border-borda shadow-sm">
         <div>
           <h1 className="font-heading text-xl font-bold text-texto tracking-tight">
@@ -303,90 +397,251 @@ export function PainelDashboard({
         </div>
       </div>
 
-      {/* Cartões de Indicadores Principais (Cards Brancos Elevados com Bordas Nítidas) */}
+      {/* Cartões de Indicadores Principais com Ação de Clique Interativa */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <div className="rounded-lg border border-borda bg-superficie p-4 shadow-sm hover:border-acento/40 transition">
-          <span className="text-xs font-semibold text-texto-suave block">Total no período</span>
-          <span className="font-mono text-2xl font-bold text-texto tabular-nums block mt-1">
+        {/* Total no período */}
+        <div
+          onClick={() => {
+            setBuscaModal("");
+            setIndicadorAtivo("total");
+          }}
+          className="group cursor-pointer rounded-lg border border-borda bg-superficie p-4 shadow-sm hover:border-acento hover:shadow-md active:scale-[0.98] transition space-y-1"
+          title="Clique para detalhar os chamados do total"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-texto-suave block">Total no período</span>
+            <span className="text-[10px] font-bold text-acento opacity-0 group-hover:opacity-100 transition">Ver lista →</span>
+          </div>
+          <span className="font-mono text-2xl font-bold text-texto tabular-nums block">
             {modoDemonstracao ? totalGeralEquipe : dados.totais.total}
           </span>
+          <span className="text-[10px] text-texto-suave block">Clique para ver registros</span>
         </div>
 
-        <div className="rounded-lg border border-borda bg-superficie p-4 shadow-sm hover:border-acento/40 transition">
-          <span className="text-xs font-semibold text-texto-suave block">Aguardando</span>
-          <span className="font-mono text-2xl font-bold text-[#DC2626] tabular-nums block mt-1">
+        {/* Aguardando */}
+        <div
+          onClick={() => {
+            setBuscaModal("");
+            setIndicadorAtivo("aguardando");
+          }}
+          className="group cursor-pointer rounded-lg border border-borda bg-superficie p-4 shadow-sm hover:border-[#DC2626] hover:shadow-md active:scale-[0.98] transition space-y-1"
+          title="Clique para ver a fila de chamados aguardando"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-texto-suave block">Aguardando</span>
+            <span className="text-[10px] font-bold text-[#DC2626] opacity-0 group-hover:opacity-100 transition">Ver fila →</span>
+          </div>
+          <span className="font-mono text-2xl font-bold text-[#DC2626] tabular-nums block">
             {modoDemonstracao ? totalAbertosEquipe : dados.totais.aguardando}
           </span>
+          <span className="text-[10px] text-texto-suave block">Clique para ver pendências</span>
         </div>
 
-        <div className="rounded-lg border border-borda bg-superficie p-4 shadow-sm hover:border-acento/40 transition">
-          <span className="text-xs font-semibold text-texto-suave block">Concluídos (resolvidos)</span>
-          <span className="font-mono text-2xl font-bold text-[#16A34A] tabular-nums block mt-1">
+        {/* Concluídos */}
+        <div
+          onClick={() => {
+            setBuscaModal("");
+            setIndicadorAtivo("concluidos");
+          }}
+          className="group cursor-pointer rounded-lg border border-borda bg-superficie p-4 shadow-sm hover:border-[#16A34A] hover:shadow-md active:scale-[0.98] transition space-y-1"
+          title="Clique para ver chamados concluídos"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-texto-suave block">Concluídos (resolvidos)</span>
+            <span className="text-[10px] font-bold text-[#16A34A] opacity-0 group-hover:opacity-100 transition">Ver concluídos →</span>
+          </div>
+          <span className="font-mono text-2xl font-bold text-[#16A34A] tabular-nums block">
             {modoDemonstracao ? totalResolvidosEquipe : dados.totais.concluidos}
           </span>
+          <span className="text-[10px] text-texto-suave block">Clique para ver histórico</span>
         </div>
 
-        <div className="rounded-lg border border-borda bg-superficie p-4 shadow-sm hover:border-acento/40 transition">
-          <span className="text-xs font-semibold text-texto-suave block">Taxa de resolução</span>
-          <span className="font-mono text-2xl font-bold text-[#0284C7] tabular-nums block mt-1">
+        {/* Taxa de resolução */}
+        <div
+          onClick={() => {
+            setBuscaModal("");
+            setIndicadorAtivo("taxa");
+          }}
+          className="group cursor-pointer rounded-lg border border-borda bg-superficie p-4 shadow-sm hover:border-[#0284C7] hover:shadow-md active:scale-[0.98] transition space-y-1"
+          title="Clique para ver detalhes de eficiência e metas"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-texto-suave block">Taxa de resolução</span>
+            <span className="text-[10px] font-bold text-[#0284C7] opacity-0 group-hover:opacity-100 transition">Ver taxa →</span>
+          </div>
+          <span className="font-mono text-2xl font-bold text-[#0284C7] tabular-nums block">
             {modoDemonstracao ? `${taxaGeralResolucao}%` : dados.totais.concluidos > 0 ? `${Math.round((dados.totais.concluidos / Math.max(1, dados.totais.total)) * 100)}%` : "—"}
           </span>
+          <span className="text-[10px] text-texto-suave block">Meta: 90% no prazo</span>
         </div>
 
         {/* Vencidos */}
         <div
-          className={`rounded-lg border p-4 shadow-sm transition ${
+          onClick={() => {
+            setBuscaModal("");
+            setIndicadorAtivo("vencidos");
+          }}
+          className={`group cursor-pointer rounded-lg border p-4 shadow-sm hover:shadow-md active:scale-[0.98] transition space-y-1 ${
             dados.totais.vencidos > 0 && !modoDemonstracao
-              ? "border-erro/60 bg-erro-fundo text-erro"
-              : "border-borda bg-superficie text-texto"
+              ? "border-erro/60 bg-erro-fundo text-erro hover:border-erro"
+              : "border-borda bg-superficie text-texto hover:border-erro/60"
           }`}
+          title="Clique para ver chamados com prazo expirado"
         >
-          <span
-            className={`text-xs font-semibold block ${
-              dados.totais.vencidos > 0 && !modoDemonstracao ? "text-erro" : "text-texto-suave"
-            }`}
-          >
-            Vencidos em aberto
-          </span>
-          <span
-            className={`font-mono text-2xl font-bold tabular-nums block mt-1 ${
-              dados.totais.vencidos > 0 && !modoDemonstracao ? "text-erro" : "text-texto"
-            }`}
-          >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold block">Vencidos em aberto</span>
+            <span className="text-[10px] font-bold text-erro opacity-0 group-hover:opacity-100 transition">Ver urgentes →</span>
+          </div>
+          <span className="font-mono text-2xl font-bold tabular-nums block">
             {modoDemonstracao ? 0 : dados.totais.vencidos}
           </span>
+          <span className="text-[10px] text-texto-suave block">Prazos expirados</span>
         </div>
 
         {/* Vencendo em 2 dias */}
         <div
-          className={`rounded-lg border p-4 shadow-sm transition ${
+          onClick={() => {
+            setBuscaModal("");
+            setIndicadorAtivo("vencendo");
+          }}
+          className={`group cursor-pointer rounded-lg border p-4 shadow-sm hover:shadow-md active:scale-[0.98] transition space-y-1 ${
             dados.totais.vencendo_em_2_dias > 0 && !modoDemonstracao
-              ? "border-alerta/60 bg-alerta-fundo text-alerta"
-              : "border-borda bg-superficie text-texto"
+              ? "border-alerta/60 bg-alerta-fundo text-alerta hover:border-alerta"
+              : "border-borda bg-superficie text-texto hover:border-alerta/60"
           }`}
+          title="Clique para ver protocolos com prazo crítico"
         >
-          <span
-            className={`text-xs font-semibold block ${
-              dados.totais.vencendo_em_2_dias > 0 && !modoDemonstracao ? "text-alerta" : "text-texto-suave"
-            }`}
-          >
-            Vencendo em até 2 dias
-          </span>
-          <span
-            className={`font-mono text-2xl font-bold tabular-nums block mt-1 ${
-              dados.totais.vencendo_em_2_dias > 0 && !modoDemonstracao ? "text-alerta" : "text-texto"
-            }`}
-          >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold block">Vencendo em até 2 dias</span>
+            <span className="text-[10px] font-bold text-alerta opacity-0 group-hover:opacity-100 transition">Ver lista →</span>
+          </div>
+          <span className="font-mono text-2xl font-bold tabular-nums block">
             {modoDemonstracao ? 2 : dados.totais.vencendo_em_2_dias}
           </span>
+          <span className="text-[10px] text-texto-suave block">Exigem atenção hoje</span>
         </div>
       </div>
 
       {/* ========================================================================================= */}
-      {/* RANKING DE PRODUTIVIDADE — CHAMADOS RESOLVIDOS VS ABERTOS (DESIGN DE ALTO CONTRASTE) */}
+      {/* MODAL / DRAWER INTERATIVO DE DETALHAMENTO DO INDICADOR CLICADO */}
+      {/* ========================================================================================= */}
+      {indicadorAtivo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-3xl rounded-xl border border-borda bg-fundo p-6 shadow-2xl space-y-4 max-h-[90vh] flex flex-col">
+            {/* Topo do Modal */}
+            <div className="flex items-start justify-between border-b border-borda pb-3">
+              <div>
+                <h3 className="font-heading text-base font-bold text-texto">
+                  {modalInfo.titulo}
+                </h3>
+                <p className="text-xs text-texto-suave mt-0.5">
+                  {modalInfo.subtitulo}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIndicadorAtivo(null)}
+                className="text-texto-suave hover:text-texto rounded-md p-1 hover:bg-superficie transition"
+                title="Fechar detalhes"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Campo de Busca Rápida */}
+            <div className="relative">
+              <input
+                type="text"
+                value={buscaModal}
+                onChange={(e) => setBuscaModal(e.target.value)}
+                placeholder="Buscar por protocolo, nome do aluno ou colaboradora..."
+                className="w-full rounded-md border border-borda bg-superficie pl-9 pr-3 py-2 text-xs text-texto placeholder:text-texto-suave focus:border-acento focus:outline-none shadow-xs"
+              />
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-texto-suave" />
+            </div>
+
+            {/* Lista dos Registros Correspondentes */}
+            <div className="flex-1 overflow-y-auto divide-y divide-borda/60 rounded-lg border border-borda bg-superficie">
+              {modalInfo.listaFiltrada.length === 0 ? (
+                <div className="p-8 text-center text-xs text-texto-suave">
+                  Nenhum registro encontrado para este filtro.
+                </div>
+              ) : (
+                modalInfo.listaFiltrada.map((item) => (
+                  <div key={item.id} className="p-3.5 flex items-center justify-between hover:bg-fundo/80 transition text-xs">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <Link
+                          href={`/chamados/${item.id}`}
+                          className="font-mono font-bold text-acento hover:underline"
+                        >
+                          {item.protocolo}
+                        </Link>
+                        <span className="text-texto font-semibold">{item.aluno_nome}</span>
+                        {item.prioridade === "priorizar" && (
+                          <span className="rounded bg-alerta-fundo px-1.5 py-0.2 text-[10px] font-bold text-alerta border border-alerta/30">
+                            Priorizar
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-texto-suave flex items-center gap-3">
+                        <span>{item.motivo_nome}</span>
+                        <span>•</span>
+                        <span>Responsável: <strong className="text-texto font-medium">{item.atendente}</strong></span>
+                      </div>
+                    </div>
+
+                    <div className="text-right space-y-1">
+                      <span className={`inline-block rounded-md px-2 py-0.5 font-mono text-[11px] font-bold ${
+                        item.situacao === "concluido"
+                          ? "bg-sucesso/15 text-sucesso border border-sucesso/30"
+                          : item.situacao === "encerrado"
+                          ? "bg-fundo text-texto-suave border border-borda"
+                          : "bg-acento/15 text-acento border border-acento/30"
+                      }`}>
+                        {item.situacao}
+                      </span>
+                      <div className="text-[11px] text-texto-suave font-mono">
+                        Prazo: {format(parseISO(item.prazo), "dd/MM/yyyy")}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Rodapé do Modal com Ação Direta */}
+            <div className="flex items-center justify-between border-t border-borda pt-3">
+              <span className="text-xs text-texto-suave">
+                Mostrando <strong>{modalInfo.listaFiltrada.length}</strong> registro(s) correspondente(s).
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIndicadorAtivo(null)}
+                  className="rounded-md border border-borda bg-superficie px-3.5 py-1.5 text-xs font-bold text-texto hover:bg-fundo transition"
+                >
+                  Fechar
+                </button>
+                <Link
+                  href={modalInfo.linkVerTodos}
+                  className="rounded-md bg-acento px-4 py-1.5 text-xs font-bold text-white hover:bg-acento-hover transition flex items-center gap-1.5 shadow-sm"
+                >
+                  <span>Abrir na tela completa</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================================= */}
+      {/* BLOCO PRINCIPAL: RANKING DE PRODUTIVIDADE — CHAMADOS RESOLVIDOS VS ABERTOS */}
       {/* ========================================================================================= */}
       <div className="rounded-xl border border-borda bg-superficie p-6 shadow-md space-y-5">
-        {/* Cabeçalho do Bloco com Pills de Alto Contraste */}
+        {/* Cabeçalho do Bloco */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-borda pb-4">
           <div className="space-y-1">
             <div className="inline-flex items-center gap-1.5 rounded-full bg-acento/15 px-3 py-1 text-[11px] font-extrabold text-acento tracking-wider uppercase border border-acento/30">
@@ -401,7 +656,7 @@ export function PainelDashboard({
             </p>
           </div>
 
-          {/* Legenda Estilizada com Alto Contraste */}
+          {/* Legenda Estilizada */}
           <div className="flex items-center gap-4 text-xs font-bold bg-fundo px-3.5 py-2 rounded-lg border border-borda shadow-xs">
             <div className="flex items-center gap-2">
               <span className="h-3.5 w-3.5 rounded bg-[#1D4ED8] shadow-xs" />
@@ -414,7 +669,7 @@ export function PainelDashboard({
           </div>
         </div>
 
-        {/* Lista de Colaboradores com Cards em Alto Contraste e Profundidade */}
+        {/* Lista de Colaboradores com Cards em Alto Contraste */}
         <div className="space-y-3.5 pt-1">
           {listaRankingExibicao.map((colab) => {
             const ehTop1 = colab.posicao === 1;
@@ -426,14 +681,12 @@ export function PainelDashboard({
                 key={colab.id}
                 className={`flex flex-col gap-3 rounded-lg border-2 p-3.5 transition hover:scale-[1.005] sm:flex-row sm:items-center sm:justify-between ${colab.corCard}`}
               >
-                {/* Lado Esquerdo: Posição, Avatar com Borda, Nome e Medalha */}
+                {/* Lado Esquerdo */}
                 <div className="flex items-center gap-3.5 min-w-[260px]">
-                  {/* Número da Posição */}
                   <span className="font-heading font-extrabold text-base text-texto w-8 shrink-0 text-center">
                     #{colab.posicao}
                   </span>
 
-                  {/* Avatar / Foto */}
                   <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border-2 border-white shadow-sm bg-superficie">
                     {colab.fotoUrl ? (
                       <img
@@ -448,7 +701,6 @@ export function PainelDashboard({
                     )}
                   </div>
 
-                  {/* Nome e Cargo */}
                   <div className="truncate">
                     <div className="font-heading text-sm font-bold text-texto truncate" title={colab.nome}>
                       {colab.nome}
@@ -458,7 +710,6 @@ export function PainelDashboard({
                     </div>
                   </div>
 
-                  {/* Medalhas para Top 3 */}
                   {ehTop1 && (
                     <div className="ml-auto shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-amber-400 text-amber-950 font-bold border-2 border-amber-300 shadow-sm" title="1º Lugar">
                       <span className="font-heading text-xs font-extrabold">1º</span>
@@ -476,10 +727,9 @@ export function PainelDashboard({
                   )}
                 </div>
 
-                {/* Lado Direito: Barra Proporcional Resolvidos vs. Abertos com Cores Vivas */}
+                {/* Lado Direito: Barra Proporcional */}
                 <div className="flex-1 sm:max-w-xl">
                   <div className="flex h-10 w-full overflow-hidden rounded-lg border-2 border-white/80 bg-fundo shadow-sm">
-                    {/* Segmento Resolvidos (Azul Royal) */}
                     <div
                       style={{ width: `${Math.max(colab.pctResolvidos, 8)}%` }}
                       className="flex items-center justify-between bg-[#1D4ED8] px-3.5 text-white transition-all duration-500 shadow-inner"
@@ -493,7 +743,6 @@ export function PainelDashboard({
                       </span>
                     </div>
 
-                    {/* Segmento Abertos (Vermelho Vibrante) */}
                     <div
                       style={{ width: `${Math.max(colab.pctAbertos, 8)}%` }}
                       className="flex items-center justify-between bg-[#DC2626] px-3.5 text-white transition-all duration-500 shadow-inner"
@@ -508,7 +757,6 @@ export function PainelDashboard({
                     </div>
                   </div>
 
-                  {/* Sub-informação de tempo médio e total */}
                   <div className="mt-1.5 flex items-center justify-between text-[11px] text-texto-suave px-0.5">
                     <span>Total atribuído: <strong className="text-texto font-mono">{colab.total} chamados</strong></span>
                     <span>Tempo médio de solução: <strong className="text-texto font-mono">{colab.tempoMedioDias} dias</strong></span>

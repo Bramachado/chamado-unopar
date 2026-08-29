@@ -2,7 +2,7 @@ export type PapelUsuario = "admin" | "coordenador" | "atendente";
 export type SituacaoChamado = "aguardando" | "concluido" | "encerrado";
 export type PrioridadeChamado = "normal" | "priorizar";
 
-export interface Perfil {
+export interface Usuario {
   id: string;
   nome_completo: string;
   email: string;
@@ -11,6 +11,9 @@ export interface Perfil {
   criado_em: string;
   atualizado_em: string;
 }
+
+// Alias para compatibilidade
+export type Perfil = Usuario;
 
 export interface CredencialExterna {
   perfil_id: string;
@@ -41,6 +44,19 @@ export interface Motivo {
   criado_em: string;
 }
 
+export interface ArquivoChamado {
+  id: string;
+  chamado_id: string;
+  nome_original: string;
+  caminho_storage: string;
+  tamanho_bytes?: number | null;
+  tipo_mime?: string | null;
+  descricao?: string | null;
+  criado_por: string;
+  criado_por_nome?: string | null;
+  criado_em: string;
+}
+
 export interface Chamado {
   id: string;
   protocolo: string;
@@ -58,22 +74,14 @@ export interface Chamado {
   observacao?: string | null;
   importado: boolean;
   criado_por: string;
+  criado_por_nome?: string | null;
+  atualizado_por?: string | null;
+  atualizado_por_nome?: string | null;
   criado_em: string;
   atualizado_em: string;
   excluido_em?: string | null;
   excluido_por?: string | null;
-}
-
-export interface ArquivoChamado {
-  id: string;
-  chamado_id: string;
-  nome_original: string;
-  caminho_storage: string;
-  tamanho_bytes?: number | null;
-  tipo_mime?: string | null;
-  descricao?: string | null;
-  criado_por: string;
-  criado_em: string;
+  arquivos?: ArquivoChamado[];
 }
 
 export interface LogAuditoria {
