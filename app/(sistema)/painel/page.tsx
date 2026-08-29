@@ -52,7 +52,7 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
       prazo,
       data_conclusao,
       motivos:motivo_id(codigo, nome),
-      perfis:criado_por(nome_completo)
+      perfis:criado_por(id, nome_completo, papel)
     `)
     .is("excluido_em", null)
     .gte("data_solicitacao", dataInicioStr)
@@ -71,6 +71,10 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
   let vencendo_em_2_dias = 0;
 
   const contagemMotivos: Record<string, { codigo: string; nome: string; total: number; diasTotais: number; concluidos: number }> = {};
+  const contagemColaboradores: Record<
+    string,
+    { id: string; nome: string; papel: string; resolvidos: number; abertos: number; total: number; diasTotais: number }
+  > = {};
 
   const chamadosCriticos: {
     id: string;
@@ -91,28 +95,50 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
 
     const dataPrazo = startOfDay(parseISO(c.prazo));
 
+    const perfilColab = c.perfis as unknown as { id?: string; nome_completo?: string; papel?: string };
+    const colabId = perfilColab?.id || "anon";
+    const colabNome = perfilColab?.nome_completo || "Atendente";
+    const colabPapel = perfilColab?.papel === "admin" ? "Administradora" : perfilColab?.papel === "coordenador" ? "Coordenadora" : "Atendente";
+
+    if (!contagemColaboradores[colabId]) {
+      contagemColaboradores[colabId] = {
+        id: colabId,
+        nome: colabNome,
+        papel: colabPapel,
+        resolvidos: 0,
+        abertos: 0,
+        total: 0,
+        diasTotais: 0,
+      };
+    }
+    contagemColaboradores[colabId].total++;
+
+    if (c.situacao === "concluido") {
+      contagemColaboradores[colabId].resolvidos++;
+    } else {
+      contagemColaboradores[colabId].abertos++;
+    }
+
     if (c.situacao === "aguardando") {
       if (isBefore(dataPrazo, hojeStart)) {
         vencidos++;
-        const atendenteNome = (c.perfis as unknown as { nome_completo?: string })?.nome_completo || "Atendente";
         chamadosCriticos.push({
           id: c.id,
           protocolo: c.protocolo,
           aluno_nome: c.aluno_nome,
           prazo: c.prazo,
           status: "vencido",
-          atendente: atendenteNome,
+          atendente: colabNome,
         });
       } else if (isBefore(dataPrazo, limite2Dias) || dataPrazo.getTime() === limite2Dias.getTime()) {
         vencendo_em_2_dias++;
-        const atendenteNome = (c.perfis as unknown as { nome_completo?: string })?.nome_completo || "Atendente";
         chamadosCriticos.push({
           id: c.id,
           protocolo: c.protocolo,
           aluno_nome: c.aluno_nome,
           prazo: c.prazo,
           status: "vencendo_em_2_dias",
-          atendente: atendenteNome,
+          atendente: colabNome,
         });
       }
     }
@@ -130,12 +156,39 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
       const dias = Math.max(0, Math.round((parseISO(c.data_conclusao).getTime() - parseISO(c.data_solicitacao).getTime()) / (1000 * 60 * 60 * 24)));
       contagemMotivos[cod].diasTotais += dias;
       contagemMotivos[cod].concluidos++;
+      contagemColaboradores[colabId].diasTotais += dias;
       somaDiasGeral += dias;
       totalConcluidosGeral++;
     }
   }
 
-  // Top 10 Motivos (ordenados decrescente)
+  // Ranking de Colaboradores reais calculados do banco
+  const rankingEquipe = Object.values(contagemColaboradores)
+    .sort((a, b) => {
+      if (b.resolvidos !== a.resolvidos) return b.resolvidos - a.resolvidos;
+      return b.total - a.total;
+    })
+    .map((c, index) => {
+      const pctResolvidos = c.total > 0 ? Math.round((c.resolvidos / c.total) * 100) : 0;
+      const pctAbertos = c.total > 0 ? Math.round((c.abertos / c.total) * 100) : 0;
+      const tempoMedioDias = c.resolvidos > 0 ? Math.round((c.diasTotais / c.resolvidos) * 10) / 10 : 0;
+
+      return {
+        id: c.id,
+        posicao: index + 1,
+        nome: c.nome,
+        papel: c.papel,
+        fotoUrl: `https://images.unsplash.com/photo-${1570295999919 + index * 1000}?w=150&auto=format&fit=crop&q=80`,
+        resolvidos: c.resolvidos,
+        abertos: c.abertos,
+        total: c.total,
+        pctResolvidos,
+        pctAbertos,
+        tempoMedioDias,
+      };
+    });
+
+  // Top 10 Motivos
   const topMotivos = Object.values(contagemMotivos)
     .sort((a, b) => b.total - a.total)
     .slice(0, 10)
@@ -227,6 +280,7 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
       encerrados,
       total,
     },
+    rankingEquipe,
     volumeMensal,
     topMotivos,
     tempoMedioPorMotivo,
