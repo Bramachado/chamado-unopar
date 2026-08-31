@@ -68,3 +68,9 @@ export async function autenticarUsuario(
 
   redirect("/painel");
 }
+
+export async function logoutUsuario() {
+  const supabase = await criarClienteServidor();
+  await supabase.auth.signOut();
+  redirect("/login");
+}

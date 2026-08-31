@@ -4,10 +4,10 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type Perfil } from "@/types/database";
+import { logoutUsuario } from "@/app/login/actions";
 import { 
   LayoutDashboard, 
   Ticket, 
-  Tag, 
   Trophy, 
   Settings, 
   User, 
@@ -19,27 +19,33 @@ import {
   BookOpen, 
   ChevronDown, 
   ChevronRight,
-  X
+  X,
+  Headphones,
+  ArrowRight
 } from "lucide-react";
-import { logoutUsuario } from "./actions";
 
-type Tema = "claro" | "sepia" | "escuro";
-
-interface SidebarProps {
+interface SidebarPrincipalProps {
   perfil: Perfil;
   mobileAberto: boolean;
   setMobileAberto: (aberto: boolean) => void;
 }
 
-export function SidebarPrincipal({ perfil, mobileAberto, setMobileAberto }: SidebarProps) {
+type Tema = "claro" | "sepia" | "escuro";
+
+export function SidebarPrincipal({
+  perfil,
+  mobileAberto,
+  setMobileAberto,
+}: SidebarPrincipalProps) {
   const pathname = usePathname();
-  const [temaAtual, setTemaAtual] = useState<Tema>("claro");
   const [configAberto, setConfigAberto] = useState(
     pathname.startsWith("/configuracoes") ||
     pathname.startsWith("/perfil") ||
     pathname.startsWith("/usuarios") ||
     pathname.startsWith("/auditoria")
   );
+
+  const [temaAtual, setTemaAtual] = useState<Tema>("claro");
 
   useEffect(() => {
     const salvo = (localStorage.getItem("unopar-tema") as Tema) || "claro";
@@ -55,10 +61,11 @@ export function SidebarPrincipal({ perfil, mobileAberto, setMobileAberto }: Side
   const ehAdmin = perfil.papel === "admin";
 
   const rotasPrincipais = [
-    { href: "/painel", rotulo: "Painel", icone: LayoutDashboard },
-    { href: "/chamados", rotulo: "Chamados", icone: Ticket },
-    { href: "/motivos", rotulo: "Motivos", icone: Tag },
+    { href: "/painel", rotulo: "Dashboard", icone: LayoutDashboard },
+    { href: "/chamados", rotulo: "Chamados", icone: Ticket, badge: "8" },
+    { href: "/motivos", rotulo: "Meus atendimentos", icone: Users },
     { href: "/desempenho", rotulo: "Desempenho", icone: Trophy },
+    { href: "/auditoria", rotulo: "Relatórios", icone: FileText },
   ];
 
   const subRotasConfig = [
@@ -96,29 +103,29 @@ export function SidebarPrincipal({ perfil, mobileAberto, setMobileAberto }: Side
       {/* Overlay Backdrop para Mobile */}
       {mobileAberto && (
         <div
-          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs transition-opacity lg:hidden"
+          className="fixed inset-0 z-40 bg-black/70 backdrop-blur-xs transition-opacity lg:hidden"
           onClick={() => setMobileAberto(false)}
         />
       )}
 
-      {/* Sidebar Container */}
+      {/* Sidebar Container (Deep Navy Blue Elegante conforme Mockup) */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 flex w-72 flex-col border-r border-borda bg-superficie shadow-lg transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+        className={`fixed top-0 bottom-0 left-0 z-50 flex w-72 flex-col border-r border-[#1E293B] bg-[#070D1E] text-slate-200 shadow-2xl transition-transform duration-300 ease-in-out lg:translate-x-0 ${
           mobileAberto ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        {/* Cabeçalho da Sidebar / Logo */}
-        <div className="flex h-16 items-center justify-between border-b border-borda px-5">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg overflow-hidden border border-borda shadow-xs bg-superficie">
-              <img src="/logo.png" alt="UNOPAR Logo" className="h-full w-full object-cover" />
+        {/* Cabeçalho da Sidebar / Logo Maior e Destacado */}
+        <div className="flex h-24 items-center justify-between px-6 border-b border-[#1E293B]/60">
+          <div className="flex items-center gap-3.5">
+            <div className="h-14 w-14 flex items-center justify-center p-1">
+              <img src="/logo.png" alt="UNOPAR Logo" className="h-full w-full object-contain filter drop-shadow-md" />
             </div>
             <div>
-              <span className="font-heading text-sm font-bold tracking-tight text-texto block">
+              <span className="text-base font-extrabold tracking-tight text-white block">
                 UNOPAR
               </span>
-              <span className="text-[11px] font-semibold text-texto-suave block">
-                Controle de Protocolos
+              <span className="text-[11px] font-medium text-slate-400 block">
+                Gestão de Protocolos
               </span>
             </div>
           </div>
@@ -126,7 +133,7 @@ export function SidebarPrincipal({ perfil, mobileAberto, setMobileAberto }: Side
           <button
             type="button"
             onClick={() => setMobileAberto(false)}
-            className="rounded-md p-1.5 text-texto-suave hover:bg-fundo hover:text-texto lg:hidden"
+            className="rounded-lg p-2 text-slate-400 hover:bg-white/10 hover:text-white lg:hidden"
             title="Fechar menu"
           >
             <X className="h-5 w-5" />
@@ -134,29 +141,33 @@ export function SidebarPrincipal({ perfil, mobileAberto, setMobileAberto }: Side
         </div>
 
         {/* Links de Navegação */}
-        <div className="flex-1 overflow-y-auto px-3.5 py-4 space-y-6">
+        <div className="flex-1 overflow-y-auto px-4 py-5 space-y-6 scrollbar-thin">
           {/* Seção Principal */}
           <div>
-            <span className="px-3 text-[10px] font-extrabold tracking-wider text-texto-suave uppercase">
-              Principal
-            </span>
-            <ul className="mt-2 space-y-1">
+            <ul className="space-y-1.5">
               {rotasPrincipais.map((rota) => {
                 const Icone = rota.icone;
-                const ativo = pathname === rota.href || pathname.startsWith(`${rota.href}/`);
+                const ativo = pathname === rota.href || (rota.href !== "/painel" && pathname.startsWith(`${rota.href}/`));
                 return (
                   <li key={rota.href}>
                     <Link
                       href={rota.href}
                       onClick={() => setMobileAberto(false)}
-                      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-xs font-bold transition shadow-xs ${
+                      className={`flex items-center justify-between rounded-xl px-4 py-3 text-xs font-semibold transition-all ${
                         ativo
-                          ? "bg-acento text-white shadow-sm"
-                          : "text-texto-suave hover:bg-fundo hover:text-texto"
+                          ? "bg-[#1D4ED8] text-white shadow-lg shadow-blue-900/40"
+                          : "text-slate-300 hover:bg-white/5 hover:text-white"
                       }`}
                     >
-                      <Icone className={`h-4 w-4 shrink-0 ${ativo ? "text-white" : "text-texto-suave"}`} />
-                      <span>{rota.rotulo}</span>
+                      <div className="flex items-center gap-3">
+                        <Icone className={`h-4 w-4 shrink-0 ${ativo ? "text-white" : "text-slate-400"}`} />
+                        <span>{rota.rotulo}</span>
+                      </div>
+                      {rota.badge && (
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white shadow-xs">
+                          {rota.badge}
+                        </span>
+                      )}
                     </Link>
                   </li>
                 );
@@ -166,25 +177,19 @@ export function SidebarPrincipal({ perfil, mobileAberto, setMobileAberto }: Side
 
           {/* Seção de Configurações */}
           <div>
-            <div className="flex items-center justify-between px-3">
-              <span className="text-[10px] font-extrabold tracking-wider text-texto-suave uppercase">
-                Sistema & Preferências
-              </span>
-            </div>
-
-            <div className="mt-2 space-y-1">
+            <div className="space-y-1">
               {/* Botão de Toggle de Configurações */}
               <button
                 type="button"
                 onClick={() => setConfigAberto(!configAberto)}
-                className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-xs font-bold transition ${
+                className={`flex w-full items-center justify-between rounded-xl px-4 py-3 text-xs font-semibold transition-all ${
                   estaNaConfiguracao
-                    ? "bg-acento/10 text-acento border border-acento/30"
-                    : "text-texto-suave hover:bg-fundo hover:text-texto"
+                    ? "bg-[#1D4ED8]/20 text-sky-400 border border-sky-500/30"
+                    : "text-slate-300 hover:bg-white/5 hover:text-white"
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Settings className={`h-4 w-4 shrink-0 ${estaNaConfiguracao ? "text-acento" : "text-texto-suave"}`} />
+                  <Settings className={`h-4 w-4 shrink-0 ${estaNaConfiguracao ? "text-sky-400" : "text-slate-400"}`} />
                   <span>Configurações</span>
                 </div>
                 {configAberto ? (
@@ -196,7 +201,7 @@ export function SidebarPrincipal({ perfil, mobileAberto, setMobileAberto }: Side
 
               {/* Submenu de Configurações */}
               {configAberto && (
-                <ul className="mt-1 space-y-1 pl-4 border-l-2 border-borda ml-4">
+                <ul className="mt-1.5 space-y-1 pl-4 border-l border-[#1E293B] ml-5">
                   {subRotasConfig.map((sub) => {
                     const SubIcone = sub.icone;
                     const ativo = pathname === sub.href || pathname.startsWith(`${sub.href}/`);
@@ -205,10 +210,10 @@ export function SidebarPrincipal({ perfil, mobileAberto, setMobileAberto }: Side
                         <Link
                           href={sub.href}
                           onClick={() => setMobileAberto(false)}
-                          className={`flex items-center gap-2.5 rounded-md px-2.5 py-2 text-xs font-semibold transition ${
+                          className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition ${
                             ativo
-                              ? "bg-acento text-white font-bold shadow-xs"
-                              : "text-texto-suave hover:bg-fundo hover:text-texto"
+                              ? "bg-[#1D4ED8] text-white font-bold"
+                              : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
                           }`}
                         >
                           <SubIcone className="h-3.5 w-3.5 shrink-0" />
@@ -218,49 +223,46 @@ export function SidebarPrincipal({ perfil, mobileAberto, setMobileAberto }: Side
                     );
                   })}
 
-                  {/* Seletor de Tema Integrado no Submenu */}
-                  <li className="pt-2">
-                    <span className="block px-2 text-[10px] font-bold text-texto-suave uppercase mb-1.5">
-                      Tema Visual
-                    </span>
-                    <div className="grid grid-cols-3 gap-1 rounded-lg border border-borda bg-fundo p-1 text-xs">
+                  {/* Seletor de Tema Integrado */}
+                  <li className="pt-3 pr-2">
+                    <div className="grid grid-cols-3 gap-1 rounded-xl border border-[#1E293B] bg-[#0A1128] p-1 text-xs">
                       <button
                         type="button"
                         onClick={() => alterarTema("claro")}
-                        className={`flex flex-col items-center justify-center gap-1 rounded py-1.5 text-[11px] font-bold transition ${
+                        className={`flex flex-col items-center justify-center gap-1 rounded-lg py-1.5 text-[10px] font-bold transition ${
                           temaAtual === "claro"
-                            ? "bg-superficie text-texto shadow-xs border border-borda"
-                            : "text-texto-suave hover:text-texto"
+                            ? "bg-[#1D4ED8] text-white shadow-xs"
+                            : "text-slate-400 hover:text-white"
                         }`}
                         title="Tema Claro"
                       >
-                        <Sun className="h-3.5 w-3.5 text-amber-500" />
+                        <Sun className="h-3.5 w-3.5" />
                         <span>Claro</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => alterarTema("sepia")}
-                        className={`flex flex-col items-center justify-center gap-1 rounded py-1.5 text-[11px] font-bold transition ${
+                        className={`flex flex-col items-center justify-center gap-1 rounded-lg py-1.5 text-[10px] font-bold transition ${
                           temaAtual === "sepia"
-                            ? "bg-superficie text-texto shadow-xs border border-borda"
-                            : "text-texto-suave hover:text-texto"
+                            ? "bg-[#1D4ED8] text-white shadow-xs"
+                            : "text-slate-400 hover:text-white"
                         }`}
-                        title="Tema Sépia (Leitura Suave)"
+                        title="Tema Sépia"
                       >
-                        <BookOpen className="h-3.5 w-3.5 text-amber-700" />
+                        <BookOpen className="h-3.5 w-3.5" />
                         <span>Sépia</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => alterarTema("escuro")}
-                        className={`flex flex-col items-center justify-center gap-1 rounded py-1.5 text-[11px] font-bold transition ${
+                        className={`flex flex-col items-center justify-center gap-1 rounded-lg py-1.5 text-[10px] font-bold transition ${
                           temaAtual === "escuro"
-                            ? "bg-superficie text-texto shadow-xs border border-borda"
-                            : "text-texto-suave hover:text-texto"
+                            ? "bg-[#1D4ED8] text-white shadow-xs"
+                            : "text-slate-400 hover:text-white"
                         }`}
                         title="Tema Escuro"
                       >
-                        <Moon className="h-3.5 w-3.5 text-sky-400" />
+                        <Moon className="h-3.5 w-3.5" />
                         <span>Escuro</span>
                       </button>
                     </div>
@@ -269,20 +271,45 @@ export function SidebarPrincipal({ perfil, mobileAberto, setMobileAberto }: Side
               )}
             </div>
           </div>
+
+          {/* Card de Suporte / Dúvidas do Mockup */}
+          <div className="rounded-2xl border border-[#1E293B] bg-[#0B1533]/80 p-4 space-y-3 shadow-inner">
+            <div className="flex items-start gap-3">
+              <div className="h-8 w-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
+                <Headphones className="h-4 w-4" />
+              </div>
+              <div>
+                <span className="text-xs font-bold text-white block">
+                  Dúvidas ou sugestões?
+                </span>
+                <span className="text-[11px] text-slate-400 block mt-0.5">
+                  Fale com o suporte técnico
+                </span>
+              </div>
+            </div>
+
+            <Link
+              href="/chamados/novo"
+              className="inline-flex items-center justify-center gap-1.5 w-full rounded-xl bg-[#1D4ED8] py-2 text-xs font-bold text-white transition hover:bg-blue-600 shadow-md shadow-blue-900/40"
+            >
+              <span>Abrir chamado</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
         </div>
 
-        {/* Rodapé da Sidebar: Usuária Conectada & Sair */}
-        <div className="border-t border-borda bg-fundo/60 p-4">
+        {/* Rodapé da Sidebar: Usuário Conectado & Logout */}
+        <div className="border-t border-[#1E293B] bg-[#050A18] p-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 truncate">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-acento text-xs font-extrabold text-white shadow-xs">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1D4ED8] text-xs font-extrabold text-white shadow-md">
                 {perfil.nome_completo.substring(0, 2).toUpperCase()}
               </div>
               <div className="truncate">
-                <div className="font-heading text-xs font-bold text-texto truncate" title={perfil.nome_completo}>
+                <div className="text-xs font-bold text-white truncate" title={perfil.nome_completo}>
                   {perfil.nome_completo}
                 </div>
-                <div className="text-[11px] font-medium text-texto-suave">
+                <div className="text-[11px] font-medium text-slate-400">
                   {formatarPapel(perfil.papel)}
                 </div>
               </div>
@@ -291,7 +318,7 @@ export function SidebarPrincipal({ perfil, mobileAberto, setMobileAberto }: Side
             <form action={logoutUsuario}>
               <button
                 type="submit"
-                className="rounded-lg border border-borda bg-superficie p-2 text-texto-suave hover:border-erro/40 hover:bg-erro-fundo hover:text-erro transition shadow-xs"
+                className="rounded-lg border border-[#1E293B] bg-[#0A1128] p-2 text-slate-400 hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-400 transition"
                 title="Encerrar sessão"
               >
                 <LogOut className="h-4 w-4" />
