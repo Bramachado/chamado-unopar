@@ -19,9 +19,7 @@ import {
   BookOpen, 
   ChevronDown, 
   ChevronRight,
-  X,
-  Headphones,
-  ArrowRight
+  X
 } from "lucide-react";
 
 interface SidebarPrincipalProps {
@@ -122,10 +120,7 @@ export function SidebarPrincipal({
             </div>
             <div>
               <span className="text-base font-extrabold tracking-tight text-white block">
-                UNOPAR
-              </span>
-              <span className="text-[11px] font-medium text-slate-400 block">
-                Gestão de Protocolos
+                UNOPAR Chamados
               </span>
             </div>
           </div>
@@ -270,31 +265,6 @@ export function SidebarPrincipal({
                 </ul>
               )}
             </div>
-          </div>
-
-          {/* Card de Suporte / Dúvidas do Mockup */}
-          <div className="rounded-2xl border border-[#1E293B] bg-[#0B1533]/80 p-4 space-y-3 shadow-inner">
-            <div className="flex items-start gap-3">
-              <div className="h-8 w-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
-                <Headphones className="h-4 w-4" />
-              </div>
-              <div>
-                <span className="text-xs font-bold text-white block">
-                  Dúvidas ou sugestões?
-                </span>
-                <span className="text-[11px] text-slate-400 block mt-0.5">
-                  Fale com o suporte técnico
-                </span>
-              </div>
-            </div>
-
-            <Link
-              href="/chamados/novo"
-              className="inline-flex items-center justify-center gap-1.5 w-full rounded-xl bg-[#1D4ED8] py-2 text-xs font-bold text-white transition hover:bg-blue-600 shadow-md shadow-blue-900/40"
-            >
-              <span>Abrir chamado</span>
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
           </div>
         </div>
 

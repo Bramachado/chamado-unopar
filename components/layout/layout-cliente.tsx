@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { type Perfil } from "@/types/database";
 import { SidebarPrincipal } from "./sidebar";
-import { Menu, Bell, ChevronDown } from "lucide-react";
+import { Menu, Bell, ChevronDown, Plus } from "lucide-react";
 import { SeletorTema } from "@/components/ui/theme-switcher";
 
 interface LayoutClienteProps {
@@ -29,7 +29,7 @@ export function LayoutCliente({ perfil, children }: LayoutClienteProps) {
   };
 
   return (
-    <div className="min-h-screen flex bg-fundo text-texto">
+    <div className="min-h-screen flex bg-fundo text-texto relative">
       {/* Sidebar Lateral */}
       <SidebarPrincipal
         perfil={perfil}
@@ -56,7 +56,7 @@ export function LayoutCliente({ perfil, children }: LayoutClienteProps) {
                 <img src="/logo.png" alt="UNOPAR Logo" className="h-full w-full object-contain" />
               </div>
               <span className="text-xs font-bold text-texto">
-                UNOPAR Parauapebas
+                UNOPAR Chamados
               </span>
             </div>
 
@@ -114,6 +114,18 @@ export function LayoutCliente({ perfil, children }: LayoutClienteProps) {
           UNOPAR Parauapebas (Grupo Edunorte) — Sistema de Gestão e Controle de Chamados
         </footer>
       </div>
+
+      {/* Botão Flutuante (FAB) de Atalho para Novo Chamado */}
+      <Link
+        href="/chamados/novo"
+        className="group fixed bottom-6 right-6 z-40 flex items-center gap-2.5 rounded-full bg-[#1D4ED8] p-4 text-white shadow-xl shadow-blue-900/40 transition-all duration-300 hover:scale-105 hover:bg-blue-600 hover:shadow-2xl sm:px-5 sm:py-3.5"
+        title="Abrir novo chamado"
+      >
+        <Plus className="h-6 w-6 transition-transform duration-300 group-hover:rotate-90" />
+        <span className="hidden text-xs font-extrabold tracking-wide sm:inline-block">
+          Novo Chamado
+        </span>
+      </Link>
     </div>
   );
 }
