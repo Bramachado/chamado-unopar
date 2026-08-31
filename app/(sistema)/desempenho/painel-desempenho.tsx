@@ -8,7 +8,10 @@ import {
   TrendingUp, 
   Target, 
   Award,
-  ArrowRight
+  ArrowRight,
+  Zap,
+  CheckCheck,
+  Timer
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -59,8 +62,6 @@ export function PainelDesempenho({
   const temClassificacao = alguemPontuou && meusPontos > 0 && typeof minhaPosicao === "number";
 
   // Ordenação da lista de classificação:
-  // Se ninguém pontuou: ordem alfabética estrita, com posição exibindo "—"
-  // Se alguém pontuou: membros com pontos > 0 no topo por pontuação; membros com 0 pontos abaixo em ordem alfabética com posição "—"
   const listaOrdenada = [...listaBruta].sort((a, b) => {
     const pontosA = a.pontos_total || 0;
     const pontosB = b.pontos_total || 0;
@@ -209,42 +210,86 @@ export function PainelDesempenho({
           )}
         </div>
 
-        {/* Faixa Horizontal Única dos 4 Indicadores (Dividida por 1px) */}
-        <div className="grid grid-cols-2 divide-y divide-borda rounded-lg border border-borda bg-fundo sm:grid-cols-4 sm:divide-y-0 sm:divide-x">
-          <div className="p-4">
-            <span className="text-[13px] font-medium text-texto-suave block">
-              Pontuação total
-            </span>
-            <span className="text-2xl font-bold text-texto tabular-nums block mt-1">
-              {meusPontos} <span className="text-xs font-normal text-texto-suave">pts</span>
-            </span>
+        {/* 4 Cards de Indicadores com Cores Temáticas Específicas */}
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Card 1: Pontuação Total (Acento / Azul / Teal) */}
+          <div className="rounded-lg border border-acento/30 bg-acento/5 p-4 space-y-2 transition hover:border-acento/60">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-texto">
+                Pontuação total
+              </span>
+              <div className="h-7 w-7 rounded-md bg-acento/15 text-acento flex items-center justify-center border border-acento/30">
+                <Zap className="h-4 w-4" />
+              </div>
+            </div>
+            <div>
+              <span className="text-2xl font-extrabold text-acento tabular-nums block">
+                {meusPontos} <span className="text-xs font-medium text-texto-suave">pts</span>
+              </span>
+              <span className="text-[11px] text-texto-suave block mt-0.5">
+                Volume, Prazo e Agilidade
+              </span>
+            </div>
           </div>
 
-          <div className="p-4">
-            <span className="text-[13px] font-medium text-texto-suave block">
-              Chamados concluídos
-            </span>
-            <span className="text-2xl font-bold text-texto tabular-nums block mt-1">
-              {resolvidos}
-            </span>
+          {/* Card 2: Chamados Concluídos (Sucesso / Verde) */}
+          <div className="rounded-lg border border-sucesso/30 bg-sucesso-fundo/30 p-4 space-y-2 transition hover:border-sucesso/60">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-texto">
+                Chamados concluídos
+              </span>
+              <div className="h-7 w-7 rounded-md bg-sucesso/15 text-sucesso flex items-center justify-center border border-sucesso/30">
+                <CheckCheck className="h-4 w-4" />
+              </div>
+            </div>
+            <div>
+              <span className="text-2xl font-extrabold text-sucesso tabular-nums block">
+                {resolvidos}
+              </span>
+              <span className="text-[11px] text-texto-suave block mt-0.5">
+                Demandas com solução efetiva
+              </span>
+            </div>
           </div>
 
-          <div className="p-4">
-            <span className="text-[13px] font-medium text-texto-suave block">
-              Cumprimento de prazo
-            </span>
-            <span className="text-2xl font-bold text-texto tabular-nums block mt-1">
-              {resolvidos > 0 ? `${taxaPrazo}%` : "—"}
-            </span>
+          {/* Card 3: Cumprimento de Prazo (Alerta / Âmbar / Laranja) */}
+          <div className="rounded-lg border border-alerta/30 bg-alerta-fundo/30 p-4 space-y-2 transition hover:border-alerta/60">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-texto">
+                Cumprimento de prazo
+              </span>
+              <div className="h-7 w-7 rounded-md bg-alerta/15 text-alerta flex items-center justify-center border border-alerta/30">
+                <Target className="h-4 w-4" />
+              </div>
+            </div>
+            <div>
+              <span className="text-2xl font-extrabold text-alerta tabular-nums block">
+                {resolvidos > 0 ? `${taxaPrazo}%` : "—"}
+              </span>
+              <span className="text-[11px] text-texto-suave block mt-0.5">
+                Meta do setor: 90% no prazo
+              </span>
+            </div>
           </div>
 
-          <div className="p-4">
-            <span className="text-[13px] font-medium text-texto-suave block">
-              Tempo médio
-            </span>
-            <span className="text-2xl font-bold text-texto tabular-nums block mt-1">
-              {tempoMedio > 0 ? `${tempoMedio}d` : "—"}
-            </span>
+          {/* Card 4: Tempo Médio (Neutro / Slate / Azul Suave) */}
+          <div className="rounded-lg border border-borda bg-fundo p-4 space-y-2 transition hover:border-borda/80">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-texto">
+                Tempo médio
+              </span>
+              <div className="h-7 w-7 rounded-md bg-superficie text-texto-suave flex items-center justify-center border border-borda">
+                <Timer className="h-4 w-4" />
+              </div>
+            </div>
+            <div>
+              <span className="text-2xl font-extrabold text-texto tabular-nums block">
+                {tempoMedio > 0 ? `${tempoMedio}d` : "—"}
+              </span>
+              <span className="text-[11px] text-texto-suave block mt-0.5">
+                Meta: até 2 dias úteis
+              </span>
+            </div>
           </div>
         </div>
 
