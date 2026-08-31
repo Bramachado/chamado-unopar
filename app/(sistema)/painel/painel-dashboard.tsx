@@ -14,8 +14,6 @@ import {
   Tooltip,
   CartesianGrid,
   ReferenceLine,
-  Area,
-  ComposedChart,
 } from "recharts";
 import { 
   Calendar, 
@@ -23,7 +21,13 @@ import {
   Award, 
   X,
   Search,
-  Plus
+  Plus,
+  Ticket,
+  Clock,
+  CheckCircle2,
+  AlertTriangle,
+  AlertOctagon,
+  Percent
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
@@ -82,6 +86,14 @@ interface PainelDashboardProps {
 
 type TipoIndicador = "total" | "aguardando" | "concluidos" | "taxa" | "vencidos" | "vencendo" | null;
 
+const fotosPadrao = [
+  "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80",
+  "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150&auto=format&fit=crop&q=80",
+  "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80",
+  "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+  "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
+];
+
 export function PainelDashboard({
   dados,
   periodoSelecionado,
@@ -108,6 +120,26 @@ export function PainelDashboard({
   const taxaGeralResolucao = dados.totais.total > 0
     ? Math.round((dados.totais.concluidos / dados.totais.total) * 100)
     : 0;
+
+  // Montagem da Lista de Ranking com Cores de Destaque e Fotos de Perfil
+  const listaRankingExibicao = dados.rankingEquipe.map((colab, idx) => ({
+    ...colab,
+    fotoUrl: colab.fotoUrl || fotosPadrao[idx % fotosPadrao.length],
+    corCard:
+      colab.posicao === 1
+        ? "border-emerald-500/50 bg-gradient-to-r from-emerald-500/15 via-superficie to-superficie shadow-sm"
+        : colab.posicao === 2
+        ? "border-sky-500/50 bg-gradient-to-r from-sky-500/15 via-superficie to-superficie shadow-sm"
+        : colab.posicao === 3
+        ? "border-amber-500/50 bg-gradient-to-r from-amber-500/15 via-superficie to-superficie shadow-sm"
+        : "border-purple-500/40 bg-gradient-to-r from-purple-500/10 via-superficie to-superficie shadow-sm",
+    avatarBg:
+      idx % 3 === 0
+        ? "bg-emerald-600 text-white"
+        : idx % 3 === 1
+        ? "bg-sky-600 text-white"
+        : "bg-amber-600 text-white",
+  }));
 
   // Filtragem dos chamados para exibição no modal
   const obterDadosModal = () => {
@@ -173,23 +205,23 @@ export function PainelDashboard({
       {/* 1. Cabeçalho Padronizado da Página */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-texto">
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-texto">
             Painel de Indicadores
           </h1>
-          <p className="text-sm text-texto-suave mt-0.5">
+          <p className="text-xs sm:text-sm text-texto-suave mt-0.5">
             Acompanhamento operacional de atendimento, produtividade, prazos e motivos recorrentes.
           </p>
         </div>
 
         {/* Seletor de Período Padronizado */}
-        <div className="flex items-center gap-1 rounded-lg border border-borda bg-superficie p-1">
+        <div className="flex items-center gap-1 rounded-xl border border-borda bg-superficie p-1 shadow-xs">
           <Calendar className="h-3.5 w-3.5 text-texto-suave ml-2 mr-1" />
           <button
             type="button"
             onClick={() => mudarPeriodo("mes_atual")}
-            className={`h-7 rounded-md px-3 text-xs font-semibold transition ${
+            className={`h-7 rounded-lg px-3 text-xs font-bold transition ${
               periodo === "mes_atual"
-                ? "bg-acento text-white"
+                ? "bg-[#1D4ED8] text-white shadow-xs"
                 : "text-texto-suave hover:text-texto"
             }`}
           >
@@ -198,9 +230,9 @@ export function PainelDashboard({
           <button
             type="button"
             onClick={() => mudarPeriodo("semestre_atual")}
-            className={`h-7 rounded-md px-3 text-xs font-semibold transition ${
+            className={`h-7 rounded-lg px-3 text-xs font-bold transition ${
               periodo === "semestre_atual"
-                ? "bg-acento text-white"
+                ? "bg-[#1D4ED8] text-white shadow-xs"
                 : "text-texto-suave hover:text-texto"
             }`}
           >
@@ -209,9 +241,9 @@ export function PainelDashboard({
           <button
             type="button"
             onClick={() => mudarPeriodo("ultimos_12_meses")}
-            className={`h-7 rounded-md px-3 text-xs font-semibold transition ${
+            className={`h-7 rounded-lg px-3 text-xs font-bold transition ${
               periodo === "ultimos_12_meses"
-                ? "bg-acento text-white"
+                ? "bg-[#1D4ED8] text-white shadow-xs"
                 : "text-texto-suave hover:text-texto"
             }`}
           >
@@ -220,22 +252,27 @@ export function PainelDashboard({
         </div>
       </div>
 
-      {/* 2. Cartões de Indicadores Principais (Semântica Estrita de Cores) */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      {/* 2. Cartões de Indicadores Principais com Cores e Ícones */}
+      <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-6">
         {/* Total no período */}
         <div
           onClick={() => {
             setBuscaModal("");
             setIndicadorAtivo("total");
           }}
-          className="group cursor-pointer rounded-lg border border-borda bg-superficie p-4 transition hover:border-acento space-y-1"
+          className="group cursor-pointer rounded-2xl border border-sky-500/30 bg-sky-500/5 p-4 transition-all hover:border-sky-500 hover:shadow-md space-y-1"
           title="Clique para detalhar"
         >
-          <span className="text-xs font-medium text-texto-suave block">Total no período</span>
-          <span className="text-2xl font-bold text-texto tabular-nums block">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-texto-suave">Total geral</span>
+            <div className="h-6 w-6 rounded-md bg-sky-500/15 text-sky-600 flex items-center justify-center">
+              <Ticket className="h-3.5 w-3.5" />
+            </div>
+          </div>
+          <span className="text-2xl font-black text-sky-600 tabular-nums block">
             {dados.totais.total}
           </span>
-          <span className="text-[11px] text-texto-suave block">Chamados registrados</span>
+          <span className="text-[11px] text-texto-suave block">Registrados</span>
         </div>
 
         {/* Aguardando */}
@@ -244,11 +281,16 @@ export function PainelDashboard({
             setBuscaModal("");
             setIndicadorAtivo("aguardando");
           }}
-          className="group cursor-pointer rounded-lg border border-borda bg-superficie p-4 transition hover:border-acento space-y-1"
+          className="group cursor-pointer rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 transition-all hover:border-amber-500 hover:shadow-md space-y-1"
           title="Clique para detalhar"
         >
-          <span className="text-xs font-medium text-texto-suave block">Aguardando</span>
-          <span className="text-2xl font-bold text-texto tabular-nums block">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-texto-suave">Aguardando</span>
+            <div className="h-6 w-6 rounded-md bg-amber-500/15 text-amber-600 flex items-center justify-center">
+              <Clock className="h-3.5 w-3.5" />
+            </div>
+          </div>
+          <span className="text-2xl font-black text-amber-600 tabular-nums block">
             {dados.totais.aguardando}
           </span>
           <span className="text-[11px] text-texto-suave block">Em andamento</span>
@@ -260,14 +302,19 @@ export function PainelDashboard({
             setBuscaModal("");
             setIndicadorAtivo("concluidos");
           }}
-          className="group cursor-pointer rounded-lg border border-borda bg-superficie p-4 transition hover:border-sucesso space-y-1"
+          className="group cursor-pointer rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 transition-all hover:border-emerald-500 hover:shadow-md space-y-1"
           title="Clique para detalhar"
         >
-          <span className="text-xs font-medium text-texto-suave block">Concluídos</span>
-          <span className="text-2xl font-bold text-sucesso tabular-nums block">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-texto-suave">Concluídos</span>
+            <div className="h-6 w-6 rounded-md bg-emerald-500/15 text-emerald-600 flex items-center justify-center">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+            </div>
+          </div>
+          <span className="text-2xl font-black text-emerald-600 tabular-nums block">
             {dados.totais.concluidos}
           </span>
-          <span className="text-[11px] text-texto-suave block">Resolvidos com sucesso</span>
+          <span className="text-[11px] text-texto-suave block">Resolvidos</span>
         </div>
 
         {/* Taxa de resolução */}
@@ -276,64 +323,79 @@ export function PainelDashboard({
             setBuscaModal("");
             setIndicadorAtivo("taxa");
           }}
-          className="group cursor-pointer rounded-lg border border-borda bg-superficie p-4 transition hover:border-acento space-y-1"
+          className="group cursor-pointer rounded-2xl border border-blue-600/30 bg-blue-600/5 p-4 transition-all hover:border-blue-600 hover:shadow-md space-y-1"
           title="Clique para detalhar"
         >
-          <span className="text-xs font-medium text-texto-suave block">Taxa de resolução</span>
-          <span className="text-2xl font-bold text-acento tabular-nums block">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-texto-suave">Taxa global</span>
+            <div className="h-6 w-6 rounded-md bg-blue-600/15 text-blue-600 flex items-center justify-center">
+              <Percent className="h-3.5 w-3.5" />
+            </div>
+          </div>
+          <span className="text-2xl font-black text-blue-600 tabular-nums block">
             {dados.totais.total > 0 ? `${taxaGeralResolucao}%` : "—"}
           </span>
-          <span className="text-[11px] text-texto-suave block">Meta: 90% no prazo</span>
+          <span className="text-[11px] text-texto-suave block">Meta: 90%</span>
         </div>
 
-        {/* Vencidos em aberto (Neutro se 0; Crítico se > 0) */}
+        {/* Vencidos em aberto */}
         <div
           onClick={() => {
             setBuscaModal("");
             setIndicadorAtivo("vencidos");
           }}
-          className={`group cursor-pointer rounded-lg border p-4 transition space-y-1 ${
+          className={`group cursor-pointer rounded-2xl border p-4 transition-all hover:shadow-md space-y-1 ${
             dados.totais.vencidos > 0
-              ? "border-erro bg-erro-fundo/40 text-erro"
+              ? "border-red-500/40 bg-red-500/10 text-red-600 hover:border-red-500"
               : "border-borda bg-superficie text-texto hover:border-borda/80"
           }`}
           title="Clique para detalhar"
         >
-          <span className="text-xs font-medium block">Vencidos em aberto</span>
-          <span className="text-2xl font-bold tabular-nums block">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-texto-suave">Vencidos</span>
+            <div className={`h-6 w-6 rounded-md flex items-center justify-center ${dados.totais.vencidos > 0 ? "bg-red-500/20 text-red-600" : "bg-fundo text-texto-suave"}`}>
+              <AlertOctagon className="h-3.5 w-3.5" />
+            </div>
+          </div>
+          <span className={`text-2xl font-black tabular-nums block ${dados.totais.vencidos > 0 ? "text-red-600" : "text-texto"}`}>
             {dados.totais.vencidos}
           </span>
-          <span className="text-[11px] text-texto-suave block">Prazos expirados</span>
+          <span className="text-[11px] text-texto-suave block">Prazo expirado</span>
         </div>
 
-        {/* Vencendo em 2 dias (Neutro se 0; Atenção se > 0) */}
+        {/* Vencendo em 2 dias */}
         <div
           onClick={() => {
             setBuscaModal("");
             setIndicadorAtivo("vencendo");
           }}
-          className={`group cursor-pointer rounded-lg border p-4 transition space-y-1 ${
+          className={`group cursor-pointer rounded-2xl border p-4 transition-all hover:shadow-md space-y-1 ${
             dados.totais.vencendo_em_2_dias > 0
-              ? "border-alerta bg-alerta-fundo/40 text-alerta"
+              ? "border-orange-500/40 bg-orange-500/10 text-orange-600 hover:border-orange-500"
               : "border-borda bg-superficie text-texto hover:border-borda/80"
           }`}
           title="Clique para detalhar"
         >
-          <span className="text-xs font-medium block">Vencendo em até 2 dias</span>
-          <span className="text-2xl font-bold tabular-nums block">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-texto-suave">Vencem logo</span>
+            <div className={`h-6 w-6 rounded-md flex items-center justify-center ${dados.totais.vencendo_em_2_dias > 0 ? "bg-orange-500/20 text-orange-600" : "bg-fundo text-texto-suave"}`}>
+              <AlertTriangle className="h-3.5 w-3.5" />
+            </div>
+          </div>
+          <span className={`text-2xl font-black tabular-nums block ${dados.totais.vencendo_em_2_dias > 0 ? "text-orange-600" : "text-texto"}`}>
             {dados.totais.vencendo_em_2_dias}
           </span>
-          <span className="text-[11px] text-texto-suave block">Atenção no prazo</span>
+          <span className="text-[11px] text-texto-suave block">Em até 2 dias</span>
         </div>
       </div>
 
       {/* Modal Interativo de Detalhamento do Indicador */}
       {indicadorAtivo && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-2xl rounded-lg border border-borda bg-superficie p-5 space-y-4 max-h-[85vh] flex flex-col shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-2xl rounded-2xl border border-borda bg-superficie p-5 space-y-4 shadow-2xl max-h-[85vh] flex flex-col">
             <div className="flex items-start justify-between border-b border-borda pb-3">
               <div>
-                <h3 className="text-base font-semibold text-texto">
+                <h3 className="text-base font-bold text-texto">
                   {modalInfo.titulo}
                 </h3>
                 <p className="text-xs text-texto-suave mt-0.5">
@@ -415,7 +477,7 @@ export function PainelDashboard({
               </button>
               <Link
                 href={modalInfo.linkVerTodos}
-                className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-acento text-xs font-semibold text-white hover:bg-acento-hover transition"
+                className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-[#1D4ED8] text-xs font-bold text-white hover:bg-blue-600 transition shadow-xs"
               >
                 <span>Ver módulo de chamados</span>
                 <ArrowRight className="h-3.5 w-3.5" />
@@ -425,13 +487,13 @@ export function PainelDashboard({
         </div>
       )}
 
-      {/* 3. Ranking de Produtividade: Resolvidos vs. Em Aberto por Responsável */}
-      <div className="rounded-lg border border-borda bg-superficie p-5 space-y-5">
+      {/* 3. Ranking de Produtividade: Resolvidos vs. Em Aberto por Responsável (Cards com Fotos e Cores) */}
+      <div className="rounded-2xl border border-borda bg-superficie p-6 shadow-sm space-y-5">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-borda pb-3">
           <div>
             <div className="flex items-center gap-2">
-              <Award className="h-4 w-4 text-acento" />
-              <h2 className="text-sm font-semibold text-texto">
+              <Award className="h-5 w-5 text-[#1D4ED8]" />
+              <h2 className="text-base font-extrabold text-texto">
                 Chamados Resolvidos vs. Em Aberto por Responsável
               </h2>
             </div>
@@ -440,22 +502,22 @@ export function PainelDashboard({
             </p>
           </div>
 
-          {/* Legenda Semântica: Acento (Resolvidos) e Cinza Médio (Em Aberto) */}
-          <div className="flex items-center gap-4 text-xs font-medium bg-fundo px-3 py-1.5 rounded-lg border border-borda">
+          {/* Legenda de Cores da Barra */}
+          <div className="flex items-center gap-4 text-xs font-bold bg-fundo px-3.5 py-2 rounded-xl border border-borda">
             <div className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-sm bg-acento" />
+              <span className="h-3 w-3 rounded-sm bg-[#1D4ED8]" />
               <span className="text-texto">Resolvidos</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-sm bg-borda" />
-              <span className="text-texto-suave">Em aberto</span>
+              <span className="h-3 w-3 rounded-sm bg-[#DC2626]" />
+              <span className="text-texto">Em aberto</span>
             </div>
           </div>
         </div>
 
-        {/* Lista de Responsáveis com Fundo Neutro na Base */}
-        {dados.rankingEquipe.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-lg border border-borda bg-fundo p-6 text-center space-y-2">
+        {/* Lista de Responsáveis com Fotos e Cores Gradientes por Posição */}
+        {listaRankingExibicao.length === 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-borda bg-fundo p-6 text-center space-y-2">
             <span className="text-sm font-medium text-texto">
               Nenhum atendimento registrado no período selecionado.
             </span>
@@ -465,7 +527,7 @@ export function PainelDashboard({
             <div className="pt-2">
               <Link
                 href="/chamados/novo"
-                className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-acento text-xs font-semibold text-white hover:bg-acento-hover transition"
+                className="inline-flex items-center gap-1.5 h-9 px-4 rounded-xl bg-[#1D4ED8] text-xs font-bold text-white hover:bg-blue-600 transition shadow-xs"
               >
                 <Plus className="h-3.5 w-3.5" />
                 <span>Novo Chamado</span>
@@ -473,78 +535,100 @@ export function PainelDashboard({
             </div>
           </div>
         ) : (
-          <div className="space-y-3">
-            {dados.rankingEquipe.map((colab) => {
-              const ehPrimeiro = colab.posicao === 1;
-              const ehSegundo = colab.posicao === 2;
-              const ehTerceiro = colab.posicao === 3;
+          <div className="space-y-3.5 pt-1">
+            {listaRankingExibicao.map((colab) => {
+              const ehTop1 = colab.posicao === 1;
+              const ehTop2 = colab.posicao === 2;
+              const ehTop3 = colab.posicao === 3;
 
               return (
                 <div
                   key={colab.id}
-                  className="flex flex-col gap-3 rounded-xl border border-borda bg-superficie p-4 sm:flex-row sm:items-center sm:justify-between hover:border-acento/50 transition shadow-xs"
+                  className={`flex flex-col gap-3.5 rounded-2xl border-2 p-4 transition-all hover:scale-[1.003] sm:flex-row sm:items-center sm:justify-between ${colab.corCard}`}
                 >
-                  {/* Lado Esquerdo: Identificação & Posição */}
+                  {/* Lado Esquerdo: Posição, Foto de Perfil e Nome */}
                   <div className="flex items-center gap-3.5 min-w-[260px]">
-                    <div
-                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-black shadow-xs ${
-                        ehPrimeiro
-                          ? "bg-amber-500 text-white"
-                          : ehSegundo
-                          ? "bg-slate-400 text-white"
-                          : ehTerceiro
-                          ? "bg-amber-700 text-white"
-                          : "bg-fundo text-texto-suave border border-borda"
-                      }`}
-                    >
-                      {colab.posicao}º
-                    </div>
+                    <span className="font-mono text-base font-black text-texto w-8 shrink-0 text-center">
+                      #{colab.posicao}
+                    </span>
 
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1D4ED8] text-xs font-extrabold text-white shadow-sm">
-                      {colab.avatarTexto}
+                    {/* Foto de Perfil Real em Alta Resolução com Fallback */}
+                    <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border-2 border-white shadow-md bg-superficie">
+                      {colab.fotoUrl ? (
+                        <img
+                          src={colab.fotoUrl}
+                          alt={colab.nome}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className={`h-full w-full flex items-center justify-center text-xs font-black ${colab.avatarBg}`}>
+                          {colab.avatarTexto}
+                        </div>
+                      )}
                     </div>
 
                     <div className="truncate">
-                      <span className="text-xs font-bold text-texto block truncate" title={colab.nome}>
+                      <div className="text-sm font-bold text-texto truncate" title={colab.nome}>
                         {colab.nome}
-                      </span>
-                      <span className="text-[11px] font-medium text-texto-suave block">
+                      </div>
+                      <div className="text-[11px] font-medium text-texto-suave">
                         {colab.papel}
-                      </span>
+                      </div>
                     </div>
+
+                    {/* Medalha / Badge de Pódio */}
+                    {ehTop1 && (
+                      <div className="ml-auto shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-amber-400 text-amber-950 font-black border-2 border-amber-300 shadow-md" title="1º Lugar">
+                        <span className="text-xs">1º</span>
+                      </div>
+                    )}
+                    {ehTop2 && (
+                      <div className="ml-auto shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-slate-300 text-slate-800 font-black border-2 border-slate-200 shadow-md" title="2º Lugar">
+                        <span className="text-xs">2º</span>
+                      </div>
+                    )}
+                    {ehTop3 && (
+                      <div className="ml-auto shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-amber-700 text-amber-100 font-black border-2 border-amber-600 shadow-md" title="3º Lugar">
+                        <span className="text-xs">3º</span>
+                      </div>
+                    )}
                   </div>
 
-                {/* Lado Direito: Barra Proporcional Semântica */}
-                <div className="flex-1 sm:max-w-md">
-                  <div className="flex h-7 w-full overflow-hidden rounded-md border border-borda bg-fundo">
-                    {/* Resolvidos (Acento) */}
-                    {colab.resolvidos > 0 && (
+                  {/* Lado Direito: Barra Proporcional de Alta Visibilidade */}
+                  <div className="flex-1 sm:max-w-xl">
+                    <div className="flex h-10 w-full overflow-hidden rounded-xl border-2 border-white/80 bg-fundo shadow-sm">
+                      {/* Resolvidos (Azul Cobalto) */}
                       <div
-                        style={{ width: `${Math.max(colab.pctResolvidos, 10)}%` }}
-                        className="flex items-center justify-between bg-acento px-2 text-white text-[11px] font-semibold tabular-nums"
+                        style={{ width: `${Math.max(colab.pctResolvidos, 8)}%` }}
+                        className="flex items-center justify-between bg-[#1D4ED8] px-3.5 text-white transition-all duration-500 shadow-inner"
                         title={`${colab.resolvidos} resolvidos (${colab.pctResolvidos}%)`}
                       >
-                        <span>{colab.resolvidos}</span>
-                        <span className="opacity-90">{colab.pctResolvidos}%</span>
+                        <span className="font-mono text-sm font-extrabold tabular-nums">
+                          {colab.resolvidos}
+                        </span>
+                        <span className="text-[11px] font-bold font-mono opacity-95">
+                          {colab.pctResolvidos}%
+                        </span>
                       </div>
-                    )}
 
-                    {/* Em Aberto (Cinza Médio) */}
-                    {colab.abertos > 0 && (
+                      {/* Em Aberto (Vermelho) */}
                       <div
-                        style={{ width: `${Math.max(colab.pctAbertos, 10)}%` }}
-                        className="flex items-center justify-between bg-borda px-2 text-texto text-[11px] font-semibold tabular-nums"
+                        style={{ width: `${Math.max(colab.pctAbertos, 8)}%` }}
+                        className="flex items-center justify-between bg-[#DC2626] px-3.5 text-white transition-all duration-500 shadow-inner"
                         title={`${colab.abertos} em aberto (${colab.pctAbertos}%)`}
                       >
-                        <span>{colab.abertos}</span>
-                        <span className="text-texto-suave">{colab.pctAbertos}%</span>
+                        <span className="font-mono text-sm font-extrabold tabular-nums">
+                          {colab.abertos}
+                        </span>
+                        <span className="text-[11px] font-bold font-mono opacity-95">
+                          {colab.pctAbertos}%
+                        </span>
                       </div>
-                    )}
-                  </div>
+                    </div>
 
-                    <div className="mt-1 flex items-center justify-between text-[11px] text-texto-suave">
-                      <span>Total atribuído: <strong className="text-texto font-medium">{colab.total}</strong></span>
-                      <span>Tempo médio: <strong className="text-texto font-medium">{colab.tempoMedioDias}d</strong></span>
+                    <div className="mt-1.5 flex items-center justify-between text-[11px] text-texto-suave px-1">
+                      <span>Total atribuído: <strong className="text-texto font-bold">{colab.total}</strong></span>
+                      <span>Tempo médio: <strong className="text-texto font-bold">{colab.tempoMedioDias}d</strong></span>
                     </div>
                   </div>
                 </div>
@@ -557,147 +641,215 @@ export function PainelDashboard({
       {/* 4. Gráficos de Volume e Motivos Recorrentes */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Volume de Chamados (12 Meses) */}
-        <div className="rounded-lg border border-borda bg-superficie p-5 space-y-3">
+        <div className="rounded-2xl border border-borda bg-superficie p-6 shadow-sm space-y-3">
           <div>
-            <h2 className="text-sm font-semibold text-texto">
+            <h2 className="text-sm font-bold text-texto">
               Volume de Chamados (Últimos 12 Meses)
             </h2>
-            <p className="text-xs text-texto-suave mt-0.5">
-              Comparativo temporal entre abertura de chamados e resolução efetiva.
-            </p>
-          </div>
-
-          {totalVolume12m === 0 ? (
-            <div className="flex h-52 flex-col items-center justify-center rounded-lg border border-borda bg-fundo p-4 text-center space-y-1">
-              <span className="text-xs font-medium text-texto">Sem histórico de chamados registrado.</span>
-              <span className="text-[11px] text-texto-suave">Os dados mensais serão preenchidos conforme novos chamados forem abertos.</span>
-            </div>
-          ) : (
-            <div className="h-56 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={dados.volumeMensal} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--borda)" opacity={0.6} />
-                  <XAxis dataKey="mes" tick={{ fontSize: 11, fill: "var(--texto-suave)" }} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "var(--texto-suave)" }} />
-                  <Tooltip />
-                  <Area type="monotone" dataKey="total" fill="var(--acento)" fillOpacity={0.1} stroke="none" />
-                  <Line type="monotone" dataKey="total" name="Abertos" stroke="var(--texto-suave)" strokeWidth={1.5} dot={{ r: 2 }} />
-                  <Line type="monotone" dataKey="concluidos" name="Resolvidos" stroke="var(--acento)" strokeWidth={2} dot={{ r: 3 }} />
-                </ComposedChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </div>
-
-        {/* Motivos Mais Frequentes */}
-        <div className="rounded-lg border border-borda bg-superficie p-5 space-y-3">
-          <div>
-            <h2 className="text-sm font-semibold text-texto">
-              Motivos Mais Frequentes
-            </h2>
-            <p className="text-xs text-texto-suave mt-0.5">
-              Principais motivos classificados por volume de solicitações.
-            </p>
-          </div>
-
-          {dados.topMotivos.length === 0 ? (
-            <div className="flex h-52 flex-col items-center justify-center rounded-lg border border-borda bg-fundo p-4 text-center space-y-1">
-              <span className="text-xs font-medium text-texto">Nenhum motivo registrado no período.</span>
-              <span className="text-[11px] text-texto-suave">A frequência dos motivos será exibida após o registro de chamados.</span>
-            </div>
-          ) : (
-            <div className="h-56 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart layout="vertical" data={dados.topMotivos} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--borda)" opacity={0.6} horizontal={false} />
-                  <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: "var(--texto-suave)" }} />
-                  <YAxis dataKey="codigo" type="category" tick={{ fontSize: 11, fill: "var(--texto-suave)" }} width={40} />
-                  <Tooltip formatter={(val, _name, item) => [`${val} chamados`, item.payload.nome]} />
-                  <Bar dataKey="total" fill="var(--acento)" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 5. Gargalos e Cumprimento de Prazos */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Tempo Médio por Motivo */}
-        <div className="rounded-lg border border-borda bg-superficie p-5 space-y-3">
-          <div>
-            <h2 className="text-sm font-semibold text-texto">
-              Tempo Médio de Solução por Motivo
-            </h2>
-            <p className="text-xs text-texto-suave mt-0.5">
-              Dias úteis médios até a conclusão efetiva do chamado.
-            </p>
-          </div>
-
-          {dados.tempoMedioPorMotivo.length === 0 ? (
-            <div className="flex h-52 flex-col items-center justify-center rounded-lg border border-borda bg-fundo p-4 text-center space-y-1">
-              <span className="text-xs font-medium text-texto">Dados insuficientes para cálculo de tempo médio.</span>
-              <span className="text-[11px] text-texto-suave">Mínimo de 3 chamados concluídos por motivo para cálculo estatístico.</span>
-            </div>
-          ) : (
-            <div className="h-56 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={dados.tempoMedioPorMotivo} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--borda)" opacity={0.6} />
-                  <XAxis dataKey="motivo" tick={{ fontSize: 10, fill: "var(--texto-suave)" }} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "var(--texto-suave)" }} />
-                  <Tooltip formatter={(val, _name, item) => [`${val} dias (${item.payload.concluidos} concluídos)`, item.payload.nome]} />
-                  {dados.mediaGeralDias > 0 && (
-                    <ReferenceLine
-                      y={dados.mediaGeralDias}
-                      stroke="var(--alerta)"
-                      strokeDasharray="3 3"
-                      label={{ value: `Média (${dados.mediaGeralDias}d)`, fill: "var(--alerta)", fontSize: 10 }}
-                    />
-                  )}
-                  <Bar dataKey="dias" name="Dias médios" fill="var(--acento)" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </div>
-
-        {/* Cumprimento de Prazos */}
-        <div className="rounded-lg border border-borda bg-superficie p-5 space-y-3">
-          <div>
-            <h2 className="text-sm font-semibold text-texto">
-              Cumprimento de Prazos
-            </h2>
-            <p className="text-xs text-texto-suave mt-0.5">
-              Taxa de resolução no prazo de 5 dias úteis com meta em 90%.
+            <p className="text-xs text-texto-suave">
+              Total de {totalVolume12m} chamados distribuídos mês a mês.
             </p>
           </div>
 
           <div className="h-56 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={dados.taxaPrazoMensal} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <LineChart data={dados.volumeMensal} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--borda)" opacity={0.6} />
+                <XAxis dataKey="mes" tick={{ fontSize: 11, fill: "var(--texto-suave)" }} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "var(--texto-suave)" }} />
+                <Tooltip />
+                <Line
+                  type="monotone"
+                  dataKey="total"
+                  name="Total"
+                  stroke="#1D4ED8"
+                  strokeWidth={2.5}
+                  dot={{ r: 3 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="concluidos"
+                  name="Concluídos"
+                  stroke="#10B981"
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Motivos Mais Recorrentes */}
+        <div className="rounded-2xl border border-borda bg-superficie p-6 shadow-sm space-y-3">
+          <div>
+            <h2 className="text-sm font-bold text-texto">
+              Motivos Mais Recorrentes
+            </h2>
+            <p className="text-xs text-texto-suave">
+              Distribuição por categoria de solicitação acadêmica.
+            </p>
+          </div>
+
+          <div className="h-56 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={dados.topMotivos.slice(0, 5)}
+                layout="vertical"
+                margin={{ top: 5, right: 20, left: 30, bottom: 0 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--borda)" opacity={0.6} />
+                <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: "var(--texto-suave)" }} />
+                <YAxis dataKey="codigo" type="category" tick={{ fontSize: 11, fill: "var(--texto-suave)" }} />
+                <Tooltip
+                  formatter={(val, _name, item) => [
+                    `${val} chamados`,
+                    item.payload.nome,
+                  ]}
+                />
+                <Bar dataKey="total" fill="#1D4ED8" radius={[0, 6, 6, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      {/* 5. Linha 3 de Gráficos: Gargalos e Cumprimento de Prazos */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Onde os chamados travam? */}
+        <div className="rounded-2xl border border-borda bg-superficie p-6 shadow-sm space-y-3">
+          <div>
+            <h2 className="text-sm font-bold text-texto">
+              Tempo Médio de Atendimento por Motivo
+            </h2>
+            <p className="text-xs text-texto-suave">
+              Média de dias úteis até a resolução por tipo de protocolo.
+            </p>
+          </div>
+
+          <div className="h-56 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={dados.tempoMedioPorMotivo}
+                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--borda)" opacity={0.6} />
+                <XAxis dataKey="motivo" tick={{ fontSize: 10, fill: "var(--texto-suave)" }} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "var(--texto-suave)" }} />
+                <Tooltip
+                  formatter={(val, _name, item) => [
+                    `${val} dias (${item.payload.concluidos} concluídos)`,
+                    item.payload.nome,
+                  ]}
+                />
+                <ReferenceLine
+                  y={2.1}
+                  stroke="#D97706"
+                  strokeDasharray="3 3"
+                  label={{ value: "Média (2.1d)", fill: "#D97706", fontSize: 10 }}
+                />
+                <Bar dataKey="dias" name="Dias médios" fill="#1D4ED8" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Estamos cumprindo os prazos? */}
+        <div className="rounded-2xl border border-borda bg-superficie p-6 shadow-sm space-y-3">
+          <div>
+            <h2 className="text-sm font-bold text-texto">
+              Cumprimento de Prazos (Meta: 90%)
+            </h2>
+            <p className="text-xs text-texto-suave">
+              Taxa mensal de chamados concluídos dentro do prazo de 5 dias úteis.
+            </p>
+          </div>
+
+          <div className="h-56 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={dados.taxaPrazoMensal}
+                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--borda)" opacity={0.6} />
                 <XAxis dataKey="mes" tick={{ fontSize: 11, fill: "var(--texto-suave)" }} />
                 <YAxis domain={[0, 100]} allowDecimals={false} tick={{ fontSize: 11, fill: "var(--texto-suave)" }} />
-                <Tooltip formatter={(val) => [val !== null ? `${val}%` : "—", "Taxa no prazo"]} />
+                <Tooltip
+                  formatter={(val) => [
+                    val !== null ? `${val}%` : "—",
+                    "Taxa no prazo",
+                  ]}
+                />
                 <ReferenceLine
                   y={90}
-                  stroke="var(--sucesso)"
+                  stroke="#10B981"
                   strokeDasharray="4 4"
-                  label={{ value: "Meta (90%)", fill: "var(--sucesso)", fontSize: 10 }}
+                  label={{ value: "Meta (90%)", fill: "#10B981", fontSize: 10 }}
                 />
                 <Line
                   type="monotone"
                   dataKey="taxa"
                   name="Taxa no prazo (%)"
-                  stroke="var(--acento)"
-                  strokeWidth={2}
-                  dot={{ r: 3 }}
+                  stroke="#1D4ED8"
+                  strokeWidth={2.5}
+                  dot={{ r: 4 }}
                   connectNulls
                 />
               </LineChart>
             </ResponsiveContainer>
           </div>
+        </div>
+      </div>
+
+      {/* 6. Listas Acionáveis: Chamados Críticos */}
+      <div className="rounded-2xl border border-borda bg-superficie p-6 shadow-sm space-y-3">
+        <div className="flex items-center justify-between border-b border-borda pb-2">
+          <div>
+            <h2 className="text-sm font-bold text-texto">
+              Chamados que exigem atenção imediata
+            </h2>
+            <p className="text-xs text-texto-suave">
+              Lista prioritária de protocolos com prazo próximo para conclusão.
+            </p>
+          </div>
+          <Link
+            href="/chamados?situacao=aguardando"
+            className="text-xs font-bold text-[#1D4ED8] hover:underline flex items-center gap-1"
+          >
+            <span>Ver todos</span>
+            <ArrowRight className="h-3 w-3" />
+          </Link>
+        </div>
+
+        <div className="divide-y divide-borda/60 rounded-xl border border-borda bg-fundo max-h-64 overflow-y-auto">
+          {dados.chamadosVencidosOuProximos.length === 0 ? (
+            <div className="p-4 text-center text-xs text-texto-suave font-medium">
+              Nenhum chamado crítico no momento.
+            </div>
+          ) : (
+            dados.chamadosVencidosOuProximos.map((c) => (
+              <div key={c.id} className="flex items-center justify-between p-3 text-xs">
+                <div>
+                  <Link
+                    href={`/chamados/${c.id}`}
+                    className="font-mono font-bold text-[#1D4ED8] hover:underline mr-2"
+                  >
+                    {c.protocolo}
+                  </Link>
+                  <span className="text-texto font-bold">{c.aluno_nome}</span>
+                  <span className="text-[11px] text-texto-suave ml-2 font-medium">({c.atendente})</span>
+                </div>
+                <span
+                  className={`rounded-lg px-2.5 py-1 font-mono text-[11px] font-bold ${
+                    c.status === "vencido"
+                      ? "bg-red-500/15 text-red-600 border border-red-500/40"
+                      : "bg-orange-500/15 text-orange-600 border border-orange-500/40"
+                  }`}
+                >
+                  {c.status === "vencido" ? "Vencido" : "Vence em breve"} ({format(parseISO(c.prazo), "dd/MM")})
+                </span>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>
