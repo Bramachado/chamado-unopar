@@ -12,11 +12,14 @@ import {
   Download, 
   Plus, 
   Users,
-  Filter
+  Filter,
+  Calendar
 } from "lucide-react";
 import { format, parseISO, isBefore, startOfDay, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { excluirChamadoAction } from "./actions";
+import { CustomSelect, type CustomSelectOption } from "@/components/ui/custom-select";
+import { CustomCheckbox } from "@/components/ui/custom-checkbox";
 
 interface TabelaChamadosProps {
   chamados: (Chamado & {
@@ -62,6 +65,28 @@ export function TabelaChamados({
 
   const hoje = startOfDay(new Date());
   const emDoisDias = addDays(hoje, 2);
+
+  // Opções formatadas para os CustomSelects
+  const opcoesSituacao: CustomSelectOption[] = [
+    { value: "todos", label: "Todas as situações" },
+    { value: "aguardando", label: "Aguardando (Em andamento)" },
+    { value: "concluido", label: "Concluído (Resolvido)" },
+    { value: "encerrado", label: "Encerrado (Sem resolução)" },
+  ];
+
+  const opcoesPrioridade: CustomSelectOption[] = [
+    { value: "todos", label: "Todas as prioridades" },
+    { value: "normal", label: "Normal" },
+    { value: "priorizar", label: "Priorizar" },
+  ];
+
+  const opcoesMotivo: CustomSelectOption[] = [
+    { value: "todos", label: "Todos os motivos" },
+    ...motivos.map((m) => ({
+      value: m.id,
+      label: `${m.codigo} — ${m.nome}`,
+    })),
+  ];
 
   // Filtro de alunos reincidentes no client-side
   const contagemPorAluno = chamados.reduce<Record<string, number>>((acc, c) => {
@@ -140,7 +165,7 @@ export function TabelaChamados({
   return (
     <div className="space-y-6">
       {/* Cabeçalho e Ações Principais */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-superficie p-4 rounded-xl border border-borda shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-superficie p-5 rounded-xl border border-borda shadow-sm">
         <div>
           <h1 className="font-heading text-xl font-bold text-texto tracking-tight">
             Gerenciamento de Chamados
@@ -150,10 +175,10 @@ export function TabelaChamados({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <Link
             href={`/chamados/exportar?${searchParams.toString()}`}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-borda bg-fundo px-3 py-2 text-xs font-bold text-texto transition hover:bg-superficie shadow-xs"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-borda bg-fundo px-3.5 py-2 text-xs font-bold text-texto transition hover:bg-superficie shadow-xs"
             title="Exportar dados filtrados em CSV"
           >
             <Download className="h-4 w-4 text-texto-suave" />
@@ -170,12 +195,12 @@ export function TabelaChamados({
         </div>
       </div>
 
-      {/* Bloco de Filtros de Alto Contraste */}
+      {/* Bloco de Filtros com CustomSelects e CustomCheckbox */}
       <div className="rounded-xl border border-borda bg-superficie p-5 shadow-sm space-y-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {/* Busca Textual */}
-          <div className="relative">
-            <label className="block text-xs font-bold text-texto mb-1">
+          <div>
+            <label className="block text-xs font-bold text-texto mb-1.5">
               Buscar (Protocolo ou Aluno)
             </label>
             <div className="relative">
@@ -187,102 +212,77 @@ export function TabelaChamados({
                   if (e.key === "Enter") aplicarFiltros();
                 }}
                 placeholder="Ex: CS12345678 ou Nome..."
-                className="w-full rounded-lg border border-borda bg-fundo pl-8 pr-3 py-2 text-xs font-medium text-texto placeholder:text-texto-suave focus:border-acento focus:outline-none shadow-xs"
+                className="w-full rounded-lg border border-borda bg-fundo pl-9 pr-3 py-2 text-xs font-medium text-texto placeholder:text-texto-suave focus:border-acento focus:outline-none focus:ring-2 focus:ring-acento/20 shadow-xs"
               />
-              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-texto-suave" />
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-texto-suave" />
             </div>
           </div>
 
-          {/* Filtro Situação */}
-          <div>
-            <label className="block text-xs font-bold text-texto mb-1">
-              Situação
-            </label>
-            <select
-              value={situacao}
-              onChange={(e) => setSituacao(e.target.value)}
-              className="w-full rounded-lg border border-borda bg-fundo px-3 py-2 text-xs font-medium text-texto focus:border-acento focus:outline-none shadow-xs"
-            >
-              <option value="todos">Todas as situações</option>
-              <option value="aguardando">Aguardando (Em andamento)</option>
-              <option value="concluido">Concluído (Resolvido)</option>
-              <option value="encerrado">Encerrado (Sem resolução)</option>
-            </select>
-          </div>
+          {/* Filtro Situação Customizado */}
+          <CustomSelect
+            label="Situação"
+            options={opcoesSituacao}
+            value={situacao}
+            onChange={(val) => setSituacao(val)}
+          />
 
-          {/* Filtro Prioridade */}
-          <div>
-            <label className="block text-xs font-bold text-texto mb-1">
-              Prioridade
-            </label>
-            <select
-              value={prioridade}
-              onChange={(e) => setPrioridade(e.target.value)}
-              className="w-full rounded-lg border border-borda bg-fundo px-3 py-2 text-xs font-medium text-texto focus:border-acento focus:outline-none shadow-xs"
-            >
-              <option value="todos">Todas as prioridades</option>
-              <option value="normal">Normal</option>
-              <option value="priorizar">Priorizar</option>
-            </select>
-          </div>
+          {/* Filtro Prioridade Customizado */}
+          <CustomSelect
+            label="Prioridade"
+            options={opcoesPrioridade}
+            value={prioridade}
+            onChange={(val) => setPrioridade(val)}
+          />
 
-          {/* Filtro Catálogo de Motivo */}
-          <div>
-            <label className="block text-xs font-bold text-texto mb-1">
-              Motivo
-            </label>
-            <select
-              value={motivoId}
-              onChange={(e) => setMotivoId(e.target.value)}
-              className="w-full rounded-lg border border-borda bg-fundo px-3 py-2 text-xs font-medium text-texto focus:border-acento focus:outline-none shadow-xs"
-            >
-              <option value="todos">Todos os motivos</option>
-              {motivos.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.codigo} — {m.nome}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Filtro Catálogo de Motivo Customizado */}
+          <CustomSelect
+            label="Motivo"
+            options={opcoesMotivo}
+            value={motivoId}
+            onChange={(val) => setMotivoId(val)}
+          />
         </div>
 
         {/* Linha 2 de Filtros (Datas e Reincidência) */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-borda pt-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-borda pt-3.5">
+          <div className="flex flex-wrap items-center gap-4">
+            {/* Seletor de Datas Estilizado */}
+            <div className="flex items-center gap-2 bg-fundo px-3 py-1.5 rounded-lg border border-borda shadow-xs">
+              <Calendar className="h-4 w-4 text-texto-suave" />
               <span className="text-xs font-bold text-texto">Período:</span>
               <input
                 type="date"
                 value={dataInicio}
                 onChange={(e) => setDataInicio(e.target.value)}
-                className="rounded-lg border border-borda bg-fundo px-2.5 py-1.5 font-mono text-xs font-semibold text-texto focus:border-acento focus:outline-none shadow-xs"
+                className="rounded-md border border-borda/80 bg-superficie px-2 py-1 font-mono text-xs font-semibold text-texto focus:border-acento focus:outline-none shadow-xs"
               />
-              <span className="text-xs text-texto-suave">até</span>
+              <span className="text-xs text-texto-suave font-medium">até</span>
               <input
                 type="date"
                 value={dataFim}
                 onChange={(e) => setDataFim(e.target.value)}
-                className="rounded-lg border border-borda bg-fundo px-2.5 py-1.5 font-mono text-xs font-semibold text-texto focus:border-acento focus:outline-none shadow-xs"
+                className="rounded-md border border-borda/80 bg-superficie px-2 py-1 font-mono text-xs font-semibold text-texto focus:border-acento focus:outline-none shadow-xs"
               />
             </div>
 
-            <label className="flex items-center gap-2 text-xs font-semibold text-texto cursor-pointer">
-              <input
-                type="checkbox"
-                checked={apenasReincidentes}
-                onChange={(e) => setApenasReincidentes(e.target.checked)}
-                className="rounded border-borda text-acento focus:ring-acento"
-              />
-              <Users className="h-3.5 w-3.5 text-texto-suave" />
-              <span>Apenas alunos com mais de um chamado</span>
-            </label>
+            {/* Checkbox Customizado */}
+            <CustomCheckbox
+              checked={apenasReincidentes}
+              onChange={(chk) => setApenasReincidentes(chk)}
+              label={
+                <span className="flex items-center gap-1.5 font-semibold text-xs text-texto">
+                  <Users className="h-3.5 w-3.5 text-texto-suave" />
+                  <span>Apenas alunos com mais de um chamado</span>
+                </span>
+              }
+            />
           </div>
 
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={limparFiltros}
-              className="rounded-lg border border-borda bg-fundo px-3 py-1.5 text-xs font-bold text-texto-suave hover:text-texto shadow-xs"
+              className="rounded-lg border border-borda bg-fundo px-3.5 py-1.5 text-xs font-bold text-texto-suave hover:text-texto hover:bg-superficie shadow-xs transition"
             >
               Limpar filtros
             </button>
@@ -290,7 +290,7 @@ export function TabelaChamados({
               type="button"
               onClick={aplicarFiltros}
               disabled={isPending}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-acento px-4 py-1.5 text-xs font-bold text-white hover:bg-acento-hover disabled:opacity-50 shadow-sm"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-acento px-4 py-1.5 text-xs font-bold text-white hover:bg-acento-hover disabled:opacity-50 shadow-sm transition"
             >
               <Filter className="h-3.5 w-3.5" />
               <span>{isPending ? "Filtrando..." : "Aplicar filtros"}</span>
@@ -340,9 +340,7 @@ export function TabelaChamados({
 
                 const ehAutor = c.criado_por === perfilAtual.id;
                 const ehAdmin = perfilAtual.papel === "admin";
-                // Todas as colaboradoras ativas podem editar chamados
                 const podeEditar = true;
-                // Apenas criador original ou admin pode excluir
                 const podeExcluir = ehAdmin || ehAutor;
 
                 return (
@@ -386,7 +384,7 @@ export function TabelaChamados({
                     {/* Situação */}
                     <td className="text-center">
                       <span
-                        className={`inline-block rounded-md border px-2 py-0.5 text-[11px] font-bold ${
+                        className={`inline-block rounded-md border px-2.5 py-0.5 text-[11px] font-bold ${
                           c.situacao === "concluido"
                             ? "bg-sucesso/15 text-sucesso border-sucesso/40"
                             : c.situacao === "encerrado"
@@ -405,7 +403,7 @@ export function TabelaChamados({
                           Priorizar
                         </span>
                       ) : (
-                        <span className="text-[11px] text-texto-suave">Normal</span>
+                        <span className="text-[11px] text-texto-suave font-medium">Normal</span>
                       )}
                     </td>
 

@@ -9,6 +9,7 @@ import {
   type SimilaridadeResultado 
 } from "./actions";
 import { Tag, Plus, Search, Check, AlertCircle } from "lucide-react";
+import { CustomCheckbox } from "@/components/ui/custom-checkbox";
 
 interface PainelMotivosProps {
   motivos: Motivo[];
@@ -103,7 +104,7 @@ export function PainelMotivos({ motivos, perfilAtual }: PainelMotivosProps) {
   return (
     <div className="space-y-6">
       {/* Cabeçalho */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-superficie p-4 rounded-xl border border-borda shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-superficie p-5 rounded-xl border border-borda shadow-sm">
         <div>
           <h1 className="font-heading text-xl font-bold text-texto tracking-tight">
             Catálogo de Motivos de Chamados
@@ -236,13 +237,13 @@ export function PainelMotivos({ motivos, perfilAtual }: PainelMotivosProps) {
                   value={nome}
                   onChange={(e) => handleVerificarNome(e.target.value)}
                   placeholder="Ex: Correção de nota de prova presencial"
-                  className="w-full rounded-lg border border-borda bg-superficie px-3 py-2 text-xs font-medium text-texto focus:border-acento focus:outline-none shadow-xs"
+                  className="w-full rounded-lg border border-borda bg-superficie px-3.5 py-2 text-xs font-medium text-texto focus:border-acento focus:outline-none shadow-xs"
                 />
               </div>
 
               {/* Alerta de Motivos Similares Encontrados */}
               {motivosSimilares.length > 0 && !motivoEditando && (
-                <div className="rounded-lg border border-alerta/50 bg-alerta-fundo p-3.5 space-y-2 shadow-xs">
+                <div className="rounded-lg border border-alerta/50 bg-alerta-fundo p-3.5 space-y-2.5 shadow-xs">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-alerta">
                     <AlertCircle className="h-4 w-4" />
                     <span>Motivos parecidos já cadastrados no sistema:</span>
@@ -260,15 +261,13 @@ export function PainelMotivos({ motivos, perfilAtual }: PainelMotivosProps) {
                     ))}
                   </ul>
 
-                  <label className="flex items-center gap-2 pt-1 cursor-pointer text-xs text-texto font-bold">
-                    <input
-                      type="checkbox"
+                  <div className="pt-1">
+                    <CustomCheckbox
                       checked={confirmouCriacaoMesmoSimilar}
-                      onChange={(e) => setConfirmouCriacaoMesmoSimilar(e.target.checked)}
-                      className="rounded border-borda text-acento focus:ring-acento"
+                      onChange={(chk) => setConfirmouCriacaoMesmoSimilar(chk)}
+                      label="Confirmo que este novo motivo é diferente dos listados acima."
                     />
-                    <span>Confirmo que este novo motivo é diferente dos listados acima.</span>
-                  </label>
+                  </div>
                 </div>
               )}
 

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { type Perfil } from "@/types/database";
 import { SidebarPrincipal } from "./sidebar";
-import { Menu, Shield } from "lucide-react";
+import { Menu } from "lucide-react";
 import { SeletorTema } from "@/components/ui/theme-switcher";
 
 interface LayoutClienteProps {
@@ -38,8 +38,8 @@ export function LayoutCliente({ perfil, children }: LayoutClienteProps) {
             </button>
 
             <div className="flex items-center gap-2 lg:hidden">
-              <div className="flex h-7 w-7 items-center justify-center rounded bg-acento text-white shadow-xs">
-                <Shield className="h-4 w-4" />
+              <div className="flex h-7 w-7 items-center justify-center rounded-md overflow-hidden border border-borda shadow-xs bg-superficie">
+                <img src="/logo.png" alt="UNOPAR Logo" className="h-full w-full object-cover" />
               </div>
               <span className="font-heading text-xs font-bold text-texto">
                 UNOPAR Parauapebas

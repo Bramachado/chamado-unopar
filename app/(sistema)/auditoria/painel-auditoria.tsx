@@ -13,9 +13,11 @@ import {
   RotateCcw, 
   FileText,
   Eye,
-  X
+  X,
+  Calendar
 } from "lucide-react";
 import Link from "next/link";
+import { CustomSelect, type CustomSelectOption } from "@/components/ui/custom-select";
 
 interface PainelAuditoriaProps {
   logs: LogAuditoria[];
@@ -30,6 +32,22 @@ interface PainelAuditoriaProps {
     data_fim?: string;
   };
 }
+
+const opcoesTabela: CustomSelectOption[] = [
+  { value: "", label: "Todas as tabelas" },
+  { value: "chamados", label: "chamados", sublabel: "Protocolos acadêmicos" },
+  { value: "arquivos", label: "arquivos", sublabel: "Anexos de chamados" },
+  { value: "motivos", label: "motivos", sublabel: "Catálogo de motivos" },
+  { value: "perfis", label: "perfis", sublabel: "Usuárias do sistema" },
+  { value: "credenciais_externas", label: "credenciais_externas", sublabel: "Cofre cifrado" },
+];
+
+const opcoesOperacao: CustomSelectOption[] = [
+  { value: "", label: "Todas as operações" },
+  { value: "INSERT", label: "INSERT (Criação)" },
+  { value: "UPDATE", label: "UPDATE (Edição)" },
+  { value: "DELETE", label: "DELETE (Exclusão)" },
+];
 
 export function PainelAuditoria({
   logs,
@@ -80,7 +98,7 @@ export function PainelAuditoria({
   return (
     <div className="space-y-6">
       {/* Cabeçalho */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-superficie p-4 rounded-xl border border-borda shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-superficie p-5 rounded-xl border border-borda shadow-sm">
         <div>
           <h1 className="font-heading text-xl font-bold text-texto tracking-tight">
             Logs de Auditoria do Sistema
@@ -99,11 +117,12 @@ export function PainelAuditoria({
         </Link>
       </div>
 
-      {/* Filtros */}
+      {/* Filtros de Alto Contraste com CustomSelect */}
       <div className="rounded-xl border border-borda bg-superficie p-5 space-y-4 shadow-sm">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          {/* Busca */}
           <div>
-            <label className="block text-xs font-bold text-texto mb-1">
+            <label className="block text-xs font-bold text-texto mb-1.5">
               Buscar (Usuária ou Protocolo)
             </label>
             <div className="relative">
@@ -115,68 +134,58 @@ export function PainelAuditoria({
                   if (e.key === "Enter") aplicarFiltro("busca", busca);
                 }}
                 placeholder="Nome ou CS..."
-                className="w-full rounded-lg border border-borda bg-fundo pl-8 pr-3 py-2 text-xs font-medium text-texto placeholder:text-texto-suave focus:border-acento focus:outline-none shadow-xs"
+                className="w-full rounded-lg border border-borda bg-fundo pl-9 pr-3 py-2 text-xs font-medium text-texto placeholder:text-texto-suave focus:border-acento focus:outline-none focus:ring-2 focus:ring-acento/20 shadow-xs"
               />
-              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-texto-suave" />
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-texto-suave" />
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-texto mb-1">
-              Tabela
-            </label>
-            <select
-              value={filtrosAtuais.tabela || ""}
-              onChange={(e) => aplicarFiltro("tabela", e.target.value)}
-              className="w-full rounded-lg border border-borda bg-fundo px-3 py-2 text-xs font-medium text-texto focus:border-acento focus:outline-none shadow-xs"
-            >
-              <option value="">Todas as tabelas</option>
-              <option value="chamados">chamados</option>
-              <option value="arquivos">arquivos</option>
-              <option value="motivos">motivos</option>
-              <option value="perfis">perfis</option>
-              <option value="credenciais_externas">credenciais_externas</option>
-            </select>
-          </div>
+          {/* Filtro Tabela Customizado */}
+          <CustomSelect
+            label="Tabela"
+            options={opcoesTabela}
+            value={filtrosAtuais.tabela || ""}
+            onChange={(val) => aplicarFiltro("tabela", val)}
+          />
 
-          <div>
-            <label className="block text-xs font-bold text-texto mb-1">
-              Operação
-            </label>
-            <select
-              value={filtrosAtuais.operacao || ""}
-              onChange={(e) => aplicarFiltro("operacao", e.target.value)}
-              className="w-full rounded-lg border border-borda bg-fundo px-3 py-2 text-xs font-medium text-texto focus:border-acento focus:outline-none shadow-xs"
-            >
-              <option value="">Todas as operações</option>
-              <option value="INSERT">INSERT (Criação)</option>
-              <option value="UPDATE">UPDATE (Edição)</option>
-              <option value="DELETE">DELETE (Exclusão)</option>
-            </select>
-          </div>
+          {/* Filtro Operação Customizado */}
+          <CustomSelect
+            label="Operação"
+            options={opcoesOperacao}
+            value={filtrosAtuais.operacao || ""}
+            onChange={(val) => aplicarFiltro("operacao", val)}
+          />
 
+          {/* Data de Início */}
           <div>
-            <label className="block text-xs font-bold text-texto mb-1">
+            <label className="block text-xs font-bold text-texto mb-1.5">
               Data de Início
             </label>
-            <input
-              type="date"
-              value={filtrosAtuais.data_inicio || ""}
-              onChange={(e) => aplicarFiltro("data_inicio", e.target.value)}
-              className="w-full rounded-lg border border-borda bg-fundo px-3 py-2 font-mono text-xs font-semibold text-texto focus:border-acento focus:outline-none shadow-xs"
-            />
+            <div className="flex items-center gap-2 rounded-lg border border-borda bg-fundo px-3 py-2 shadow-xs">
+              <Calendar className="h-4 w-4 text-texto-suave" />
+              <input
+                type="date"
+                value={filtrosAtuais.data_inicio || ""}
+                onChange={(e) => aplicarFiltro("data_inicio", e.target.value)}
+                className="w-full bg-transparent font-mono text-xs font-semibold text-texto focus:outline-none"
+              />
+            </div>
           </div>
 
+          {/* Data Final */}
           <div>
-            <label className="block text-xs font-bold text-texto mb-1">
+            <label className="block text-xs font-bold text-texto mb-1.5">
               Data Final
             </label>
-            <input
-              type="date"
-              value={filtrosAtuais.data_fim || ""}
-              onChange={(e) => aplicarFiltro("data_fim", e.target.value)}
-              className="w-full rounded-lg border border-borda bg-fundo px-3 py-2 font-mono text-xs font-semibold text-texto focus:border-acento focus:outline-none shadow-xs"
-            />
+            <div className="flex items-center gap-2 rounded-lg border border-borda bg-fundo px-3 py-2 shadow-xs">
+              <Calendar className="h-4 w-4 text-texto-suave" />
+              <input
+                type="date"
+                value={filtrosAtuais.data_fim || ""}
+                onChange={(e) => aplicarFiltro("data_fim", e.target.value)}
+                className="w-full bg-transparent font-mono text-xs font-semibold text-texto focus:outline-none"
+              />
+            </div>
           </div>
         </div>
 

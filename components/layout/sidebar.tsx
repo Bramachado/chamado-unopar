@@ -14,7 +14,6 @@ import {
   Users, 
   FileText, 
   LogOut, 
-  Shield, 
   Sun, 
   Moon, 
   BookOpen, 
@@ -111,8 +110,8 @@ export function SidebarPrincipal({ perfil, mobileAberto, setMobileAberto }: Side
         {/* Cabeçalho da Sidebar / Logo */}
         <div className="flex h-16 items-center justify-between border-b border-borda px-5">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-acento text-white shadow-xs">
-              <Shield className="h-5 w-5" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg overflow-hidden border border-borda shadow-xs bg-superficie">
+              <img src="/logo.png" alt="UNOPAR Logo" className="h-full w-full object-cover" />
             </div>
             <div>
               <span className="font-heading text-sm font-bold tracking-tight text-texto block">

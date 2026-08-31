@@ -11,9 +11,12 @@ import {
   Paperclip, 
   FileText, 
   X, 
-  UploadCloud 
+  UploadCloud,
+  Calendar,
+  Search
 } from "lucide-react";
 import Link from "next/link";
+import { CustomSelect, type CustomSelectOption } from "@/components/ui/custom-select";
 
 interface FormularioChamadoProps {
   chamadoInicial?: Chamado | null;
@@ -67,6 +70,22 @@ export function FormularioChamado({
   const [mensagemErro, setMensagemErro] = useState<string | null>(null);
   const [errosCampo, setErrosCampo] = useState<Record<string, string>>({});
 
+  const opcoesMotivo: CustomSelectOption[] = motivos.map((m) => ({
+    value: m.id,
+    label: `${m.codigo} — ${m.nome}`,
+  }));
+
+  const opcoesSituacao: CustomSelectOption[] = [
+    { value: "aguardando", label: "Aguardando (em andamento)" },
+    { value: "concluido", label: "Concluído (resolvido)" },
+    { value: "encerrado", label: "Encerrado (sem resolver)" },
+  ];
+
+  const opcoesPrioridade: CustomSelectOption[] = [
+    { value: "normal", label: "Normal" },
+    { value: "priorizar", label: "Priorizar" },
+  ];
+
   const handleVerificarProtocolo = async (valor: string) => {
     const limpo = valor.trim().toUpperCase();
     setProtocolo(limpo);
@@ -118,110 +137,123 @@ export function FormularioChamado({
     formData.set("contato_telefone", contatoTelefone || "");
     formData.set("motivo_id", motivoId);
     formData.set("descricao", descricao || "");
-    formData.set("situacao", situacao);
-    formData.set("prioridade", prioridade);
+    formData.set("situacao", situacao || "aguardando");
+    formData.set("prioridade", prioridade || "normal");
     formData.set("data_solicitacao", dataSolicitacao || "");
     formData.set("prazo", prazo || "");
-    formData.set("chamado_vinculado_id", chamadoVinculado?.id || "");
     formData.set("observacao", observacao || "");
 
-    // Anexar todos os múltiplos arquivos selecionados
+    if (chamadoVinculado?.id) {
+      formData.set("chamado_vinculado_id", chamadoVinculado.id);
+    }
+
+    // Anexar múltiplos arquivos
     for (const arq of arquivosSelecionados) {
       formData.append("arquivos", arq);
     }
 
     startTransition(async () => {
-      const res = await salvarChamado({}, formData);
-      if (res.erro) {
-        setMensagemErro(res.erro);
-        if (res.errosCampo) {
-          setErrosCampo(res.errosCampo);
-        }
-      } else if (res.sucesso && res.chamadoId) {
-        router.push(`/chamados/${res.chamadoId}`);
+      const resultado = await salvarChamado({}, formData);
+
+      if (resultado.erro) {
+        setMensagemErro(resultado.erro);
+      } else if (resultado.errosCampo) {
+        setErrosCampo(resultado.errosCampo);
+        setMensagemErro("Corrija os erros apontados nos campos destacados.");
+      } else if (resultado.sucesso && resultado.chamadoId) {
+        router.push(`/chamados/${resultado.chamadoId}`);
       }
     });
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mx-auto max-w-4xl space-y-6">
-      {/* Cabeçalho */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between bg-superficie p-4 rounded-lg border border-borda shadow-sm">
+    <form onSubmit={handleSubmit} className="mx-auto max-w-4xl space-y-6 pb-12">
+      {/* Topo do Formulário */}
+      <div className="flex items-center justify-between border-b border-borda pb-4 bg-superficie p-5 rounded-xl shadow-sm">
         <div className="flex items-center gap-3">
           <Link
             href="/chamados"
-            className="inline-flex items-center gap-1.5 rounded-md border border-borda bg-fundo px-3 py-1.5 text-xs font-semibold text-texto transition hover:bg-superficie shadow-xs"
+            className="rounded-lg border border-borda bg-fundo p-2 text-texto-suave hover:bg-superficie hover:text-texto transition shadow-xs"
+            title="Voltar para a listagem"
           >
             <ArrowLeft className="h-4 w-4" />
-            <span>Voltar</span>
           </Link>
-          <h1 className="font-heading text-lg font-bold text-texto">
-            {chamadoInicial ? `Editar Chamado ${chamadoInicial.protocolo}` : "Novo Registro de Chamado"}
-          </h1>
+          <div>
+            <h1 className="font-heading text-lg font-bold text-texto">
+              {chamadoInicial ? `Editar Chamado: ${chamadoInicial.protocolo}` : "Abertura de Novo Chamado"}
+            </h1>
+            <p className="text-xs text-texto-suave">
+              {chamadoInicial
+                ? "Atualize os dados e complemente o protocolo com novos arquivos."
+                : "Cadastre as informações da solicitação aberta na plataforma externa."}
+            </p>
+          </div>
         </div>
 
-        {chamadoInicial && (
-          <span className="text-xs text-texto-suave font-medium">
-            Edição colaborativa habilitada
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          <Link
+            href="/chamados"
+            className="rounded-lg border border-borda bg-fundo px-3.5 py-2 text-xs font-bold text-texto hover:bg-superficie shadow-xs transition"
+          >
+            Cancelar
+          </Link>
+          <button
+            type="submit"
+            disabled={isPending}
+            className="rounded-lg bg-acento px-5 py-2 text-xs font-bold text-white hover:bg-acento-hover disabled:opacity-50 shadow-sm transition"
+          >
+            {isPending ? "Salvando..." : chamadoInicial ? "Salvar Alterações" : "Salvar Chamado"}
+          </button>
+        </div>
       </div>
 
       {mensagemErro && (
-        <div className="flex items-start gap-2.5 rounded-lg border border-erro/40 bg-erro-fundo p-4 text-xs font-medium text-erro shadow-sm">
+        <div className="flex items-start gap-2.5 rounded-xl border border-erro/40 bg-erro-fundo p-4 text-xs font-bold text-erro shadow-sm">
           <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
           <span>{mensagemErro}</span>
         </div>
       )}
 
-      {/* Seção 1: Identificação do Chamado e Aluno */}
-      <div className="rounded-lg border border-borda bg-superficie p-5 space-y-4 shadow-sm">
-        <h2 className="font-heading text-sm font-bold text-texto border-b border-borda pb-2">
-          Identificação do Chamado e Solicitante
+      {/* Seção 1: Identificação do Chamado */}
+      <div className="rounded-xl border border-borda bg-superficie p-6 space-y-4 shadow-sm">
+        <h2 className="font-heading text-sm font-bold text-texto border-b border-borda pb-3">
+          Identificação do Protocolo e Aluno
         </h2>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {/* Protocolo */}
           <div>
-            <label className="block text-xs font-semibold text-texto mb-1.5">
-              Número do Protocolo (CS + 8 dígitos) *
+            <label className="block text-xs font-bold text-texto mb-1.5">
+              Número do Protocolo (PAD) *
             </label>
             <input
               type="text"
               required
-              disabled={!!chamadoInicial}
               value={protocolo}
               onChange={(e) => handleVerificarProtocolo(e.target.value)}
-              placeholder="CS12345678"
+              placeholder="Ex: CS12345678"
               maxLength={10}
-              className="w-full rounded-md border border-borda bg-fundo px-3 py-2 font-mono text-xs font-bold text-texto tabular-nums placeholder:text-texto-suave focus:border-acento focus:outline-none disabled:opacity-60 shadow-xs"
+              className="w-full rounded-lg border border-borda bg-fundo px-3.5 py-2 font-mono text-xs font-bold uppercase text-texto placeholder:normal-case placeholder:font-normal placeholder:text-texto-suave focus:border-acento focus:outline-none focus:ring-2 focus:ring-acento/20 shadow-xs"
             />
-            {avisoDuplicado && (
-              <p className="mt-1.5 text-[11px] font-semibold text-erro flex items-center gap-1">
-                <AlertCircle className="h-3.5 w-3.5" />
-                {avisoDuplicado}
-              </p>
-            )}
             {errosCampo.protocolo && (
               <p className="mt-1.5 text-[11px] font-semibold text-erro">{errosCampo.protocolo}</p>
             )}
+            {avisoDuplicado && (
+              <div className="mt-2 flex items-center gap-1.5 rounded-md border border-alerta/50 bg-alerta-fundo p-2 text-xs font-bold text-alerta shadow-xs">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                <span>{avisoDuplicado}</span>
+              </div>
+            )}
           </div>
 
+          {/* Motivo CustomSelect */}
           <div>
-            <label className="block text-xs font-semibold text-texto mb-1.5">
-              Catálogo de Motivo *
-            </label>
-            <select
+            <CustomSelect
+              label="Motivo do Chamado *"
+              options={opcoesMotivo}
               value={motivoId}
-              onChange={(e) => setMotivoId(e.target.value)}
-              required
-              className="w-full rounded-md border border-borda bg-fundo px-3 py-2 text-xs font-medium text-texto focus:border-acento focus:outline-none shadow-xs"
-            >
-              {motivos.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.codigo} — {m.nome}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setMotivoId(val)}
+            />
             {errosCampo.motivo_id && (
               <p className="mt-1.5 text-[11px] font-semibold text-erro">{errosCampo.motivo_id}</p>
             )}
@@ -230,7 +262,7 @@ export function FormularioChamado({
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="sm:col-span-2">
-            <label className="block text-xs font-semibold text-texto mb-1.5">
+            <label className="block text-xs font-bold text-texto mb-1.5">
               Nome Completo do Aluno *
             </label>
             <input
@@ -239,7 +271,7 @@ export function FormularioChamado({
               value={alunoNome}
               onChange={(e) => setAlunoNome(e.target.value)}
               placeholder="Nome do aluno"
-              className="w-full rounded-md border border-borda bg-fundo px-3 py-2 text-xs font-medium text-texto placeholder:text-texto-suave focus:border-acento focus:outline-none shadow-xs"
+              className="w-full rounded-lg border border-borda bg-fundo px-3.5 py-2 text-xs font-medium text-texto placeholder:text-texto-suave focus:border-acento focus:outline-none focus:ring-2 focus:ring-acento/20 shadow-xs"
             />
             {errosCampo.aluno_nome && (
               <p className="mt-1.5 text-[11px] font-semibold text-erro">{errosCampo.aluno_nome}</p>
@@ -247,7 +279,7 @@ export function FormularioChamado({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-texto mb-1.5">
+            <label className="block text-xs font-bold text-texto mb-1.5">
               RA / Matrícula (opcional)
             </label>
             <input
@@ -255,13 +287,13 @@ export function FormularioChamado({
               value={alunoRa}
               onChange={(e) => setAlunoRa(e.target.value)}
               placeholder="Ex: 1234567"
-              className="w-full rounded-md border border-borda bg-fundo px-3 py-2 font-mono text-xs text-texto tabular-nums placeholder:text-texto-suave focus:border-acento focus:outline-none shadow-xs"
+              className="w-full rounded-lg border border-borda bg-fundo px-3.5 py-2 font-mono text-xs text-texto tabular-nums placeholder:text-texto-suave focus:border-acento focus:outline-none shadow-xs"
             />
           </div>
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-texto mb-1.5">
+          <label className="block text-xs font-bold text-texto mb-1.5">
             Telefone de Contato (com DDD)
           </label>
           <input
@@ -269,76 +301,71 @@ export function FormularioChamado({
             value={contatoTelefone}
             onChange={(e) => setContatoTelefone(e.target.value)}
             placeholder="(94) 99999-9999"
-            className="w-full rounded-md border border-borda bg-fundo px-3 py-2 font-mono text-xs text-texto tabular-nums placeholder:text-texto-suave focus:border-acento focus:outline-none shadow-xs max-w-sm"
+            className="w-full rounded-lg border border-borda bg-fundo px-3.5 py-2 font-mono text-xs text-texto tabular-nums placeholder:text-texto-suave focus:border-acento focus:outline-none shadow-xs max-w-sm"
           />
         </div>
       </div>
 
       {/* Seção 2: Prazos e Situação */}
-      <div className="rounded-lg border border-borda bg-superficie p-5 space-y-4 shadow-sm">
-        <h2 className="font-heading text-sm font-bold text-texto border-b border-borda pb-2">
+      <div className="rounded-xl border border-borda bg-superficie p-6 space-y-4 shadow-sm">
+        <h2 className="font-heading text-sm font-bold text-texto border-b border-borda pb-3">
           Controle de Prazo e Situação
         </h2>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
           <div>
-            <label className="block text-xs font-semibold text-texto mb-1.5">
+            <label className="block text-xs font-bold text-texto mb-1.5">
               Data de Abertura *
             </label>
-            <input
-              type="date"
-              required
-              value={dataSolicitacao}
-              onChange={(e) => setDataSolicitacao(e.target.value)}
-              className="w-full rounded-md border border-borda bg-fundo px-3 py-2 font-mono text-xs font-semibold text-texto tabular-nums focus:border-acento focus:outline-none shadow-xs"
-            />
+            <div className="flex items-center gap-2 rounded-lg border border-borda bg-fundo px-3 py-2 shadow-xs">
+              <Calendar className="h-4 w-4 text-texto-suave" />
+              <input
+                type="date"
+                required
+                value={dataSolicitacao}
+                onChange={(e) => setDataSolicitacao(e.target.value)}
+                className="w-full bg-transparent font-mono text-xs font-semibold text-texto focus:outline-none"
+              />
+            </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-texto mb-1.5">
+            <label className="block text-xs font-bold text-texto mb-1.5">
               Prazo Limite *
             </label>
-            <input
-              type="date"
-              required
-              value={prazo}
-              onChange={(e) => setPrazo(e.target.value)}
-              className="w-full rounded-md border border-borda bg-fundo px-3 py-2 font-mono text-xs font-semibold text-texto tabular-nums focus:border-acento focus:outline-none shadow-xs"
+            <div className="flex items-center gap-2 rounded-lg border border-borda bg-fundo px-3 py-2 shadow-xs">
+              <Calendar className="h-4 w-4 text-texto-suave" />
+              <input
+                type="date"
+                required
+                value={prazo}
+                onChange={(e) => setPrazo(e.target.value)}
+                className="w-full bg-transparent font-mono text-xs font-semibold text-texto focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <CustomSelect
+              label="Situação Atual *"
+              options={opcoesSituacao}
+              value={situacao}
+              onChange={(val) => setSituacao(val as "aguardando" | "concluido" | "encerrado")}
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-texto mb-1.5">
-              Situação Atual *
-            </label>
-            <select
-              value={situacao}
-              onChange={(e) => setSituacao(e.target.value as "aguardando" | "concluido" | "encerrado")}
-              className="w-full rounded-md border border-borda bg-fundo px-3 py-2 text-xs font-semibold text-texto focus:border-acento focus:outline-none shadow-xs"
-            >
-              <option value="aguardando">Aguardando (em andamento)</option>
-              <option value="concluido">Concluído (resolvido)</option>
-              <option value="encerrado">Encerrado (sem resolver)</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-texto mb-1.5">
-              Prioridade *
-            </label>
-            <select
+            <CustomSelect
+              label="Prioridade *"
+              options={opcoesPrioridade}
               value={prioridade}
-              onChange={(e) => setPrioridade(e.target.value as "normal" | "priorizar")}
-              className="w-full rounded-md border border-borda bg-fundo px-3 py-2 text-xs font-semibold text-texto focus:border-acento focus:outline-none shadow-xs"
-            >
-              <option value="normal">Normal</option>
-              <option value="priorizar">Priorizar</option>
-            </select>
+              onChange={(val) => setPrioridade(val as "normal" | "priorizar")}
+            />
           </div>
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-texto mb-1.5">
+          <label className="block text-xs font-bold text-texto mb-1.5">
             Descrição do Chamado
           </label>
           <textarea
@@ -346,70 +373,64 @@ export function FormularioChamado({
             value={descricao}
             onChange={(e) => setDescricao(e.target.value)}
             placeholder="Detalhes ou contexto da solicitação aberta na plataforma externa..."
-            className="w-full rounded-md border border-borda bg-fundo px-3 py-2 text-xs font-medium text-texto placeholder:text-texto-suave focus:border-acento focus:outline-none shadow-xs"
-          />
-        </div>
-
-        <div>
-          <label className="block text-xs font-semibold text-texto mb-1.5">
-            Observações Internas (Visíveis a toda a equipe)
-          </label>
-          <textarea
-            rows={2}
-            value={observacao}
-            onChange={(e) => setObservacao(e.target.value)}
-            placeholder="Notas de acompanhamento interno..."
-            className="w-full rounded-md border border-borda bg-fundo px-3 py-2 text-xs font-medium text-texto placeholder:text-texto-suave focus:border-acento focus:outline-none shadow-xs"
+            className="w-full rounded-lg border border-borda bg-fundo px-3.5 py-2 text-xs font-medium text-texto placeholder:text-texto-suave focus:border-acento focus:outline-none shadow-xs"
           />
         </div>
       </div>
 
-      {/* Seção 3: Anexos e Arquivos (Múltiplos Arquivos por Chamado) */}
-      <div className="rounded-lg border border-borda bg-superficie p-5 space-y-4 shadow-sm">
-        <h2 className="font-heading text-sm font-bold text-texto border-b border-borda pb-2 flex items-center gap-2">
-          <Paperclip className="h-4 w-4 text-acento" />
-          <span>Arquivos e Comprovantes Anexados (1 ou mais arquivos)</span>
-        </h2>
-
-        <div>
-          <label className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-borda hover:border-acento/60 bg-fundo/60 p-6 text-center cursor-pointer transition">
-            <UploadCloud className="h-8 w-8 text-acento mb-2" />
-            <span className="text-xs font-bold text-texto">
-              Clique para selecionar arquivos ou arraste até aqui
-            </span>
-            <span className="text-[11px] text-texto-suave mt-0.5">
-              PDFs, comprovantes, prints e documentos em geral (múltiplos permitidos)
-            </span>
-            <input
-              type="file"
-              multiple
-              onChange={handleAdicionarArquivos}
-              className="hidden"
-            />
-          </label>
+      {/* Seção 3: Anexo de Múltiplos Arquivos */}
+      <div className="rounded-xl border border-borda bg-superficie p-6 space-y-4 shadow-sm">
+        <div className="flex items-center justify-between border-b border-borda pb-3">
+          <div className="flex items-center gap-2">
+            <Paperclip className="h-4 w-4 text-acento" />
+            <h2 className="font-heading text-sm font-bold text-texto">
+              Arquivos e Documentos Anexos (1 ou mais)
+            </h2>
+          </div>
+          <span className="text-[11px] font-semibold text-texto-suave">
+            PDF, PNG, JPG (máx. 10MB por arquivo)
+          </span>
         </div>
+
+        {/* Dropzone Estilizado */}
+        <label className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-borda bg-fundo/70 p-6 text-center hover:border-acento cursor-pointer transition shadow-inner">
+          <UploadCloud className="h-8 w-8 text-texto-suave mb-2" />
+          <span className="text-xs font-bold text-texto">
+            Clique para selecionar um ou mais arquivos do computador
+          </span>
+          <span className="text-[11px] text-texto-suave mt-0.5">
+            Você pode anexar comprovantes, protocolos escaneados e declarações.
+          </span>
+          <input
+            type="file"
+            multiple
+            accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+            onChange={handleAdicionarArquivos}
+            className="hidden"
+          />
+        </label>
 
         {/* Lista de Arquivos Selecionados */}
         {arquivosSelecionados.length > 0 && (
           <div className="space-y-2 pt-2">
-            <span className="text-xs font-bold text-texto">
-              Arquivos selecionados ({arquivosSelecionados.length}):
+            <span className="text-xs font-bold text-texto block">
+              Arquivos prontos para envio ({arquivosSelecionados.length}):
             </span>
-            <div className="divide-y divide-borda/60 rounded-md border border-borda bg-fundo">
+            <div className="divide-y divide-borda/60 rounded-lg border border-borda bg-fundo">
               {arquivosSelecionados.map((arq, idx) => (
                 <div key={idx} className="flex items-center justify-between p-2.5 text-xs">
                   <div className="flex items-center gap-2 truncate">
                     <FileText className="h-4 w-4 text-acento shrink-0" />
-                    <span className="font-medium text-texto truncate">{arq.name}</span>
-                    <span className="font-mono text-[11px] text-texto-suave shrink-0">
-                      ({Math.round(arq.size / 1024)} KB)
+                    <span className="font-semibold text-texto truncate">{arq.name}</span>
+                    <span className="text-[11px] font-mono text-texto-suave">
+                      ({(arq.size / 1024).toFixed(0)} KB)
                     </span>
                   </div>
                   <button
                     type="button"
                     onClick={() => handleRemoverArquivo(idx)}
-                    className="text-texto-suave hover:text-erro p-1"
-                    title="Remover anexo"
+                    className="text-texto-suave hover:text-erro rounded-md p-1 transition"
+                    title="Remover arquivo da lista"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -420,66 +441,71 @@ export function FormularioChamado({
         )}
       </div>
 
-      {/* Seção 4: Vínculo com Chamado Anterior */}
-      <div className="rounded-lg border border-borda bg-superficie p-5 space-y-3 shadow-sm">
-        <h2 className="font-heading text-sm font-bold text-texto border-b border-borda pb-2 flex items-center gap-2">
+      {/* Seção 4: Vínculo com Chamado Anterior (Reincidência) */}
+      <div className="rounded-xl border border-borda bg-superficie p-6 space-y-4 shadow-sm">
+        <div className="flex items-center gap-2 border-b border-borda pb-3">
           <LinkIcon className="h-4 w-4 text-acento" />
-          <span>Vínculo com Protocolo Anterior (Reincidência)</span>
-        </h2>
+          <h2 className="font-heading text-sm font-bold text-texto">
+            Vínculo com Protocolo Anterior (Reincidência)
+          </h2>
+        </div>
 
         {chamadoVinculado ? (
-          <div className="flex items-center justify-between rounded-md border border-borda bg-fundo p-3 shadow-xs">
-            <div>
-              <span className="text-xs font-bold font-mono text-acento">
-                {chamadoVinculado.protocolo}
-              </span>
-              <span className="ml-2 text-xs font-medium text-texto">
-                {chamadoVinculado.aluno_nome}
-              </span>
+          <div className="flex items-center justify-between rounded-lg border border-acento/40 bg-acento/10 p-3.5 text-xs shadow-xs">
+            <div className="flex items-center gap-2 font-medium text-texto">
+              <span>Vinculado ao protocolo anterior:</span>
+              <strong className="font-mono text-acento font-bold">{chamadoVinculado.protocolo}</strong>
+              <span className="text-texto-suave">({chamadoVinculado.aluno_nome})</span>
             </div>
             <button
               type="button"
               onClick={() => setChamadoVinculado(null)}
-              className="text-xs font-bold text-erro hover:underline"
+              className="font-bold text-xs text-erro hover:underline"
             >
               Remover vínculo
             </button>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
+            <p className="text-xs text-texto-suave">
+              Se este chamado for a reabertura ou continuação de um problema já tratado, busque o protocolo anterior para vinculá-los.
+            </p>
             <div className="flex gap-2">
-              <input
-                type="text"
-                value={buscaVinculo}
-                onChange={(e) => setBuscaVinculo(e.target.value)}
-                placeholder="Buscar chamado anterior por protocolo (CS...) ou nome do aluno"
-                className="flex-1 rounded-md border border-borda bg-fundo px-3 py-2 text-xs font-medium text-texto placeholder:text-texto-suave focus:border-acento focus:outline-none shadow-xs"
-              />
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  value={buscaVinculo}
+                  onChange={(e) => setBuscaVinculo(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleBuscarVinculo();
+                    }
+                  }}
+                  placeholder="Buscar por protocolo (Ex: CS12345678) ou nome do aluno..."
+                  className="w-full rounded-lg border border-borda bg-fundo pl-9 pr-3 py-2 text-xs font-medium text-texto placeholder:text-texto-suave focus:border-acento focus:outline-none shadow-xs"
+                />
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-texto-suave" />
+              </div>
               <button
                 type="button"
                 onClick={handleBuscarVinculo}
                 disabled={buscandoVinculo}
-                className="rounded-md border border-borda bg-superficie px-4 py-2 text-xs font-bold text-texto hover:bg-fundo disabled:opacity-50 shadow-xs"
+                className="rounded-lg border border-borda bg-fundo px-4 py-2 text-xs font-bold text-texto hover:bg-superficie shadow-xs transition"
               >
                 {buscandoVinculo ? "Buscando..." : "Buscar"}
               </button>
             </div>
 
+            {/* Resultados de Busca de Vínculo */}
             {resultadosVinculo.length > 0 && (
-              <div className="rounded-md border border-borda bg-fundo divide-y divide-borda/60 max-h-40 overflow-y-auto shadow-xs">
+              <div className="divide-y divide-borda/60 rounded-lg border border-borda bg-fundo max-h-48 overflow-y-auto">
                 {resultadosVinculo.map((r) => (
-                  <div
-                    key={r.id}
-                    className="flex items-center justify-between p-2.5 hover:bg-superficie text-xs"
-                  >
+                  <div key={r.id} className="flex items-center justify-between p-3 text-xs hover:bg-superficie transition">
                     <div>
-                      <span className="font-mono font-bold text-acento mr-2">
-                        {r.protocolo}
-                      </span>
-                      <span className="text-texto font-medium">{r.aluno_nome}</span>
-                      <span className="ml-2 text-[11px] text-texto-suave">
-                        ({r.situacao})
-                      </span>
+                      <span className="font-mono font-bold text-acento mr-2">{r.protocolo}</span>
+                      <span className="font-semibold text-texto mr-2">{r.aluno_nome}</span>
+                      <span className="text-[11px] text-texto-suave font-mono">({r.data_solicitacao})</span>
                     </div>
                     <button
                       type="button"
@@ -488,7 +514,7 @@ export function FormularioChamado({
                         setResultadosVinculo([]);
                         setBuscaVinculo("");
                       }}
-                      className="rounded bg-superficie px-2.5 py-1 text-[11px] font-bold text-texto border border-borda hover:bg-acento hover:text-white transition shadow-xs"
+                      className="rounded-md bg-acento px-3 py-1 text-xs font-bold text-white hover:bg-acento-hover shadow-xs transition"
                     >
                       Vincular
                     </button>
@@ -500,24 +526,34 @@ export function FormularioChamado({
         )}
       </div>
 
-      {/* Botões de Ação */}
-      <div className="flex items-center justify-end gap-3 pt-2">
+      {/* Seção 5: Observações Internas */}
+      <div className="rounded-xl border border-borda bg-superficie p-6 space-y-3 shadow-sm">
+        <h2 className="font-heading text-sm font-bold text-texto border-b border-borda pb-3">
+          Observações Internas (Opcional)
+        </h2>
+        <textarea
+          rows={3}
+          value={observacao}
+          onChange={(e) => setObservacao(e.target.value)}
+          placeholder="Notas internas da equipe da UNOPAR, instruções ou tratativas do atendimento..."
+          className="w-full rounded-lg border border-borda bg-fundo px-3.5 py-2 text-xs font-medium text-texto placeholder:text-texto-suave focus:border-acento focus:outline-none shadow-xs"
+        />
+      </div>
+
+      {/* Botões do Rodapé */}
+      <div className="flex items-center justify-end gap-3 border-t border-borda pt-4">
         <Link
           href="/chamados"
-          className="rounded-md border border-borda bg-superficie px-5 py-2.5 text-xs font-bold text-texto hover:bg-fundo shadow-xs transition"
+          className="rounded-lg border border-borda bg-superficie px-4 py-2.5 text-xs font-bold text-texto hover:bg-fundo shadow-xs transition"
         >
           Cancelar
         </Link>
         <button
           type="submit"
           disabled={isPending}
-          className="rounded-md bg-acento px-6 py-2.5 text-xs font-bold text-white transition hover:bg-acento-hover disabled:opacity-50 shadow-sm"
+          className="rounded-lg bg-acento px-6 py-2.5 text-xs font-bold text-white hover:bg-acento-hover disabled:opacity-50 shadow-md transition"
         >
-          {isPending
-            ? "Gravando..."
-            : chamadoInicial
-            ? "Atualizar Chamado"
-            : "Salvar Chamado"}
+          {isPending ? "Salvando..." : chamadoInicial ? "Salvar Alterações" : "Concluir Abertura do Chamado"}
         </button>
       </div>
     </form>

@@ -18,6 +18,7 @@ import {
   History,
   Shield
 } from "lucide-react";
+import { CustomSelect, type CustomSelectOption } from "@/components/ui/custom-select";
 
 interface UsuarioComCredencial extends Perfil {
   tem_credencial_externa?: boolean;
@@ -105,7 +106,7 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
   return (
     <div className="space-y-6">
       {/* Cabeçalho */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-superficie p-4 rounded-xl border border-borda shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-superficie p-5 rounded-xl border border-borda shadow-sm">
         <div>
           <h1 className="font-heading text-xl font-bold text-texto tracking-tight">
             Gestão de Usuárias e Cofre de Credenciais
@@ -261,7 +262,6 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
                         Editar
                       </button>
 
-                      {/* Botão de Desativar neutro em repouso com modal de confirmação */}
                       <button
                         type="button"
                         onClick={() => {
@@ -381,6 +381,12 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
   );
 }
 
+const opcoesPapel: CustomSelectOption[] = [
+  { value: "atendente", label: "Atendente", sublabel: "Acesso operacional a chamados e desempenho" },
+  { value: "coordenador", label: "Coordenadora", sublabel: "Acompanhamento geral e relatórios" },
+  { value: "admin", label: "Administradora", sublabel: "Acesso total, cofre e auditoria" },
+];
+
 function ModalFormularioUsuario({
   usuario,
   aoFechar,
@@ -449,7 +455,7 @@ function ModalFormularioUsuario({
               value={nome}
               onChange={(e) => setNome(e.target.value)}
               placeholder="Ex: Ana Silva"
-              className="w-full rounded-lg border border-borda bg-superficie px-3 py-2 text-xs font-medium text-texto focus:border-acento focus:outline-none shadow-xs"
+              className="w-full rounded-lg border border-borda bg-superficie px-3.5 py-2 text-xs font-medium text-texto focus:border-acento focus:outline-none shadow-xs"
             />
           </div>
 
@@ -463,24 +469,17 @@ function ModalFormularioUsuario({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="ana.silva@unopar.br"
-              className="w-full rounded-lg border border-borda bg-superficie px-3 py-2 text-xs font-medium text-texto focus:border-acento focus:outline-none shadow-xs"
+              className="w-full rounded-lg border border-borda bg-superficie px-3.5 py-2 text-xs font-medium text-texto focus:border-acento focus:outline-none shadow-xs"
             />
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-texto mb-1.5">
-              Papel no Sistema *
-            </label>
-            <select
-              value={papel}
-              onChange={(e) => setPapel(e.target.value as "admin" | "coordenador" | "atendente")}
-              className="w-full rounded-lg border border-borda bg-superficie px-3 py-2 text-xs font-bold text-texto focus:border-acento focus:outline-none shadow-xs"
-            >
-              <option value="atendente">Atendente</option>
-              <option value="coordenador">Coordenadora</option>
-              <option value="admin">Administradora</option>
-            </select>
-          </div>
+          {/* CustomSelect para Papel no Sistema */}
+          <CustomSelect
+            label="Papel no Sistema *"
+            options={opcoesPapel}
+            value={papel}
+            onChange={(val) => setPapel(val as "admin" | "coordenador" | "atendente")}
+          />
 
           <div>
             <label className="block text-xs font-bold text-texto mb-1.5">
@@ -493,7 +492,7 @@ function ModalFormularioUsuario({
               onChange={(e) => setSenhaSistema(e.target.value)}
               placeholder="••••••••"
               minLength={8}
-              className="w-full rounded-lg border border-borda bg-superficie px-3 py-2 text-xs text-texto focus:border-acento focus:outline-none shadow-xs"
+              className="w-full rounded-lg border border-borda bg-superficie px-3.5 py-2 text-xs text-texto focus:border-acento focus:outline-none shadow-xs"
             />
           </div>
 
@@ -507,7 +506,7 @@ function ModalFormularioUsuario({
               value={senhaExterna}
               onChange={(e) => setSenhaExterna(e.target.value)}
               placeholder="Senha de acesso ao PAD externo..."
-              className="w-full rounded-lg border border-borda bg-superficie px-3 py-2 text-xs text-texto focus:border-acento focus:outline-none shadow-xs"
+              className="w-full rounded-lg border border-borda bg-superficie px-3.5 py-2 text-xs text-texto focus:border-acento focus:outline-none shadow-xs"
             />
             <p className="text-[11px] text-texto-suave mt-1">
               Armazenada de forma cifrada com AES-256-GCM.
