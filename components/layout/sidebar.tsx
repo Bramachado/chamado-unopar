@@ -20,8 +20,7 @@ import {
   ChevronDown, 
   ChevronRight,
   X,
-  PanelLeftClose,
-  PanelLeftOpen
+  PanelLeftClose
 } from "lucide-react";
 
 interface SidebarPrincipalProps {
@@ -122,32 +121,49 @@ export function SidebarPrincipal({
         <div className={`flex h-24 items-center border-b border-[#1E293B]/60 transition-all ${
           recolhido ? "justify-center px-2" : "justify-between px-5"
         }`}>
-          <div className="flex items-center gap-3 truncate">
-            <div className="h-12 w-12 shrink-0 flex items-center justify-center p-0.5">
-              <img src="/logo.png" alt="Gestão de Chamados Logo" className="h-full w-full object-contain filter drop-shadow-md" />
-            </div>
-            {!recolhido && (
-              <div className="truncate">
-                <span className="text-[15px] font-black tracking-tight bg-gradient-to-r from-white via-slate-100 to-sky-300 bg-clip-text text-transparent block leading-tight truncate">
-                  Gestão de Chamados
-                </span>
+          {recolhido ? (
+            /* Modo Recolhido: Apenas a Logo Centralizada que ao clicar expande */
+            <button
+              type="button"
+              onClick={() => setRecolhido(false)}
+              className="group relative h-12 w-12 rounded-xl flex items-center justify-center p-1 hover:bg-white/10 transition"
+              title="Expandir barra lateral"
+            >
+              <img
+                src="/logo.png"
+                alt="Gestão de Chamados Logo"
+                className="h-full w-full object-contain filter drop-shadow-md group-hover:scale-105 transition-transform"
+              />
+            </button>
+          ) : (
+            /* Modo Expandido: Logo + Título à Esquerda e Botão de Recolher à Direita */
+            <>
+              <div className="flex items-center gap-3 truncate">
+                <div className="h-12 w-12 shrink-0 flex items-center justify-center p-0.5">
+                  <img
+                    src="/logo.png"
+                    alt="Gestão de Chamados Logo"
+                    className="h-full w-full object-contain filter drop-shadow-md"
+                  />
+                </div>
+                <div className="truncate">
+                  <span className="text-[15px] font-black tracking-tight bg-gradient-to-r from-white via-slate-100 to-sky-300 bg-clip-text text-transparent block leading-tight truncate">
+                    Gestão de Chamados
+                  </span>
+                </div>
               </div>
-            )}
-          </div>
 
-          {/* Botão de Recolher/Expandir Barra Lateral Desktop */}
-          <button
-            type="button"
-            onClick={() => setRecolhido(!recolhido)}
-            className="hidden lg:flex rounded-xl p-2 text-slate-400 hover:bg-white/10 hover:text-white transition"
-            title={recolhido ? "Expandir barra lateral" : "Recolher barra lateral"}
-          >
-            {recolhido ? (
-              <PanelLeftOpen className="h-5 w-5 text-sky-400" />
-            ) : (
-              <PanelLeftClose className="h-5 w-5" />
-            )}
-          </button>
+              {/* Botão de Recolher no Desktop */}
+              <button
+                type="button"
+                onClick={() => setRecolhido(true)}
+                className="hidden lg:flex rounded-xl p-2 text-slate-400 hover:bg-white/10 hover:text-white transition"
+                title="Recolher barra lateral"
+              >
+                <PanelLeftClose className="h-5 w-5" />
+              </button>
+            </>
+          )}
 
           {/* Botão de Fechar no Mobile */}
           <button
