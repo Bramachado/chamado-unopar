@@ -167,22 +167,22 @@ export function FormularioChamado({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mx-auto max-w-4xl space-y-6 pb-12">
+    <form onSubmit={handleSubmit} className="mx-auto max-w-4xl space-y-8 pb-12">
       {/* Topo do Formulário */}
-      <div className="flex items-center justify-between border-b border-borda pb-4 bg-superficie p-5 rounded-xl shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <Link
             href="/chamados"
-            className="rounded-lg border border-borda bg-fundo p-2 text-texto-suave hover:bg-superficie hover:text-texto transition shadow-xs"
+            className="h-9 w-9 rounded-lg border border-borda bg-superficie flex items-center justify-center text-texto-suave hover:bg-fundo hover:text-texto transition"
             title="Voltar para a listagem"
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div>
-            <h1 className="font-heading text-lg font-bold text-texto">
+            <h1 className="text-2xl font-semibold tracking-tight text-texto">
               {chamadoInicial ? `Editar Chamado: ${chamadoInicial.protocolo}` : "Abertura de Novo Chamado"}
             </h1>
-            <p className="text-xs text-texto-suave">
+            <p className="text-sm text-texto-suave mt-0.5">
               {chamadoInicial
                 ? "Atualize os dados e complemente o protocolo com novos arquivos."
                 : "Cadastre as informações da solicitação aberta na plataforma externa."}
@@ -193,14 +193,14 @@ export function FormularioChamado({
         <div className="flex items-center gap-2">
           <Link
             href="/chamados"
-            className="rounded-lg border border-borda bg-fundo px-3.5 py-2 text-xs font-bold text-texto hover:bg-superficie shadow-xs transition"
+            className="h-9 px-4 rounded-lg border border-borda bg-superficie text-xs font-semibold text-texto hover:bg-fundo transition inline-flex items-center"
           >
             Cancelar
           </Link>
           <button
             type="submit"
             disabled={isPending}
-            className="rounded-lg bg-acento px-5 py-2 text-xs font-bold text-white hover:bg-acento-hover disabled:opacity-50 shadow-sm transition"
+            className="h-9 px-5 rounded-lg bg-acento text-xs font-semibold text-white hover:bg-acento-hover disabled:opacity-50 transition inline-flex items-center"
           >
             {isPending ? "Salvando..." : chamadoInicial ? "Salvar Alterações" : "Salvar Chamado"}
           </button>
@@ -208,7 +208,7 @@ export function FormularioChamado({
       </div>
 
       {mensagemErro && (
-        <div className="flex items-start gap-2.5 rounded-xl border border-erro/40 bg-erro-fundo p-4 text-xs font-bold text-erro shadow-sm">
+        <div className="flex items-start gap-2.5 rounded-lg border border-erro/40 bg-erro-fundo p-4 text-xs font-medium text-erro">
           <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
           <span>{mensagemErro}</span>
         </div>

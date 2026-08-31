@@ -4,14 +4,14 @@
 
 :root,
 [data-theme="claro"] {
-  --fundo: #F1F5F9; /* Fundo slate suave para destacar os cards brancos com profundidade */
-  --superficie: #FFFFFF; /* Superfície branca pura e nítida */
+  --fundo: #F1F5F9; /* Fundo slate suave para destacar os cards com profundidade e contraste */
+  --superficie: #FFFFFF; /* Superfície branca nítida */
   --superficie-destaque: #F8FAFC;
-  --borda: #CBD5E1; /* Borda bem definida para alto contraste */
+  --borda: #CBD5E1; /* Borda bem definida de 1px */
   --borda-suave: #E2E8F0;
-  --texto: #0F172A; /* Slate 900 de alto contraste */
-  --texto-suave: #475569; /* Slate 600 com contraste > 5.5:1 (AA+) */
-  --acento: #0284C7; /* Azul institucional vibrante */
+  --texto: #0F172A; /* Slate 900 (Contraste 14:1) */
+  --texto-suave: #334155; /* Slate 700 (Contraste > 8:1 AAA) */
+  --acento: #0284C7; /* Azul institucional / Teal */
   --acento-hover: #0369A1;
   --sucesso: #16A34A;
   --sucesso-fundo: #DCFCE7;
@@ -28,7 +28,7 @@
   --borda: #C9BFA8;
   --borda-suave: #D9D0BE;
   --texto: #25211A;
-  --texto-suave: #5C5446;
+  --texto-suave: #4C4436;
   --acento: #0E6F63;
   --acento-hover: #095047;
   --sucesso: #166534;
@@ -75,7 +75,7 @@ body {
   outline-offset: 2px;
 }
 
-/* Tabela densa corporativa */
+/* Tabela densa corporativa padronizada com altura de linha 44px */
 .tabela-densa {
   width: 100%;
   border-collapse: collapse;
@@ -89,13 +89,13 @@ body {
   text-align: left;
   font-weight: 600;
   color: var(--texto-suave);
-  height: 42px;
+  height: 44px;
 }
 
 .tabela-densa td {
   border-bottom: 1px solid var(--borda-suave);
   padding: 0.6rem 0.85rem;
-  height: 42px;
+  height: 44px;
 }
 
 .tabela-densa tr:hover td {

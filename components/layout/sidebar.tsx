@@ -65,7 +65,7 @@ export function SidebarPrincipal({ perfil, mobileAberto, setMobileAberto }: Side
     { href: "/perfil", rotulo: "Meu Perfil", icone: User },
     ...(ehAdmin
       ? [
-          { href: "/usuarios", rotulo: "Usuárias & Cofre", icone: Users },
+          { href: "/usuarios", rotulo: "Equipe & Cofre", icone: Users },
           { href: "/auditoria", rotulo: "Auditoria", icone: FileText },
         ]
       : []),
@@ -75,11 +75,11 @@ export function SidebarPrincipal({ perfil, mobileAberto, setMobileAberto }: Side
   const formatarPapel = (papel: string) => {
     switch (papel) {
       case "admin":
-        return "Administradora";
+        return "Administrador";
       case "coordenador":
-        return "Coordenadora";
+        return "Coordenador";
       case "atendente":
-        return "Atendente";
+        return "Atendimento";
       default:
         return papel;
     }

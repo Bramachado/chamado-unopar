@@ -11,10 +11,9 @@ import {
   ChevronRight, 
   Download, 
   RotateCcw, 
-  FileText,
-  Eye,
-  X,
-  Calendar
+  Eye, 
+  X, 
+  Calendar 
 } from "lucide-react";
 import Link from "next/link";
 import { CustomSelect, type CustomSelectOption } from "@/components/ui/custom-select";
@@ -38,7 +37,7 @@ const opcoesTabela: CustomSelectOption[] = [
   { value: "chamados", label: "chamados", sublabel: "Protocolos acadêmicos" },
   { value: "arquivos", label: "arquivos", sublabel: "Anexos de chamados" },
   { value: "motivos", label: "motivos", sublabel: "Catálogo de motivos" },
-  { value: "perfis", label: "perfis", sublabel: "Usuárias do sistema" },
+  { value: "perfis", label: "perfis", sublabel: "Equipe e contas do sistema" },
   { value: "credenciais_externas", label: "credenciais_externas", sublabel: "Cofre cifrado" },
 ];
 
@@ -96,34 +95,34 @@ export function PainelAuditoria({
   };
 
   return (
-    <div className="space-y-6">
-      {/* Cabeçalho */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-superficie p-5 rounded-xl border border-borda shadow-sm">
+    <div className="space-y-8">
+      {/* 1. Cabeçalho Padronizado da Página */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-heading text-xl font-bold text-texto tracking-tight">
+          <h1 className="text-2xl font-semibold tracking-tight text-texto">
             Logs de Auditoria do Sistema
           </h1>
-          <p className="text-xs text-texto-suave">
+          <p className="text-sm text-texto-suave mt-0.5">
             Rastreamento completo de operações em banco de dados, alterações cadastrais, arquivos e acessos.
           </p>
         </div>
 
         <Link
           href={`/auditoria/exportar?${searchParams.toString()}`}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-borda bg-fundo px-4 py-2 text-xs font-bold text-texto transition hover:bg-superficie shadow-xs"
+          className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg border border-borda bg-superficie text-xs font-semibold text-texto hover:bg-fundo transition"
         >
           <Download className="h-4 w-4 text-texto-suave" />
           <span>Exportar CSV</span>
         </Link>
       </div>
 
-      {/* Filtros de Alto Contraste com CustomSelect */}
-      <div className="rounded-xl border border-borda bg-superficie p-5 space-y-4 shadow-sm">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          {/* Busca */}
+      {/* 2. Filtros */}
+      <div className="rounded-lg border border-borda bg-superficie p-5 space-y-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Busca Textual */}
           <div>
-            <label className="block text-xs font-bold text-texto mb-1.5">
-              Buscar (Usuária ou Protocolo)
+            <label className="block text-xs font-medium text-texto mb-1.5">
+              Buscar em Detalhes
             </label>
             <div className="relative">
               <input
@@ -133,139 +132,125 @@ export function PainelAuditoria({
                 onKeyDown={(e) => {
                   if (e.key === "Enter") aplicarFiltro("busca", busca);
                 }}
-                placeholder="Nome ou CS..."
-                className="w-full rounded-lg border border-borda bg-fundo pl-9 pr-3 py-2 text-xs font-medium text-texto placeholder:text-texto-suave focus:border-acento focus:outline-none focus:ring-2 focus:ring-acento/20 shadow-xs"
+                placeholder="Ex: protocolo, ID, IP..."
+                className="w-full rounded-lg border border-borda bg-fundo pl-9 pr-3 py-2 text-xs font-medium text-texto placeholder:text-texto-suave focus:border-acento focus:outline-none"
               />
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-texto-suave" />
             </div>
           </div>
 
-          {/* Filtro Tabela Customizado */}
+          {/* Filtro Tabela */}
           <CustomSelect
-            label="Tabela"
+            label="Tabela Afetada"
             options={opcoesTabela}
             value={filtrosAtuais.tabela || ""}
             onChange={(val) => aplicarFiltro("tabela", val)}
           />
 
-          {/* Filtro Operação Customizado */}
+          {/* Filtro Operação */}
           <CustomSelect
-            label="Operação"
+            label="Tipo de Operação"
             options={opcoesOperacao}
             value={filtrosAtuais.operacao || ""}
             onChange={(val) => aplicarFiltro("operacao", val)}
           />
 
-          {/* Data de Início */}
+          {/* Período */}
           <div>
-            <label className="block text-xs font-bold text-texto mb-1.5">
-              Data de Início
+            <label className="block text-xs font-medium text-texto mb-1.5">
+              Data Específica
             </label>
-            <div className="flex items-center gap-2 rounded-lg border border-borda bg-fundo px-3 py-2 shadow-xs">
+            <div className="flex items-center gap-1 bg-fundo px-2.5 py-1 rounded-lg border border-borda">
               <Calendar className="h-4 w-4 text-texto-suave" />
               <input
                 type="date"
                 value={filtrosAtuais.data_inicio || ""}
                 onChange={(e) => aplicarFiltro("data_inicio", e.target.value)}
-                className="w-full bg-transparent font-mono text-xs font-semibold text-texto focus:outline-none"
-              />
-            </div>
-          </div>
-
-          {/* Data Final */}
-          <div>
-            <label className="block text-xs font-bold text-texto mb-1.5">
-              Data Final
-            </label>
-            <div className="flex items-center gap-2 rounded-lg border border-borda bg-fundo px-3 py-2 shadow-xs">
-              <Calendar className="h-4 w-4 text-texto-suave" />
-              <input
-                type="date"
-                value={filtrosAtuais.data_fim || ""}
-                onChange={(e) => aplicarFiltro("data_fim", e.target.value)}
-                className="w-full bg-transparent font-mono text-xs font-semibold text-texto focus:outline-none"
+                className="w-full rounded border border-borda bg-superficie px-2 py-1 font-mono text-xs text-texto focus:border-acento focus:outline-none"
               />
             </div>
           </div>
         </div>
 
-        <div className="flex items-center justify-between border-t border-borda pt-3 text-xs">
-          <span className="text-texto-suave">
-            Total de <strong>{totalRegistros}</strong> registros de auditoria.
-          </span>
+        <div className="flex items-center justify-end gap-2 border-t border-borda pt-3">
           <button
             type="button"
             onClick={limparFiltros}
-            className="inline-flex items-center gap-1 text-xs font-bold text-texto-suave hover:text-texto"
+            className="inline-flex items-center gap-1 h-9 px-4 rounded-lg border border-borda bg-fundo text-xs font-semibold text-texto-suave hover:text-texto hover:bg-superficie transition"
           >
-            <RotateCcw className="h-3 w-3" />
+            <RotateCcw className="h-3.5 w-3.5" />
             <span>Limpar filtros</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => aplicarFiltro("busca", busca)}
+            disabled={isPending}
+            className="inline-flex items-center gap-1 h-9 px-4 rounded-lg bg-acento text-xs font-semibold text-white hover:bg-acento-hover disabled:opacity-50 transition"
+          >
+            <Search className="h-3.5 w-3.5" />
+            <span>{isPending ? "Filtrando..." : "Filtrar"}</span>
           </button>
         </div>
       </div>
 
-      {/* Tabela de Logs */}
-      <div className="overflow-x-auto rounded-xl border border-borda bg-superficie shadow-sm">
+      {/* 3. Tabela de Logs */}
+      <div className="overflow-x-auto rounded-lg border border-borda bg-superficie">
         <table className="tabela-densa">
           <thead>
             <tr>
-              <th className="w-44">Data e Hora</th>
-              <th className="w-28 text-center">Operação</th>
-              <th className="w-36">Tabela</th>
-              <th className="w-32">Protocolo</th>
-              <th>Usuária Responsável</th>
-              <th className="w-32 font-mono">Endereço IP</th>
-              <th>Campos Alterados</th>
-              <th className="w-20 text-right">Detalhes</th>
+              <th className="w-36">Data / Hora</th>
+              <th className="w-24 text-center">Operação</th>
+              <th className="w-32">Tabela</th>
+              <th className="w-40">Responsável</th>
+              <th className="w-28">Endereço IP</th>
+              <th>Resumo da Alteração</th>
+              <th className="w-16 text-right">Ver</th>
             </tr>
           </thead>
           <tbody>
             {logs.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-12 text-center text-xs text-texto-suave font-medium">
-                  Nenhum log de auditoria encontrado.
+                <td colSpan={7} className="py-12 text-center text-xs text-texto-suave">
+                  Nenhum registro de auditoria encontrado para os filtros selecionados.
                 </td>
               </tr>
             ) : (
-              logs.map((l) => (
-                <tr key={l.id}>
-                  <td className="font-mono text-xs tabular-nums text-texto-suave font-semibold">
-                    {format(parseISO(l.criado_em), "dd/MM/yyyy HH:mm:ss", { locale: ptBR })}
+              logs.map((log) => (
+                <tr key={log.id}>
+                  <td className="font-mono text-xs tabular-nums text-texto-suave">
+                    {format(parseISO(log.criado_em), "dd/MM/yy HH:mm:ss", { locale: ptBR })}
                   </td>
                   <td className="text-center">
                     <span
-                      className={`inline-block rounded-md border px-2 py-0.5 font-mono text-[10px] font-bold ${
-                        l.operacao === "INSERT"
-                          ? "bg-sucesso/15 text-sucesso border-sucesso/40"
-                          : l.operacao === "UPDATE"
-                          ? "bg-alerta-fundo text-alerta border-alerta/40"
-                          : "bg-erro-fundo text-erro border-erro/40"
+                      className={`inline-flex items-center justify-center h-6 px-2 rounded text-[10px] font-semibold border ${
+                        log.operacao === "INSERT"
+                          ? "bg-sucesso-fundo/40 text-sucesso border-sucesso/30"
+                          : log.operacao === "UPDATE"
+                          ? "bg-alerta-fundo/40 text-alerta border-alerta/30"
+                          : "bg-erro-fundo text-erro border-erro/30"
                       }`}
                     >
-                      {l.operacao}
+                      {log.operacao}
                     </span>
                   </td>
-                  <td className="font-mono text-xs text-texto font-bold">{l.tabela}</td>
-                  <td className="font-mono text-xs tabular-nums font-bold text-acento">
-                    {l.protocolo || "—"}
+                  <td className="font-mono text-xs text-acento">
+                    {log.tabela}
                   </td>
-                  <td className="text-xs text-texto font-bold">
-                    {l.usuario_nome || "Sistema"}
+                  <td className="text-xs text-texto truncate max-w-[150px]">
+                    {log.usuario_nome || "Sistema Automático"}
                   </td>
-                  <td className="font-mono text-xs tabular-nums text-texto-suave">
-                    {l.ip || "127.0.0.1"}
+                  <td className="font-mono text-xs text-texto-suave tabular-nums">
+                    {log.ip || "127.0.0.1"}
                   </td>
-                  <td className="text-xs text-texto-suave truncate max-w-xs" title={l.campos_alterados?.join(", ")}>
-                    {l.campos_alterados && l.campos_alterados.length > 0
-                      ? l.campos_alterados.join(", ")
-                      : "—"}
+                  <td className="text-xs text-texto-suave font-mono truncate max-w-md">
+                    {JSON.stringify(log.dados_depois || log.dados_antes || {})}
                   </td>
                   <td className="text-right">
                     <button
                       type="button"
-                      onClick={() => setLogSelecionado(l)}
-                      className="rounded-md p-1.5 text-texto-suave hover:bg-fundo hover:text-acento transition"
-                      title="Inspecionar dados antes e depois"
+                      onClick={() => setLogSelecionado(log)}
+                      className="rounded-md p-1 text-texto-suave hover:bg-fundo hover:text-acento transition"
+                      title="Ver detalhes do payload"
                     >
                       <Eye className="h-4 w-4" />
                     </button>
@@ -278,94 +263,85 @@ export function PainelAuditoria({
       </div>
 
       {/* Paginação */}
-      <div className="flex items-center justify-between border-t border-borda pt-3 text-xs">
-        <div className="text-texto-suave font-medium">
-          Página <strong>{paginaAtual}</strong> de <strong>{totalPaginas}</strong>
-        </div>
+      <div className="flex items-center justify-between text-xs text-texto-suave">
+        <span>
+          Total de <strong>{totalRegistros}</strong> registros (Página {paginaAtual} de {totalPaginas})
+        </span>
 
         <div className="flex items-center gap-1.5">
           <button
             type="button"
-            disabled={paginaAtual <= 1 || isPending}
             onClick={() => mudarPagina(paginaAtual - 1)}
-            className="flex items-center gap-1 rounded-lg border border-borda bg-superficie px-3 py-1.5 text-xs font-bold text-texto transition hover:bg-fundo disabled:opacity-40 shadow-xs"
+            disabled={paginaAtual <= 1}
+            className="h-8 px-2.5 rounded border border-borda bg-superficie font-medium text-texto hover:bg-fundo disabled:opacity-40"
           >
             <ChevronLeft className="h-4 w-4" />
-            <span>Anterior</span>
           </button>
+          <span className="px-2 font-mono tabular-nums">{paginaAtual}</span>
           <button
             type="button"
-            disabled={paginaAtual >= totalPaginas || isPending}
             onClick={() => mudarPagina(paginaAtual + 1)}
-            className="flex items-center gap-1 rounded-lg border border-borda bg-superficie px-3 py-1.5 text-xs font-bold text-texto transition hover:bg-fundo disabled:opacity-40 shadow-xs"
+            disabled={paginaAtual >= totalPaginas}
+            className="h-8 px-2.5 rounded border border-borda bg-superficie font-medium text-texto hover:bg-fundo disabled:opacity-40"
           >
-            <span>Próxima</span>
             <ChevronRight className="h-4 w-4" />
           </button>
         </div>
       </div>
 
-      {/* Modal de Inspeção Antes / Depois */}
+      {/* Modal Detalhes do Log */}
       {logSelecionado && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-2xl rounded-xl border border-borda bg-fundo p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+          <div className="w-full max-w-2xl rounded-lg border border-borda bg-superficie p-6 space-y-4 shadow-xl max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between border-b border-borda pb-3">
-              <div className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-acento" />
-                <h3 className="font-heading text-sm font-bold text-texto">
-                  Auditoria #{logSelecionado.id} — {logSelecionado.tabela} ({logSelecionado.operacao})
-                </h3>
-              </div>
+              <h3 className="text-sm font-semibold text-texto">
+                Detalhes do Registro #{logSelecionado.id}
+              </h3>
               <button
                 type="button"
                 onClick={() => setLogSelecionado(null)}
-                className="text-texto-suave hover:text-texto font-bold"
+                className="text-texto-suave hover:text-texto font-semibold"
               >
-                <X className="h-4 w-4" />
+                <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-              <div>
-                <span className="font-bold text-texto-suave block mb-1">
-                  Dados Antes da Operação
-                </span>
-                <pre className="rounded-lg border border-borda bg-superficie p-3 text-[11px] font-mono text-texto overflow-x-auto whitespace-pre-wrap shadow-inner">
-                  {logSelecionado.dados_antes
-                    ? JSON.stringify(logSelecionado.dados_antes, null, 2)
-                    : "null (Registro novo)"}
-                </pre>
+            <div className="space-y-3 flex-1 overflow-y-auto text-xs font-mono">
+              <div className="grid grid-cols-2 gap-2 text-texto bg-fundo p-3 rounded-lg border border-borda">
+                <div><strong>Tabela:</strong> {logSelecionado.tabela}</div>
+                <div><strong>Operação:</strong> {logSelecionado.operacao}</div>
+                <div><strong>Responsável:</strong> {logSelecionado.usuario_nome || "Sistema"}</div>
+                <div><strong>Data:</strong> {new Date(logSelecionado.criado_em).toLocaleString("pt-BR")}</div>
               </div>
 
-              <div>
-                <span className="font-bold text-texto-suave block mb-1">
-                  Dados Depois da Operação
-                </span>
-                <pre className="rounded-lg border border-borda bg-superficie p-3 text-[11px] font-mono text-texto overflow-x-auto whitespace-pre-wrap shadow-inner">
-                  {logSelecionado.dados_depois
-                    ? JSON.stringify(logSelecionado.dados_depois, null, 2)
-                    : "null (Excluído)"}
-                </pre>
-              </div>
+              {logSelecionado.dados_antes && (
+                <div>
+                  <span className="text-[11px] font-bold text-texto-suave block mb-1">Dados Anteriores:</span>
+                  <pre className="rounded bg-fundo p-3 text-[11px] text-texto overflow-x-auto border border-borda">
+                    {JSON.stringify(logSelecionado.dados_antes, null, 2)}
+                  </pre>
+                </div>
+              )}
+
+              {logSelecionado.dados_depois && (
+                <div>
+                  <span className="text-[11px] font-bold text-texto-suave block mb-1">Dados Novos:</span>
+                  <pre className="rounded bg-fundo p-3 text-[11px] text-texto overflow-x-auto border border-borda">
+                    {JSON.stringify(logSelecionado.dados_depois, null, 2)}
+                  </pre>
+                </div>
+              )}
             </div>
 
-            {logSelecionado.campos_alterados && (
-              <div className="text-xs">
-                <span className="font-bold text-texto-suave block mb-1">
-                  Campos Modificados
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {logSelecionado.campos_alterados.map((campo) => (
-                    <span
-                      key={campo}
-                      className="rounded-md border border-acento/40 bg-acento/15 px-2.5 py-0.5 font-mono text-[11px] font-bold text-acento"
-                    >
-                      {campo}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
+            <div className="flex justify-end border-t border-borda pt-3">
+              <button
+                type="button"
+                onClick={() => setLogSelecionado(null)}
+                className="h-9 px-4 rounded-lg border border-borda bg-superficie text-xs font-semibold text-texto hover:bg-fundo"
+              >
+                Fechar
+              </button>
+            </div>
           </div>
         </div>
       )}

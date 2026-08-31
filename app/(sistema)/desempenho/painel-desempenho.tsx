@@ -1,14 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { type RankingItem, type Perfil } from "@/types/database";
 import { 
   CheckCircle2, 
   TrendingUp, 
   Target, 
-  AlertCircle,
   Award,
-  Trophy
+  ArrowRight
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -44,25 +44,46 @@ export function PainelDesempenho({
 }: PainelDesempenhoProps) {
   const [recorte, setRecorte] = useState<"mes" | "semestre">("mes");
 
-  const listaAtual = recorte === "mes" ? rankingMes : rankingSemestre;
-  const listaOutra = recorte === "mes" ? rankingSemestre : rankingMes;
+  const listaBruta = recorte === "mes" ? rankingMes : rankingSemestre;
+  const listaOutraBruta = recorte === "mes" ? rankingSemestre : rankingMes;
 
-  const meuDado = listaAtual.find((r) => r.usuario_id === perfilAtual.id);
-  const minhaPosicao = meuDado?.posicao ?? listaAtual.length;
+  // 1. Lógica de Pontuação e Classificação
+  const alguemPontuou = listaBruta.some((r) => (r.pontos_total || 0) > 0);
+  const alguemPontuouOutro = listaOutraBruta.some((r) => (r.pontos_total || 0) > 0);
+
+  const meuDado = listaBruta.find((r) => r.usuario_id === perfilAtual.id);
   const meusPontos = meuDado?.pontos_total ?? 0;
+  const minhaPosicao = meuDado?.posicao;
 
-  // Verificar se há pontuação real no período para exibir o pódio
-  const alguemPontuou = listaAtual.some((r) => r.pontos_total > 0);
+  // Uma pessoa só tem classificação válida se houver pontuação e seus pontos forem > 0
+  const temClassificacao = alguemPontuou && meusPontos > 0 && typeof minhaPosicao === "number";
 
-  // Cálculo da distância para a posição acima
-  let textoDistancia = "Você está na 1ª colocação geral!";
-  if (minhaPosicao > 1) {
-    const pessoaAcima = listaAtual.find((r) => r.posicao === minhaPosicao - 1);
-    if (pessoaAcima) {
+  // Ordenação da lista de classificação:
+  // Se ninguém pontuou: ordem alfabética estrita, com posição exibindo "—"
+  // Se alguém pontuou: membros com pontos > 0 no topo por pontuação; membros com 0 pontos abaixo em ordem alfabética com posição "—"
+  const listaOrdenada = [...listaBruta].sort((a, b) => {
+    const pontosA = a.pontos_total || 0;
+    const pontosB = b.pontos_total || 0;
+    if (!alguemPontuou) {
+      return a.nome_completo.localeCompare(b.nome_completo);
+    }
+    if (pontosA !== pontosB) {
+      return pontosB - pontosA;
+    }
+    return a.nome_completo.localeCompare(b.nome_completo);
+  });
+
+  // Cálculo da distância para a posição acima (apenas se tiver classificação)
+  let textoDistancia: string | null = null;
+  if (temClassificacao && minhaPosicao && minhaPosicao > 1) {
+    const pessoaAcima = listaBruta.find((r) => r.posicao === minhaPosicao - 1);
+    if (pessoaAcima && pessoaAcima.pontos_total > meusPontos) {
       const diferencaPontos = Math.max(0, Math.round((pessoaAcima.pontos_total - meusPontos) * 10) / 10);
       const chamadosEstimados = Math.ceil(diferencaPontos / 4);
-      textoDistancia = `${diferencaPontos} pts para alcançar o ${minhaPosicao - 1}º lugar (cerca de ${chamadosEstimados} chamado${chamadosEstimados > 1 ? "s" : ""} resolvido${chamadosEstimados > 1 ? "s" : ""} no prazo)`;
+      textoDistancia = `${diferencaPontos} pts para alcançar o ${minhaPosicao - 1}º lugar (cerca de ${chamadosEstimados} chamado${chamadosEstimados > 1 ? "s" : ""} no prazo)`;
     }
+  } else if (temClassificacao && minhaPosicao === 1) {
+    textoDistancia = "Você está na 1ª colocação geral do período";
   }
 
   // Estatísticas individuais
@@ -81,11 +102,11 @@ export function PainelDesempenho({
         resolvidos < 5
           ? `${resolvidos} de 5 chamados concluídos (${taxaPrazo}% no prazo)`
           : taxaPrazo === 100
-          ? "Conquistado neste mês!"
-          : `${taxaPrazo}% no prazo neste mês`,
+          ? "Meta atingida no período!"
+          : `${taxaPrazo}% no prazo neste período`,
     },
     {
-      titulo: "Alta Agilidade de Atendimento",
+      titulo: "Alta Agilidade no Atendimento",
       descricao: "Manter o tempo médio de resolução abaixo de 2 dias úteis.",
       concluido: resolvidos >= 3 && tempoMedio > 0 && tempoMedio <= 2,
       progressoTexto:
@@ -103,76 +124,125 @@ export function PainelDesempenho({
     },
   ];
 
+  // Membros para o pódio (apenas quem tem pontuação > 0)
+  const membrosComPontos = listaOrdenada.filter((m) => (m.pontos_total || 0) > 0);
+
   return (
-    <div className="space-y-6">
-      {/* Cabeçalho */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between bg-superficie p-4 rounded-xl border border-borda shadow-sm">
+    <div className="space-y-8">
+      {/* 1. Cabeçalho Padronizado da Página */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-heading text-xl font-bold text-texto tracking-tight">
+          <h1 className="text-2xl font-semibold tracking-tight text-texto">
             Acompanhamento de Desempenho
           </h1>
-          <p className="text-xs text-texto-suave">
+          <p className="text-sm text-texto-suave mt-0.5">
             Métricas de resolução efetiva, cumprimento de prazos e agilidade no atendimento.
           </p>
         </div>
 
-        <div className="inline-flex items-center gap-1.5 rounded-full bg-acento/15 px-3 py-1 text-xs font-bold text-acento border border-acento/30">
-          <Trophy className="h-4 w-4" />
-          <span>Ranking de Equipe</span>
+        {/* Alternador Mês / Semestre */}
+        <div className="flex items-center gap-1 rounded-lg border border-borda bg-superficie p-1">
+          <button
+            type="button"
+            onClick={() => setRecorte("mes")}
+            className={`h-7 rounded-md px-3 text-xs font-semibold transition ${
+              recorte === "mes"
+                ? "bg-acento text-white"
+                : "text-texto-suave hover:text-texto"
+            }`}
+          >
+            Mês atual
+          </button>
+          <button
+            type="button"
+            onClick={() => setRecorte("semestre")}
+            className={`h-7 rounded-md px-3 text-xs font-semibold transition ${
+              recorte === "semestre"
+                ? "bg-acento text-white"
+                : "text-texto-suave hover:text-texto"
+            }`}
+          >
+            Semestre letivo ({rotuloSemestre})
+          </button>
         </div>
       </div>
 
-      {/* a) FAIXA PESSOAL (Bloco de maior destaque da tela) */}
-      <div className="rounded-xl border-2 border-acento/50 bg-superficie p-6 shadow-md space-y-5">
+      {/* 2. Bloco Dominante da Tela: Resultado Individual */}
+      <div className="rounded-lg border border-borda bg-superficie p-5 space-y-5">
+        {/* Linha Superior: Posição ou Estado Sem Classificação */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-borda pb-4">
           <div className="space-y-1">
-            <span className="text-xs font-bold text-texto-suave uppercase tracking-wider block">
-              Seu resultado individual — {perfilAtual.nome_completo}
+            <span className="text-xs font-medium text-texto-suave">
+              Seu resultado — {perfilAtual.nome_completo}
             </span>
-            <div className="flex items-baseline gap-3">
-              <span className="font-heading text-3xl font-extrabold text-texto tabular-nums">
-                {minhaPosicao}º lugar
+            {temClassificacao ? (
+              <div className="flex items-baseline gap-3">
+                <span className="text-4xl font-bold tracking-tight text-texto tabular-nums">
+                  {minhaPosicao}º lugar
+                </span>
+                <span className="text-sm font-medium text-acento">
+                  {recorte === "mes" ? "no ranking do mês" : `no semestre ${rotuloSemestre}`}
+                </span>
+              </div>
+            ) : (
+              <div>
+                <span className="text-2xl font-bold tracking-tight text-texto block">
+                  Sem classificação neste período
+                </span>
+                <span className="text-xs text-texto-suave block mt-0.5">
+                  Conclua um chamado dentro do prazo para entrar no ranking.
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Distância para a próxima posição (Apenas se classificado) */}
+          {textoDistancia && (
+            <div className="rounded-md border border-borda bg-fundo px-3.5 py-2 text-right">
+              <span className="text-xs font-medium text-texto-suave block">
+                Situação no ranking
               </span>
-              <span className="text-xs font-bold text-acento">
-                {recorte === "mes" ? "no ranking do mês" : `no semestre ${rotuloSemestre}`}
+              <span className="text-xs font-semibold text-texto block mt-0.5">
+                {textoDistancia}
               </span>
             </div>
-          </div>
-
-          <div className="rounded-lg border border-borda bg-fundo px-4 py-2.5 text-right shadow-xs">
-            <span className="text-[11px] font-semibold text-texto-suave block">Distância para a próxima posição</span>
-            <span className="text-xs font-bold text-texto block mt-0.5">
-              {textoDistancia}
-            </span>
-          </div>
+          )}
         </div>
 
-        {/* Barra de Progresso e Métricas Pessoais */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="rounded-lg border border-borda bg-fundo p-3.5 shadow-xs">
-            <span className="text-xs font-semibold text-texto-suave block">Pontuação total</span>
-            <span className="font-mono text-2xl font-bold text-texto tabular-nums block mt-1">
-              {meusPontos} pts
+        {/* Faixa Horizontal Única dos 4 Indicadores (Dividida por 1px) */}
+        <div className="grid grid-cols-2 divide-y divide-borda rounded-lg border border-borda bg-fundo sm:grid-cols-4 sm:divide-y-0 sm:divide-x">
+          <div className="p-4">
+            <span className="text-[13px] font-medium text-texto-suave block">
+              Pontuação total
+            </span>
+            <span className="text-2xl font-bold text-texto tabular-nums block mt-1">
+              {meusPontos} <span className="text-xs font-normal text-texto-suave">pts</span>
             </span>
           </div>
 
-          <div className="rounded-lg border border-borda bg-fundo p-3.5 shadow-xs">
-            <span className="text-xs font-semibold text-texto-suave block">Chamados concluídos</span>
-            <span className="font-mono text-2xl font-bold text-sucesso tabular-nums block mt-1">
+          <div className="p-4">
+            <span className="text-[13px] font-medium text-texto-suave block">
+              Chamados concluídos
+            </span>
+            <span className="text-2xl font-bold text-texto tabular-nums block mt-1">
               {resolvidos}
             </span>
           </div>
 
-          <div className="rounded-lg border border-borda bg-fundo p-3.5 shadow-xs">
-            <span className="text-xs font-semibold text-texto-suave block">Cumprimento de prazo</span>
-            <span className="font-mono text-2xl font-bold text-acento tabular-nums block mt-1">
+          <div className="p-4">
+            <span className="text-[13px] font-medium text-texto-suave block">
+              Cumprimento de prazo
+            </span>
+            <span className="text-2xl font-bold text-texto tabular-nums block mt-1">
               {resolvidos > 0 ? `${taxaPrazo}%` : "—"}
             </span>
           </div>
 
-          <div className="rounded-lg border border-borda bg-fundo p-3.5 shadow-xs">
-            <span className="text-xs font-semibold text-texto-suave block">Tempo médio</span>
-            <span className="font-mono text-2xl font-bold text-texto tabular-nums block mt-1">
+          <div className="p-4">
+            <span className="text-[13px] font-medium text-texto-suave block">
+              Tempo médio
+            </span>
+            <span className="text-2xl font-bold text-texto tabular-nums block mt-1">
               {tempoMedio > 0 ? `${tempoMedio}d` : "—"}
             </span>
           </div>
@@ -181,193 +251,191 @@ export function PainelDesempenho({
         {/* Barra de Progresso no Prazo */}
         {resolvidos > 0 && (
           <div className="space-y-1.5 pt-1">
-            <div className="flex items-center justify-between text-xs font-semibold">
+            <div className="flex items-center justify-between text-xs">
               <span className="text-texto-suave">
-                Taxa de resolução dentro do prazo: {noPrazo} de {resolvidos} concluídos
+                Taxa de resolução no prazo ({noPrazo} de {resolvidos} concluídos)
               </span>
-              <span className="font-mono font-bold text-texto">{taxaPrazo}%</span>
+              <span className="font-semibold text-texto tabular-nums">{taxaPrazo}%</span>
             </div>
-            <div className="h-2.5 w-full overflow-hidden rounded-full bg-borda">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-borda">
               <div
                 style={{ width: `${taxaPrazo}%` }}
-                className="h-full bg-acento transition-all duration-500 rounded-full"
+                className="h-full bg-acento transition-all duration-300 rounded-full"
               />
             </div>
           </div>
         )}
       </div>
 
-      {/* b) PÓDIO (2º - 1º - 3º) */}
-      <div className="rounded-xl border border-borda bg-superficie p-6 shadow-sm space-y-4">
+      {/* 3. Pódio de Atendimento */}
+      <div className="rounded-lg border border-borda bg-superficie p-5 space-y-4">
         <div className="flex items-center justify-between border-b border-borda pb-3">
           <div className="flex items-center gap-2">
             <Award className="h-4 w-4 text-acento" />
-            <h2 className="font-heading text-sm font-bold text-texto">
-              Destaques de Produtividade (Pódio)
+            <h2 className="text-sm font-semibold text-texto">
+              Destaques de Atendimento (Pódio)
             </h2>
           </div>
-          <span className="text-xs font-bold text-texto-suave">
-            {recorte === "mes" ? "Mês corrente" : `Semestre ${rotuloSemestre}`}
+          <span className="text-xs text-texto-suave">
+            {recorte === "mes" ? "Mês atual" : `Semestre ${rotuloSemestre}`}
           </span>
         </div>
 
-        {!alguemPontuou ? (
-          <div className="flex h-32 flex-col items-center justify-center rounded-lg border border-dashed border-borda bg-fundo/40 p-4 text-center">
-            <AlertCircle className="h-5 w-5 text-texto-suave mb-1" />
-            <span className="text-xs font-bold text-texto">
-              Dados insuficientes para exibição de pódio neste período
+        {membrosComPontos.length === 0 ? (
+          /* Estado Vazio com Direção Clara */
+          <div className="flex flex-col items-center justify-center rounded-lg border border-borda bg-fundo p-6 text-center space-y-2">
+            <span className="text-sm font-medium text-texto">
+              Nenhum chamado foi concluído com pontuação no período selecionado.
             </span>
-            <span className="text-[11px] text-texto-suave mt-0.5">
-              O pódio é formado assim que as colaboradoras concluírem chamados com resolução efetiva.
+            <span className="text-xs text-texto-suave">
+              Conclua chamados dentro do prazo regulamentar para formar o pódio de atendimento.
             </span>
+            <div className="pt-2">
+              <Link
+                href="/chamados"
+                className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg border border-borda bg-superficie text-xs font-semibold text-texto hover:bg-fundo transition"
+              >
+                <span>Ver chamados em aberto</span>
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
           </div>
         ) : (
-          <div className="grid grid-cols-3 gap-3.5 pt-2">
-            {[1, 0, 2].map((idx) => {
-              const item = listaAtual[idx];
-              if (!item) return null;
-              const posicao = idx === 1 ? 2 : idx === 0 ? 1 : 3;
-              const ehPrimeiro = posicao === 1;
-
-              return (
-                <div
-                  key={item.usuario_id}
-                  className={`flex flex-col items-center rounded-xl border-2 p-4 text-center transition ${
-                    ehPrimeiro
-                      ? "border-amber-400/80 bg-gradient-to-b from-amber-400/20 to-superficie shadow-md"
-                      : posicao === 2
-                      ? "border-slate-300/80 bg-gradient-to-b from-slate-300/20 to-superficie shadow-sm"
-                      : "border-amber-700/60 bg-gradient-to-b from-amber-700/20 to-superficie shadow-sm"
-                  } ${item.usuario_id === perfilAtual.id ? "ring-2 ring-acento" : ""}`}
-                >
-                  <div
-                    className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-extrabold ${
-                      ehPrimeiro
-                        ? "bg-amber-400 text-amber-950 shadow-sm"
-                        : posicao === 2
-                        ? "bg-slate-300 text-slate-900 shadow-sm"
-                        : "bg-amber-700 text-white shadow-sm"
-                    }`}
-                  >
-                    {posicao}º
-                  </div>
-
-                  <span
-                    className="mt-2 text-xs font-bold text-texto text-center leading-tight max-w-full truncate"
-                    title={item.nome_completo}
-                  >
-                    {item.nome_completo}
-                  </span>
-
-                  <span className="font-mono text-base font-extrabold text-texto tabular-nums mt-1">
-                    {item.pontos_total} pts
-                  </span>
-
-                  <div className="mt-1 text-[11px] text-texto-suave font-medium">
-                    <span>{item.resolvidos} resolvidos</span>
-                    {item.resolvidos > 0 && <span> · {item.taxa_prazo}% prazo</span>}
-                  </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 pt-1">
+            {/* 1º Lugar */}
+            {membrosComPontos[0] && (
+              <div className="order-1 sm:order-2 rounded-lg border border-acento/50 bg-acento/5 p-4 text-center space-y-1">
+                <div className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-acento text-white text-xs font-bold">
+                  1º
                 </div>
-              );
-            })}
+                <span className="text-sm font-semibold text-texto block truncate" title={membrosComPontos[0].nome_completo}>
+                  {membrosComPontos[0].nome_completo}
+                </span>
+                <span className="text-lg font-bold text-texto tabular-nums block">
+                  {membrosComPontos[0].pontos_total} pts
+                </span>
+                <span className="text-xs text-texto-suave block">
+                  {membrosComPontos[0].resolvidos} resolvidos · {membrosComPontos[0].taxa_prazo}% no prazo
+                </span>
+              </div>
+            )}
+
+            {/* 2º Lugar */}
+            {membrosComPontos[1] && (
+              <div className="order-2 sm:order-1 rounded-lg border border-borda bg-fundo p-4 text-center space-y-1">
+                <div className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-borda bg-superficie text-texto text-xs font-bold">
+                  2º
+                </div>
+                <span className="text-sm font-semibold text-texto block truncate" title={membrosComPontos[1].nome_completo}>
+                  {membrosComPontos[1].nome_completo}
+                </span>
+                <span className="text-lg font-bold text-texto tabular-nums block">
+                  {membrosComPontos[1].pontos_total} pts
+                </span>
+                <span className="text-xs text-texto-suave block">
+                  {membrosComPontos[1].resolvidos} resolvidos · {membrosComPontos[1].taxa_prazo}% no prazo
+                </span>
+              </div>
+            )}
+
+            {/* 3º Lugar */}
+            {membrosComPontos[2] && (
+              <div className="order-3 sm:order-3 rounded-lg border border-borda bg-fundo p-4 text-center space-y-1">
+                <div className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-borda bg-superficie text-texto text-xs font-bold">
+                  3º
+                </div>
+                <span className="text-sm font-semibold text-texto block truncate" title={membrosComPontos[2].nome_completo}>
+                  {membrosComPontos[2].nome_completo}
+                </span>
+                <span className="text-lg font-bold text-texto tabular-nums block">
+                  {membrosComPontos[2].pontos_total} pts
+                </span>
+                <span className="text-xs text-texto-suave block">
+                  {membrosComPontos[2].resolvidos} resolvidos · {membrosComPontos[2].taxa_prazo}% no prazo
+                </span>
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* c) TABELA ÚNICA COM ALTERNADOR MÊS / SEMESTRE */}
-      <div className="rounded-xl border border-borda bg-superficie p-6 shadow-sm space-y-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-borda pb-3">
+      {/* 4. Tabela Única de Classificação */}
+      <div className="rounded-lg border border-borda bg-superficie p-5 space-y-4">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between border-b border-borda pb-3">
           <div>
-            <h2 className="font-heading text-sm font-bold text-texto">
-              Classificação Geral e Pontuação
+            <h2 className="text-sm font-semibold text-texto">
+              Classificação Geral
             </h2>
             <p className="text-xs text-texto-suave">
-              Passe o mouse sobre a coluna de pontos para ver o detalhamento (Volume 40%, Prazo 40%, Agilidade 20%).
+              Passe o mouse sobre os pontos para ver a composição (Volume 40%, Prazo 40%, Agilidade 20%).
             </p>
           </div>
-
-          <div className="flex items-center gap-1 rounded-lg border border-borda bg-fundo p-1 text-xs shadow-xs">
-            <button
-              type="button"
-              onClick={() => setRecorte("mes")}
-              className={`rounded-md px-3 py-1.5 text-xs font-bold transition ${
-                recorte === "mes"
-                  ? "bg-superficie text-texto shadow-xs border border-borda"
-                  : "text-texto-suave hover:text-texto"
-              }`}
-            >
-              Mês corrente
-            </button>
-            <button
-              type="button"
-              onClick={() => setRecorte("semestre")}
-              className={`rounded-md px-3 py-1.5 text-xs font-bold transition ${
-                recorte === "semestre"
-                  ? "bg-superficie text-texto shadow-xs border border-borda"
-                  : "text-texto-suave hover:text-texto"
-              }`}
-            >
-              Semestre letivo ({rotuloSemestre})
-            </button>
-          </div>
+          <span className="text-xs text-texto-suave font-medium">
+            {listaOrdenada.length} pessoas no atendimento
+          </span>
         </div>
 
-        <div className="overflow-x-auto rounded-xl border border-borda bg-fundo">
+        <div className="overflow-x-auto rounded-lg border border-borda bg-superficie">
           <table className="tabela-densa">
             <thead>
               <tr>
                 <th className="w-16 text-center">Posição</th>
-                <th>Colaboradora</th>
+                <th>Responsável</th>
                 <th className="w-28 text-center">
                   {recorte === "mes" ? "No Semestre" : "No Mês"}
                 </th>
-                <th className="w-28 text-center">Resolvidos</th>
-                <th className="w-28 text-center">No Prazo</th>
-                <th className="w-28 text-center">Tempo Médio</th>
+                <th className="w-28 text-right">Resolvidos</th>
+                <th className="w-28 text-right">No Prazo</th>
+                <th className="w-28 text-right">Tempo Médio</th>
                 <th className="w-28 text-right">Pontuação</th>
               </tr>
             </thead>
             <tbody>
-              {listaAtual.map((item) => {
+              {listaOrdenada.map((item) => {
                 const ehLogada = item.usuario_id === perfilAtual.id;
-                const posOutra = listaOutra.find((x) => x.usuario_id === item.usuario_id)?.posicao ?? "-";
+                const temPontosNeste = (item.pontos_total || 0) > 0;
+                const textoPosicao = temPontosNeste && item.posicao ? `${item.posicao}º` : "—";
+
+                const outroDado = listaOutraBruta.find((x) => x.usuario_id === item.usuario_id);
+                const temPontosOutro = (outroDado?.pontos_total || 0) > 0;
+                const posOutra = alguemPontuouOutro && temPontosOutro && outroDado?.posicao ? `${outroDado.posicao}º` : "—";
 
                 return (
                   <tr
                     key={item.usuario_id}
-                    className={ehLogada ? "bg-acento/10 font-bold text-texto border-l-4 border-l-acento" : ""}
+                    className={ehLogada ? "bg-acento/5 font-semibold text-texto border-l-2 border-l-acento" : ""}
                   >
-                    <td className="text-center font-mono text-xs font-bold tabular-nums">
-                      #{item.posicao}
+                    <td className="text-center font-mono text-xs tabular-nums text-texto-suave">
+                      {textoPosicao}
                     </td>
                     <td className="text-xs">
                       <div className="flex items-center gap-2">
-                        <span className="font-bold">{item.nome_completo}</span>
+                        <span className="text-texto">{item.nome_completo}</span>
                         {ehLogada && (
-                          <span className="rounded bg-acento px-1.5 py-0.2 text-[9px] font-extrabold text-white">
-                            VOCÊ
+                          <span className="rounded bg-acento/15 px-1.5 py-0.2 text-[10px] font-bold text-acento border border-acento/30">
+                            Você
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="text-center font-mono text-xs tabular-nums text-texto-suave font-semibold">
-                      {posOutra}º
+                    <td className="text-center font-mono text-xs tabular-nums text-texto-suave">
+                      {posOutra}
                     </td>
-                    <td className="text-center font-mono text-xs tabular-nums font-bold">
+                    <td className="text-right font-mono text-xs tabular-nums text-texto">
                       {item.resolvidos}
                     </td>
-                    <td className="text-center font-mono text-xs tabular-nums text-sucesso font-bold">
+                    <td className="text-right font-mono text-xs tabular-nums text-texto">
                       {item.resolvidos > 0 ? `${item.taxa_prazo}%` : "—"}
                     </td>
-                    <td className="text-center font-mono text-xs tabular-nums text-texto-suave font-semibold">
+                    <td className="text-right font-mono text-xs tabular-nums text-texto-suave">
                       {item.tempo_medio_dias > 0 ? `${item.tempo_medio_dias}d` : "—"}
                     </td>
-                    <td className="text-right font-mono text-sm font-extrabold tabular-nums text-texto">
+                    <td className="text-right font-mono text-xs font-bold tabular-nums text-texto">
                       <span
-                        className="cursor-help border-b-2 border-dotted border-acento"
+                        className="cursor-help border-b border-dotted border-borda"
                         title={`Composição dos ${item.pontos_total} pts:\n• Volume: ${item.pontos_volume} pts (40%)\n• Prazo: ${item.pontos_prazo} pts (40%)\n• Agilidade: ${item.pontos_agilidade} pts (20%)`}
                       >
-                        {item.pontos_total}
+                        {item.pontos_total} pts
                       </span>
                     </td>
                   </tr>
@@ -378,17 +446,17 @@ export function PainelDesempenho({
         </div>
       </div>
 
-      {/* d) RECONHECIMENTOS & e) EVOLUÇÃO PESSOAL */}
+      {/* 5. Reconhecimentos & Evolução Pessoal */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* d) Reconhecimentos */}
-        <div className="rounded-xl border border-borda bg-superficie p-6 shadow-sm space-y-3">
+        {/* Metas e Reconhecimentos */}
+        <div className="rounded-lg border border-borda bg-superficie p-5 space-y-4">
           <div>
-            <h2 className="font-heading text-sm font-bold text-texto flex items-center gap-2">
+            <h2 className="text-sm font-semibold text-texto flex items-center gap-2">
               <Target className="h-4 w-4 text-acento" />
-              <span>Metas e Reconhecimentos Individuais</span>
+              <span>Metas Individuais</span>
             </h2>
-            <p className="text-xs text-texto-suave">
-              Acompanhe suas metas de desempenho e veja seu progresso em cada uma.
+            <p className="text-xs text-texto-suave mt-0.5">
+              Acompanhamento de metas de atendimento e conformidade com prazos.
             </p>
           </div>
 
@@ -396,9 +464,9 @@ export function PainelDesempenho({
             {reconhecimentos.map((rec, i) => (
               <div
                 key={i}
-                className={`rounded-lg border-2 p-3.5 text-xs transition ${
+                className={`rounded-lg border p-3.5 text-xs transition ${
                   rec.concluido
-                    ? "border-sucesso/50 bg-sucesso-fundo text-texto shadow-xs"
+                    ? "border-sucesso/40 bg-sucesso-fundo/30 text-texto"
                     : "border-borda bg-fundo text-texto"
                 }`}
               >
@@ -409,27 +477,27 @@ export function PainelDesempenho({
                     }`}
                   />
                   <div>
-                    <span className="font-bold block text-texto">{rec.titulo}</span>
-                    <span className="text-texto-suave text-[11px] block mt-0.5">{rec.descricao}</span>
+                    <span className="font-semibold block text-texto">{rec.titulo}</span>
+                    <span className="text-texto-suave text-xs block mt-0.5">{rec.descricao}</span>
                   </div>
                 </div>
-                <div className="mt-2.5 text-[11px] font-semibold text-texto-suave border-t border-borda/40 pt-2">
-                  Progresso: <span className="text-texto font-mono font-bold">{rec.progressoTexto}</span>
+                <div className="mt-2.5 text-xs text-texto-suave border-t border-borda pt-2">
+                  Progresso: <span className="text-texto font-mono font-medium">{rec.progressoTexto}</span>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* e) Evolução Pessoal com Média da Equipe */}
-        <div className="rounded-xl border border-borda bg-superficie p-6 shadow-sm space-y-3">
+        {/* Evolução Pessoal com Média da Equipe */}
+        <div className="rounded-lg border border-borda bg-superficie p-5 space-y-4">
           <div>
-            <h2 className="font-heading text-sm font-bold text-texto flex items-center gap-2">
+            <h2 className="text-sm font-semibold text-texto flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-acento" />
               <span>Sua Evolução vs. Média da Equipe (Últimos 6 Meses)</span>
             </h2>
-            <p className="text-xs text-texto-suave">
-              Histórico pessoal de pontuação comparado à média geral de atendentes.
+            <p className="text-xs text-texto-suave mt-0.5">
+              Histórico pessoal comparado à média geral do atendimento.
             </p>
           </div>
 
@@ -446,8 +514,8 @@ export function PainelDesempenho({
                   dataKey="minhaPontuacao"
                   name="Sua pontuação"
                   stroke="var(--acento)"
-                  strokeWidth={2.5}
-                  dot={{ r: 4 }}
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
                 />
                 <Line
                   type="monotone"

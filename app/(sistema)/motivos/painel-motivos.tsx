@@ -102,22 +102,22 @@ export function PainelMotivos({ motivos, perfilAtual }: PainelMotivosProps) {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Cabeçalho */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-superficie p-5 rounded-xl border border-borda shadow-sm">
+    <div className="space-y-8">
+      {/* 1. Cabeçalho Padronizado da Página */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-heading text-xl font-bold text-texto tracking-tight">
+          <h1 className="text-2xl font-semibold tracking-tight text-texto">
             Catálogo de Motivos de Chamados
           </h1>
-          <p className="text-xs text-texto-suave">
-            Catálogo padronizado. O sistema avisa quando um motivo parecido já existe.
+          <p className="text-sm text-texto-suave mt-0.5">
+            Catálogo padronizado de solicitações com prevenção contra duplicidade semântica.
           </p>
         </div>
 
         <button
           type="button"
           onClick={handleAbrirCriacao}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-acento px-4 py-2 text-xs font-bold text-white transition hover:bg-acento-hover shadow-sm"
+          className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-acento text-xs font-semibold text-white hover:bg-acento-hover transition"
         >
           <Plus className="h-4 w-4" />
           <span>Novo Motivo</span>
@@ -125,20 +125,20 @@ export function PainelMotivos({ motivos, perfilAtual }: PainelMotivosProps) {
       </div>
 
       {mensagemSucesso && (
-        <div className="flex items-center gap-2 rounded-xl border border-sucesso/40 bg-sucesso-fundo p-4 text-xs font-bold text-sucesso shadow-sm">
+        <div className="flex items-center gap-2 rounded-lg border border-sucesso/40 bg-sucesso-fundo/40 p-4 text-xs font-medium text-sucesso">
           <Check className="h-4 w-4 shrink-0" />
           <span>{mensagemSucesso}</span>
         </div>
       )}
 
       {mensagemErro && (
-        <div className="flex items-start gap-2 rounded-xl border border-erro/40 bg-erro-fundo p-4 text-xs font-bold text-erro shadow-sm">
+        <div className="flex items-start gap-2 rounded-lg border border-erro/40 bg-erro-fundo p-4 text-xs font-medium text-erro">
           <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
           <span>{mensagemErro}</span>
         </div>
       )}
 
-      {/* Busca */}
+      {/* 2. Busca */}
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-2.5 h-4 w-4 text-texto-suave" />
         <input
@@ -146,12 +146,12 @@ export function PainelMotivos({ motivos, perfilAtual }: PainelMotivosProps) {
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
           placeholder="Buscar motivo por código (#01) ou nome..."
-          className="w-full rounded-lg border border-borda bg-superficie pl-9 pr-3 py-2 text-xs font-medium text-texto placeholder:text-texto-suave focus:border-acento focus:outline-none shadow-xs"
+          className="w-full rounded-lg border border-borda bg-superficie pl-9 pr-3 py-2 text-xs font-medium text-texto placeholder:text-texto-suave focus:border-acento focus:outline-none"
         />
       </div>
 
-      {/* Tabela de Motivos */}
-      <div className="overflow-x-auto rounded-xl border border-borda bg-superficie shadow-sm">
+      {/* 3. Tabela de Motivos */}
+      <div className="overflow-x-auto rounded-lg border border-borda bg-superficie">
         <table className="tabela-densa">
           <thead>
             <tr>
@@ -164,25 +164,25 @@ export function PainelMotivos({ motivos, perfilAtual }: PainelMotivosProps) {
           <tbody>
             {motivosFiltrados.length === 0 ? (
               <tr>
-                <td colSpan={ehAdmin ? 4 : 3} className="py-12 text-center text-xs text-texto-suave font-medium">
+                <td colSpan={ehAdmin ? 4 : 3} className="py-12 text-center text-xs text-texto-suave">
                   Nenhum motivo encontrado.
                 </td>
               </tr>
             ) : (
               motivosFiltrados.map((m) => (
                 <tr key={m.id}>
-                  <td className="font-mono text-xs font-bold text-acento">
+                  <td className="font-mono text-xs font-semibold text-acento">
                     {m.codigo}
                   </td>
-                  <td className="text-xs font-bold text-texto">
+                  <td className="text-xs font-medium text-texto">
                     {m.nome}
                   </td>
                   <td className="text-center">
                     <span
-                      className={`inline-block rounded-md border px-2.5 py-0.5 text-[11px] font-bold ${
+                      className={`inline-flex items-center justify-center h-6 px-2.5 rounded text-[11px] font-medium border ${
                         m.ativo
-                          ? "bg-sucesso/15 text-sucesso border-sucesso/40"
-                          : "bg-erro-fundo text-erro border-erro/40"
+                          ? "bg-sucesso-fundo/40 text-sucesso border-sucesso/30"
+                          : "bg-erro-fundo text-erro border-erro/30"
                       }`}
                     >
                       {m.ativo ? "Ativo" : "Inativo"}
@@ -194,14 +194,14 @@ export function PainelMotivos({ motivos, perfilAtual }: PainelMotivosProps) {
                         <button
                           type="button"
                           onClick={() => handleAbrirEdicao(m)}
-                          className="rounded-md border border-borda bg-fundo px-2.5 py-1 text-[11px] font-bold text-texto hover:bg-superficie shadow-xs"
+                          className="h-7 px-2.5 rounded border border-borda bg-fundo text-[11px] font-medium text-texto hover:bg-superficie transition"
                         >
                           Editar
                         </button>
                         <button
                           type="button"
                           onClick={() => handleAlternarStatus(m.id, m.ativo)}
-                          className="rounded-md border border-borda bg-fundo px-2.5 py-1 text-[11px] font-bold text-texto-suave hover:text-texto hover:bg-superficie shadow-xs"
+                          className="h-7 px-2.5 rounded border border-borda bg-fundo text-[11px] font-medium text-texto-suave hover:text-texto hover:bg-superficie transition"
                         >
                           {m.ativo ? "Desativar" : "Ativar"}
                         </button>
@@ -218,17 +218,17 @@ export function PainelMotivos({ motivos, perfilAtual }: PainelMotivosProps) {
       {/* Modal de Criação / Edição de Motivo */}
       {modalAberto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-lg rounded-xl border border-borda bg-fundo p-6 shadow-2xl space-y-4">
+          <div className="w-full max-w-lg rounded-lg border border-borda bg-superficie p-6 space-y-4 shadow-xl">
             <div className="flex items-center gap-2 border-b border-borda pb-3">
-              <Tag className="h-5 w-5 text-acento" />
-              <h2 className="font-heading text-sm font-bold text-texto">
+              <Tag className="h-4 w-4 text-acento" />
+              <h2 className="text-sm font-semibold text-texto">
                 {motivoEditando ? `Editar Motivo ${motivoEditando.codigo}` : "Cadastrar Novo Motivo"}
               </h2>
             </div>
 
             <form onSubmit={handleSalvar} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-texto mb-1.5">
+                <label className="block text-xs font-medium text-texto mb-1.5">
                   Nome do Motivo *
                 </label>
                 <input
@@ -237,24 +237,24 @@ export function PainelMotivos({ motivos, perfilAtual }: PainelMotivosProps) {
                   value={nome}
                   onChange={(e) => handleVerificarNome(e.target.value)}
                   placeholder="Ex: Correção de nota de prova presencial"
-                  className="w-full rounded-lg border border-borda bg-superficie px-3.5 py-2 text-xs font-medium text-texto focus:border-acento focus:outline-none shadow-xs"
+                  className="w-full rounded-lg border border-borda bg-fundo px-3.5 py-2 text-xs font-medium text-texto focus:border-acento focus:outline-none"
                 />
               </div>
 
-              {/* Alerta de Motivos Similares Encontrados */}
+              {/* Alerta de Motivos Similares */}
               {motivosSimilares.length > 0 && !motivoEditando && (
-                <div className="rounded-lg border border-alerta/50 bg-alerta-fundo p-3.5 space-y-2.5 shadow-xs">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-alerta">
+                <div className="rounded-lg border border-alerta/40 bg-alerta-fundo/40 p-3.5 space-y-2.5">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-alerta">
                     <AlertCircle className="h-4 w-4" />
-                    <span>Motivos parecidos já cadastrados no sistema:</span>
+                    <span>Motivos parecidos já cadastrados:</span>
                   </div>
                   <ul className="divide-y divide-borda/40 text-xs">
                     {motivosSimilares.map((s) => (
                       <li key={s.id} className="py-1.5 flex items-center justify-between">
-                        <span className="text-texto font-bold">
+                        <span className="text-texto">
                           <strong className="font-mono text-texto-suave mr-1">{s.codigo}</strong> {s.nome}
                         </span>
-                        <span className="font-mono text-[10px] text-texto-suave tabular-nums font-semibold">
+                        <span className="font-mono text-[10px] text-texto-suave tabular-nums">
                           {Math.round(s.similaridade * 100)}% similar
                         </span>
                       </li>
@@ -275,13 +275,13 @@ export function PainelMotivos({ motivos, perfilAtual }: PainelMotivosProps) {
                 <button
                   type="button"
                   onClick={() => setModalAberto(false)}
-                  className="rounded-lg border border-borda bg-superficie px-4 py-2 text-xs font-bold text-texto hover:bg-fundo"
+                  className="h-9 px-4 rounded-lg border border-borda bg-superficie text-xs font-semibold text-texto hover:bg-fundo"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="rounded-lg bg-acento px-5 py-2 text-xs font-bold text-white hover:bg-acento-hover shadow-sm"
+                  className="h-9 px-4 rounded-lg bg-acento text-xs font-semibold text-white hover:bg-acento-hover"
                 >
                   Salvar Motivo
                 </button>

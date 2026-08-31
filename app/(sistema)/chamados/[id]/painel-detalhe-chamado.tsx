@@ -115,27 +115,27 @@ export function PainelDetalheChamado({
     });
   };
 
-  const criadorNome = chamado.perfisCriador?.nome_completo || "Colaboradora";
+  const criadorNome = chamado.perfisCriador?.nome_completo || "Responsável";
   const atualizadorNome = chamado.perfisAtualizador?.nome_completo || criadorNome;
   const teveEdicao = chamado.atualizado_em && chamado.atualizado_em !== chamado.criado_em;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="mx-auto max-w-4xl space-y-8">
       {/* Barra de Ações Superior */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-superficie p-4 rounded-lg border border-borda shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Link
           href="/chamados"
-          className="inline-flex items-center gap-1.5 rounded-md border border-borda bg-fundo px-3 py-1.5 text-xs font-semibold text-texto transition hover:bg-superficie shadow-xs"
+          className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg border border-borda bg-superficie text-xs font-semibold text-texto transition hover:bg-fundo"
         >
           <ArrowLeft className="h-4 w-4" />
           <span>Voltar para chamados</span>
         </Link>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* Todas as colaboradoras ativas podem editar */}
+          {/* Edição colaborativa */}
           <Link
             href={`/chamados/${chamado.id}/editar`}
-            className="inline-flex items-center gap-1.5 rounded-md bg-acento px-4 py-2 text-xs font-bold text-white transition hover:bg-acento-hover shadow-sm"
+            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-acento text-xs font-semibold text-white transition hover:bg-acento-hover"
           >
             <Edit2 className="h-3.5 w-3.5" />
             <span>Editar chamado</span>
@@ -146,7 +146,7 @@ export function PainelDetalheChamado({
             <button
               type="button"
               onClick={() => setModalExcluirAberto(true)}
-              className="inline-flex items-center gap-1.5 rounded-md border border-erro/40 bg-erro-fundo px-3 py-2 text-xs font-bold text-erro transition hover:bg-erro hover:text-white shadow-xs"
+              className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg border border-erro/40 bg-erro-fundo text-xs font-semibold text-erro transition hover:bg-erro hover:text-white"
             >
               <Trash2 className="h-3.5 w-3.5" />
               <span>Excluir</span>

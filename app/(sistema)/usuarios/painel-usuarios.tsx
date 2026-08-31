@@ -79,7 +79,7 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
 
     const res = await alternarStatusUsuarioAction(usuarioDesativando.id, !usuarioDesativando.ativo);
     if (!res.sucesso) {
-      setMensagemErro(res.erro || "Falha ao alterar status da colaboradora.");
+      setMensagemErro(res.erro || "Falha ao alterar status da conta.");
     } else {
       setMensagemSucesso(
         usuarioDesativando.ativo
@@ -93,26 +93,26 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
   const formatarPapel = (papel: string) => {
     switch (papel) {
       case "admin":
-        return "Administradora";
+        return "Administrador";
       case "coordenador":
-        return "Coordenadora";
+        return "Coordenador";
       case "atendente":
-        return "Atendente";
+        return "Atendimento";
       default:
         return papel;
     }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Cabeçalho */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-superficie p-5 rounded-xl border border-borda shadow-sm">
+    <div className="space-y-8">
+      {/* 1. Cabeçalho Padronizado da Página */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-heading text-xl font-bold text-texto tracking-tight">
-            Gestão de Usuárias e Cofre de Credenciais
+          <h1 className="text-2xl font-semibold tracking-tight text-texto">
+            Gestão de Equipe e Credenciais
           </h1>
-          <p className="text-xs text-texto-suave">
-            Controle de acesso, papéis no sistema e cofre de senhas da plataforma externa sob auditoria estrita.
+          <p className="text-sm text-texto-suave mt-0.5">
+            Controle de acesso, papéis no sistema e cofre de senhas da plataforma externa sob auditoria.
           </p>
         </div>
 
@@ -122,22 +122,22 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
             setUsuarioEditando(null);
             setModalAberto(true);
           }}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-acento px-4 py-2 text-xs font-bold text-white transition hover:bg-acento-hover shadow-sm"
+          className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-acento text-xs font-semibold text-white hover:bg-acento-hover transition"
         >
           <UserPlus className="h-4 w-4" />
-          <span>Nova Colaboradora</span>
+          <span>Novo Membro</span>
         </button>
       </div>
 
       {mensagemSucesso && (
-        <div className="flex items-center gap-2 rounded-xl border border-sucesso/40 bg-sucesso-fundo p-4 text-xs font-bold text-sucesso shadow-sm">
+        <div className="flex items-center gap-2 rounded-lg border border-sucesso/40 bg-sucesso-fundo/40 p-4 text-xs font-medium text-sucesso">
           <Check className="h-4 w-4 shrink-0" />
           <span>{mensagemSucesso}</span>
         </div>
       )}
 
       {mensagemErro && (
-        <div className="flex items-start gap-2 rounded-xl border border-erro/40 bg-erro-fundo p-4 text-xs font-bold text-erro shadow-sm">
+        <div className="flex items-start gap-2 rounded-lg border border-erro/40 bg-erro-fundo p-4 text-xs font-medium text-erro">
           <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
           <span>{mensagemErro}</span>
         </div>
@@ -145,19 +145,19 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
 
       {/* Caixa de Senha Revelada Ativa (30 segundos) */}
       {senhaRevelada && (
-        <div className="rounded-xl border-2 border-acento/60 bg-acento/10 p-5 shadow-md space-y-3">
+        <div className="rounded-lg border border-acento/40 bg-acento/5 p-5 space-y-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 font-bold text-xs text-acento">
+            <div className="flex items-center gap-2 font-semibold text-xs text-acento">
               <Key className="h-4 w-4" />
               <span>Senha da Plataforma Externa (Visualização Temporária)</span>
             </div>
-            <div className="flex items-center gap-1.5 font-mono text-xs font-bold text-acento tabular-nums bg-superficie px-3 py-1 rounded-md border border-acento/40 shadow-xs">
+            <div className="flex items-center gap-1.5 font-mono text-xs font-semibold text-acento tabular-nums bg-superficie px-3 py-1 rounded-md border border-acento/30">
               <Clock className="h-3.5 w-3.5" />
               <span>Expira em {tempoRestante}s</span>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <span className="font-mono text-base font-bold text-texto bg-superficie px-4 py-2 rounded-lg border border-borda select-all shadow-xs">
+            <span className="font-mono text-base font-bold text-texto bg-superficie px-4 py-2 rounded-lg border border-borda select-all">
               {senhaRevelada.senha}
             </span>
             <button
@@ -166,19 +166,19 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
                 setSenhaRevelada(null);
                 setTempoRestante(0);
               }}
-              className="text-xs font-bold text-texto-suave hover:text-texto underline"
+              className="text-xs font-semibold text-texto-suave hover:text-texto underline"
             >
               Ocultar agora
             </button>
           </div>
-          <p className="text-[11px] text-texto-suave">
+          <p className="text-xs text-texto-suave">
             Esta visualização foi registrada no histórico de auditoria com seu endereço IP e data/hora.
           </p>
         </div>
       )}
 
-      {/* Tabela de Usuárias */}
-      <div className="overflow-x-auto rounded-xl border border-borda bg-superficie shadow-sm">
+      {/* 2. Tabela de Equipe */}
+      <div className="overflow-x-auto rounded-lg border border-borda bg-superficie">
         <table className="tabela-densa">
           <thead>
             <tr>
@@ -197,20 +197,20 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
 
               return (
                 <tr key={u.id}>
-                  <td className="text-xs font-bold text-texto">
+                  <td className="text-xs font-medium text-texto">
                     {u.nome_completo}
                     {ehPropriaConta && (
-                      <span className="ml-2 rounded bg-acento/15 px-1.5 py-0.2 text-[10px] font-extrabold text-acento border border-acento/30">
+                      <span className="ml-2 rounded bg-acento/15 px-1.5 py-0.2 text-[10px] font-bold text-acento border border-acento/30">
                         (Você)
                       </span>
                     )}
                   </td>
-                  <td className="text-xs text-texto-suave font-mono font-medium">{u.email}</td>
+                  <td className="text-xs text-texto-suave font-mono">{u.email}</td>
                   <td className="text-center">
                     <span
-                      className={`inline-block rounded-md border px-2.5 py-0.5 text-[11px] font-bold ${
+                      className={`inline-flex items-center justify-center h-6 px-2.5 rounded text-[11px] font-medium border ${
                         u.papel === "admin"
-                          ? "bg-acento/15 text-acento border-acento/40"
+                          ? "bg-acento/15 text-acento border-acento/30"
                           : u.papel === "coordenador"
                           ? "bg-superficie text-texto border-borda"
                           : "bg-fundo text-texto-suave border-borda"
@@ -221,13 +221,13 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
                   </td>
                   <td className="text-center">
                     <span
-                      className={`inline-block rounded-md border px-2.5 py-0.5 text-[11px] font-bold ${
+                      className={`inline-flex items-center justify-center h-6 px-2.5 rounded text-[11px] font-medium border ${
                         u.ativo
-                          ? "bg-sucesso/15 text-sucesso border-sucesso/40"
-                          : "bg-erro-fundo text-erro border-erro/40"
+                          ? "bg-sucesso-fundo/40 text-sucesso border-sucesso/30"
+                          : "bg-erro-fundo text-erro border-erro/30"
                       }`}
                     >
-                      {u.ativo ? "Ativa" : "Inativa"}
+                      {u.ativo ? "Ativo" : "Inativo"}
                     </span>
                   </td>
                   <td className="text-center">
@@ -235,10 +235,10 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
                       <button
                         type="button"
                         onClick={() => handleRevelarSenha(u.id)}
-                        className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-[11px] font-bold transition shadow-xs ${
+                        className={`inline-flex items-center gap-1 h-7 px-2.5 rounded text-[11px] font-semibold transition ${
                           revelandoEsta
-                            ? "border-acento bg-acento text-white"
-                            : "border-borda bg-fundo text-texto hover:bg-superficie"
+                            ? "bg-acento text-white"
+                            : "border border-borda bg-fundo text-texto hover:bg-superficie"
                         }`}
                         title="Revelar senha do cofre (auditado)"
                       >
@@ -246,7 +246,7 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
                         <span>{revelandoEsta ? "Revelada" : "Ver senha"}</span>
                       </button>
                     ) : (
-                      <span className="text-[11px] text-texto-suave italic">Sem credencial</span>
+                      <span className="text-xs text-texto-suave italic">Sem credencial</span>
                     )}
                   </td>
                   <td className="text-right">
@@ -257,7 +257,7 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
                           setUsuarioEditando(u);
                           setModalAberto(true);
                         }}
-                        className="rounded-md border border-borda bg-fundo px-2.5 py-1 text-[11px] font-bold text-texto hover:bg-superficie shadow-xs"
+                        className="h-7 px-2.5 rounded border border-borda bg-fundo text-[11px] font-medium text-texto hover:bg-superficie"
                       >
                         Editar
                       </button>
@@ -266,12 +266,12 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
                         type="button"
                         onClick={() => {
                           if (ehPropriaConta) {
-                            setMensagemErro("Você não pode desativar sua própria conta de administradora.");
+                            setMensagemErro("Você não pode desativar sua própria conta de administrador.");
                             return;
                           }
                           setUsuarioDesativando({ id: u.id, nome: u.nome_completo, ativo: u.ativo });
                         }}
-                        className="rounded-md border border-borda bg-fundo px-2.5 py-1 text-[11px] font-bold text-texto-suave hover:text-texto hover:bg-superficie shadow-xs"
+                        className="h-7 px-2.5 rounded border border-borda bg-fundo text-[11px] font-medium text-texto-suave hover:text-texto hover:bg-superficie"
                       >
                         {u.ativo ? "Desativar" : "Reativar"}
                       </button>
@@ -284,38 +284,38 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
         </table>
       </div>
 
-      {/* Histórico Recente de Acesso ao Cofre (Auditoria) */}
-      <div className="rounded-xl border border-borda bg-superficie p-6 shadow-sm space-y-3">
-        <div className="flex items-center gap-2 border-b border-borda pb-2">
+      {/* 3. Histórico Recente de Acesso ao Cofre (Auditoria) */}
+      <div className="rounded-lg border border-borda bg-superficie p-5 space-y-4">
+        <div className="flex items-center gap-2 border-b border-borda pb-3">
           <History className="h-4 w-4 text-acento" />
-          <h2 className="font-heading text-sm font-bold text-texto">
-            Auditoria de Acessos Recentes ao Cofre de Senhas
+          <h2 className="text-sm font-semibold text-texto">
+            Auditoria de Acessos ao Cofre de Senhas
           </h2>
         </div>
 
         {acessosRecentes.length === 0 ? (
           <p className="text-xs text-texto-suave">Nenhum acesso ao cofre registrado nas últimas semanas.</p>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-borda bg-fundo">
+          <div className="overflow-x-auto rounded-lg border border-borda bg-superficie">
             <table className="tabela-densa">
               <thead>
                 <tr>
                   <th>Data e Hora</th>
-                  <th>Administradora Responsável</th>
-                  <th>Usuária Alvo Consultada</th>
+                  <th>Responsável pelo Acesso</th>
+                  <th>Conta Consultada</th>
                   <th>Endereço IP</th>
                 </tr>
               </thead>
               <tbody>
                 {acessosRecentes.map((a) => (
                   <tr key={a.id}>
-                    <td className="font-mono text-xs tabular-nums text-texto-suave font-semibold">
+                    <td className="font-mono text-xs tabular-nums text-texto-suave">
                       {new Date(a.data_hora).toLocaleString("pt-BR")}
                     </td>
-                    <td className="text-xs font-bold text-texto">
-                      {a.admin_nome || "Administradora"}
+                    <td className="text-xs font-medium text-texto">
+                      {a.admin_nome || "Administrador"}
                     </td>
-                    <td className="text-xs text-acento font-bold">
+                    <td className="text-xs text-acento font-medium">
                       {a.perfil_alvo_nome || "—"}
                     </td>
                     <td className="font-mono text-xs text-texto-suave tabular-nums">
@@ -329,7 +329,7 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
         )}
       </div>
 
-      {/* Modal de Criação / Edição de Usuária */}
+      {/* Modal de Criação / Edição de Usuário */}
       {modalAberto && (
         <ModalFormularioUsuario
           usuario={usuarioEditando}
@@ -344,10 +344,10 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
       {/* Modal de Confirmação de Desativação */}
       {usuarioDesativando && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-xl border border-borda bg-fundo p-6 shadow-2xl space-y-4">
+          <div className="w-full max-w-md rounded-lg border border-borda bg-superficie p-6 space-y-4 shadow-xl">
             <div className="flex items-center gap-2 border-b border-borda pb-3">
               <Shield className="h-5 w-5 text-alerta" />
-              <h3 className="font-heading text-sm font-bold text-texto">
+              <h3 className="text-sm font-semibold text-texto">
                 {usuarioDesativando.ativo ? "Confirmar Desativação" : "Confirmar Reativação"}
               </h3>
             </div>
@@ -361,7 +361,7 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
               <button
                 type="button"
                 onClick={() => setUsuarioDesativando(null)}
-                className="rounded-lg border border-borda bg-superficie px-4 py-2 text-xs font-bold text-texto hover:bg-fundo"
+                className="h-9 px-4 rounded-lg border border-borda bg-superficie text-xs font-semibold text-texto hover:bg-fundo"
               >
                 Cancelar
               </button>
@@ -369,7 +369,7 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
                 type="button"
                 onClick={handleConfirmarAlternarStatus}
                 disabled={isPending}
-                className="rounded-lg bg-acento px-5 py-2 text-xs font-bold text-white hover:bg-acento-hover disabled:opacity-50 shadow-sm"
+                className="h-9 px-5 rounded-lg bg-acento text-xs font-semibold text-white hover:bg-acento-hover disabled:opacity-50"
               >
                 {isPending ? "Processando..." : "Confirmar"}
               </button>
@@ -383,8 +383,8 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
 
 const opcoesPapel: CustomSelectOption[] = [
   { value: "atendente", label: "Atendente", sublabel: "Acesso operacional a chamados e desempenho" },
-  { value: "coordenador", label: "Coordenadora", sublabel: "Acompanhamento geral e relatórios" },
-  { value: "admin", label: "Administradora", sublabel: "Acesso total, cofre e auditoria" },
+  { value: "coordenador", label: "Coordenador", sublabel: "Acompanhamento geral e relatórios" },
+  { value: "admin", label: "Administrador", sublabel: "Acesso total, cofre e auditoria" },
 ];
 
 function ModalFormularioUsuario({
@@ -428,25 +428,25 @@ function ModalFormularioUsuario({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-lg rounded-xl border border-borda bg-fundo p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+      <div className="w-full max-w-lg rounded-lg border border-borda bg-superficie p-6 space-y-4 max-h-[90vh] overflow-y-auto shadow-xl">
         <div className="flex items-center justify-between border-b border-borda pb-3">
-          <h3 className="font-heading text-sm font-bold text-texto">
-            {usuario ? `Editar Usuária: ${usuario.nome_completo}` : "Cadastrar Nova Colaboradora"}
+          <h3 className="text-sm font-semibold text-texto">
+            {usuario ? `Editar Membro: ${usuario.nome_completo}` : "Cadastrar Novo Membro"}
           </h3>
-          <button type="button" onClick={aoFechar} className="text-texto-suave hover:text-texto font-bold">
+          <button type="button" onClick={aoFechar} className="text-texto-suave hover:text-texto font-semibold">
             ✕
           </button>
         </div>
 
         {erro && (
-          <div className="rounded-lg border border-erro/40 bg-erro-fundo p-3.5 text-xs font-bold text-erro">
+          <div className="rounded-lg border border-erro/40 bg-erro-fundo p-3.5 text-xs font-medium text-erro">
             {erro}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-texto mb-1.5">
+            <label className="block text-xs font-medium text-texto mb-1.5">
               Nome Completo *
             </label>
             <input
@@ -455,12 +455,12 @@ function ModalFormularioUsuario({
               value={nome}
               onChange={(e) => setNome(e.target.value)}
               placeholder="Ex: Ana Silva"
-              className="w-full rounded-lg border border-borda bg-superficie px-3.5 py-2 text-xs font-medium text-texto focus:border-acento focus:outline-none shadow-xs"
+              className="w-full rounded-lg border border-borda bg-fundo px-3.5 py-2 text-xs font-medium text-texto focus:border-acento focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-texto mb-1.5">
+            <label className="block text-xs font-medium text-texto mb-1.5">
               E-mail Institucional *
             </label>
             <input
@@ -469,7 +469,7 @@ function ModalFormularioUsuario({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="ana.silva@unopar.br"
-              className="w-full rounded-lg border border-borda bg-superficie px-3.5 py-2 text-xs font-medium text-texto focus:border-acento focus:outline-none shadow-xs"
+              className="w-full rounded-lg border border-borda bg-fundo px-3.5 py-2 text-xs font-medium text-texto focus:border-acento focus:outline-none"
             />
           </div>
 
@@ -482,7 +482,7 @@ function ModalFormularioUsuario({
           />
 
           <div>
-            <label className="block text-xs font-bold text-texto mb-1.5">
+            <label className="block text-xs font-medium text-texto mb-1.5">
               {usuario ? "Nova Senha do Sistema (Opcional)" : "Senha de Acesso ao Sistema (mínimo 8 caracteres) *"}
             </label>
             <input
@@ -492,12 +492,12 @@ function ModalFormularioUsuario({
               onChange={(e) => setSenhaSistema(e.target.value)}
               placeholder="••••••••"
               minLength={8}
-              className="w-full rounded-lg border border-borda bg-superficie px-3.5 py-2 text-xs text-texto focus:border-acento focus:outline-none shadow-xs"
+              className="w-full rounded-lg border border-borda bg-fundo px-3.5 py-2 text-xs text-texto focus:border-acento focus:outline-none"
             />
           </div>
 
           <div className="border-t border-borda pt-3">
-            <label className="block text-xs font-bold text-texto mb-1.5 flex items-center gap-1.5">
+            <label className="block text-xs font-medium text-texto mb-1.5 flex items-center gap-1.5">
               <Key className="h-4 w-4 text-acento" />
               <span>Senha da Plataforma Externa (Cofre Cifrado)</span>
             </label>
@@ -506,9 +506,9 @@ function ModalFormularioUsuario({
               value={senhaExterna}
               onChange={(e) => setSenhaExterna(e.target.value)}
               placeholder="Senha de acesso ao PAD externo..."
-              className="w-full rounded-lg border border-borda bg-superficie px-3.5 py-2 text-xs text-texto focus:border-acento focus:outline-none shadow-xs"
+              className="w-full rounded-lg border border-borda bg-fundo px-3.5 py-2 text-xs text-texto focus:border-acento focus:outline-none"
             />
-            <p className="text-[11px] text-texto-suave mt-1">
+            <p className="text-xs text-texto-suave mt-1">
               Armazenada de forma cifrada com AES-256-GCM.
             </p>
           </div>
@@ -517,14 +517,14 @@ function ModalFormularioUsuario({
             <button
               type="button"
               onClick={aoFechar}
-              className="rounded-lg border border-borda bg-superficie px-4 py-2 text-xs font-bold text-texto hover:bg-fundo"
+              className="h-9 px-4 rounded-lg border border-borda bg-superficie text-xs font-semibold text-texto hover:bg-fundo"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={isPending}
-              className="rounded-lg bg-acento px-5 py-2 text-xs font-bold text-white hover:bg-acento-hover disabled:opacity-50 shadow-sm"
+              className="h-9 px-5 rounded-lg bg-acento text-xs font-semibold text-white hover:bg-acento-hover disabled:opacity-50"
             >
               {isPending ? "Salvando..." : "Salvar Dados"}
             </button>
