@@ -27,14 +27,14 @@ export default function PaginaLogin() {
       <div className="w-full max-w-sm space-y-6">
         {/* Cabeçalho do Card com Logo Oficial */}
         <div className="flex flex-col items-center text-center space-y-2.5">
-          <div className="h-16 w-16 overflow-hidden rounded-2xl border-2 border-borda shadow-md bg-superficie p-1">
-            <img src="/logo.png" alt="UNOPAR Logo" className="h-full w-full object-cover rounded-xl" />
+          <div className="h-16 w-16 overflow-hidden rounded-2xl border border-borda shadow-md bg-superficie p-1">
+            <img src="/logo.png" alt="Gestão de Chamados Logo" className="h-full w-full object-contain" />
           </div>
           <div>
-            <h1 className="font-heading text-xl font-extrabold text-texto tracking-tight">
-              UNOPAR Parauapebas
+            <h1 className="font-heading text-xl font-black text-texto tracking-tight">
+              Gestão de Chamados
             </h1>
-            <p className="text-xs font-semibold text-texto-suave">
+            <p className="text-xs font-medium text-texto-suave">
               Controle e Gestão de Protocolos Acadêmicos
             </p>
           </div>

@@ -55,8 +55,8 @@ export function LayoutCliente({ perfil, children }: LayoutClienteProps) {
               <div className="flex h-8 w-8 items-center justify-center rounded-md overflow-hidden border border-borda bg-superficie">
                 <img src="/logo.png" alt="UNOPAR Logo" className="h-full w-full object-contain" />
               </div>
-              <span className="text-xs font-bold text-texto">
-                UNOPAR Chamados
+              <span className="text-xs font-black text-texto tracking-tight">
+                Gestão de Chamados
               </span>
             </div>
 

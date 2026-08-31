@@ -115,12 +115,12 @@ export function SidebarPrincipal({
         {/* Cabeçalho da Sidebar / Logo Maior e Destacado */}
         <div className="flex h-24 items-center justify-between px-6 border-b border-[#1E293B]/60">
           <div className="flex items-center gap-3.5">
-            <div className="h-14 w-14 flex items-center justify-center p-1">
-              <img src="/logo.png" alt="UNOPAR Logo" className="h-full w-full object-contain filter drop-shadow-md" />
+            <div className="h-14 w-14 flex items-center justify-center p-0.5">
+              <img src="/logo.png" alt="Gestão de Chamados Logo" className="h-full w-full object-contain filter drop-shadow-md" />
             </div>
             <div>
-              <span className="text-base font-extrabold tracking-tight text-white block">
-                UNOPAR Chamados
+              <span className="text-[15px] font-black tracking-tight bg-gradient-to-r from-white via-slate-100 to-sky-300 bg-clip-text text-transparent block leading-tight">
+                Gestão de Chamados
               </span>
             </div>
           </div>
