@@ -4,8 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { type Perfil } from "@/types/database";
 import { SidebarPrincipal } from "./sidebar";
-import { Menu, Bell, ChevronDown, Plus } from "lucide-react";
-import { SeletorTema } from "@/components/ui/theme-switcher";
+import { Menu, Bell, ChevronDown, Plus, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 
 interface LayoutClienteProps {
   perfil: Perfil;
@@ -14,6 +13,7 @@ interface LayoutClienteProps {
 
 export function LayoutCliente({ perfil, children }: LayoutClienteProps) {
   const [mobileAberto, setMobileAberto] = useState(false);
+  const [recolhido, setRecolhido] = useState(false);
 
   const formatarPapel = (papel: string) => {
     switch (papel) {
@@ -30,51 +30,59 @@ export function LayoutCliente({ perfil, children }: LayoutClienteProps) {
 
   return (
     <div className="min-h-screen flex bg-fundo text-texto relative">
-      {/* Sidebar Lateral */}
+      {/* Sidebar Lateral com Controle de Recolher/Expandir */}
       <SidebarPrincipal
         perfil={perfil}
         mobileAberto={mobileAberto}
         setMobileAberto={setMobileAberto}
+        recolhido={recolhido}
+        setRecolhido={setRecolhido}
       />
 
       {/* Conteúdo Principal com compensação da largura da Sidebar */}
-      <div className="flex flex-1 flex-col lg:pl-72">
-        {/* Header Superior Mobile & Desktop */}
+      <div className={`flex flex-1 flex-col transition-all duration-300 ${
+        recolhido ? "lg:pl-20" : "lg:pl-72"
+      }`}>
+        {/* Header Superior Limpo: Apenas Notificação e Usuário */}
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-borda bg-superficie/95 backdrop-blur-xs px-4 sm:px-8 shadow-xs">
           <div className="flex items-center gap-3">
+            {/* Toggle Mobile */}
             <button
               type="button"
               onClick={() => setMobileAberto(true)}
-              className="rounded-lg border border-borda bg-fundo p-2 text-texto hover:bg-superficie lg:hidden shadow-xs"
+              className="rounded-xl border border-borda bg-fundo p-2 text-texto hover:bg-superficie lg:hidden shadow-xs"
               title="Abrir menu de navegação"
             >
               <Menu className="h-5 w-5" />
             </button>
 
-            <div className="flex items-center gap-2 lg:hidden">
-              <div className="flex h-8 w-8 items-center justify-center rounded-md overflow-hidden border border-borda bg-superficie">
-                <img src="/logo.png" alt="UNOPAR Logo" className="h-full w-full object-contain" />
-              </div>
-              <span className="text-xs font-black text-texto tracking-tight">
-                Gestão de Chamados
-              </span>
-            </div>
-
-            <div className="hidden lg:block">
-              <span className="text-xs font-medium text-texto-suave">
-                Sistema Integrado de Gestão de Protocolos Acadêmicos
-              </span>
-            </div>
+            {/* Toggle Desktop no Header */}
+            <button
+              type="button"
+              onClick={() => setRecolhido(!recolhido)}
+              className="hidden lg:flex items-center gap-2 rounded-xl border border-borda bg-fundo px-3 py-1.5 text-xs font-semibold text-texto-suave hover:text-texto hover:bg-superficie transition shadow-xs"
+              title={recolhido ? "Expandir barra lateral" : "Recolher barra lateral"}
+            >
+              {recolhido ? (
+                <>
+                  <PanelLeftOpen className="h-4 w-4 text-sky-500" />
+                  <span>Expandir Menu</span>
+                </>
+              ) : (
+                <>
+                  <PanelLeftClose className="h-4 w-4" />
+                  <span>Recolher Menu</span>
+                </>
+              )}
+            </button>
           </div>
 
-          <div className="flex items-center gap-4">
-            {/* Seletor de Tema */}
-            <SeletorTema />
-
+          {/* Lado Direito: Apenas Notificação e Perfil da Usuária */}
+          <div className="flex items-center gap-3.5">
             {/* Notificações com Badge */}
             <Link
               href="/chamados"
-              className="relative rounded-xl border border-borda bg-fundo p-2 text-texto-suave hover:text-texto hover:bg-superficie transition"
+              className="relative rounded-xl border border-borda bg-fundo p-2 text-texto-suave hover:text-texto hover:bg-superficie transition shadow-xs"
               title="Notificações"
             >
               <Bell className="h-4 w-4" />
@@ -83,16 +91,16 @@ export function LayoutCliente({ perfil, children }: LayoutClienteProps) {
               </span>
             </Link>
 
-            {/* Perfil Pill Badge conforme Mockup */}
+            {/* Perfil Pill Badge */}
             <Link
               href="/perfil"
-              className="flex items-center gap-2.5 rounded-xl border border-borda bg-superficie px-3 py-1.5 hover:bg-fundo transition"
+              className="flex items-center gap-2.5 rounded-xl border border-borda bg-superficie px-3 py-1.5 hover:bg-fundo transition shadow-xs"
             >
               <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1D4ED8] text-xs font-bold text-white shadow-xs">
                 {perfil.nome_completo.substring(0, 2).toUpperCase()}
               </div>
               <div className="hidden sm:block text-left">
-                <span className="text-xs font-bold text-texto block leading-tight truncate max-w-[120px]">
+                <span className="text-xs font-bold text-texto block leading-tight truncate max-w-[130px]">
                   {perfil.nome_completo}
                 </span>
                 <span className="text-[10px] text-texto-suave block leading-none mt-0.5">

@@ -19,13 +19,17 @@ import {
   BookOpen, 
   ChevronDown, 
   ChevronRight,
-  X
+  X,
+  PanelLeftClose,
+  PanelLeftOpen
 } from "lucide-react";
 
 interface SidebarPrincipalProps {
   perfil: Perfil;
   mobileAberto: boolean;
   setMobileAberto: (aberto: boolean) => void;
+  recolhido: boolean;
+  setRecolhido: (recolhido: boolean) => void;
 }
 
 type Tema = "claro" | "sepia" | "escuro";
@@ -34,6 +38,8 @@ export function SidebarPrincipal({
   perfil,
   mobileAberto,
   setMobileAberto,
+  recolhido,
+  setRecolhido,
 }: SidebarPrincipalProps) {
   const pathname = usePathname();
   const [configAberto, setConfigAberto] = useState(
@@ -106,25 +112,44 @@ export function SidebarPrincipal({
         />
       )}
 
-      {/* Sidebar Container (Deep Navy Blue Elegante conforme Mockup) */}
+      {/* Sidebar Container (Deep Navy Blue com modo normal w-72 e recolhido w-20) */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 flex w-72 flex-col border-r border-[#1E293B] bg-[#070D1E] text-slate-200 shadow-2xl transition-transform duration-300 ease-in-out lg:translate-x-0 ${
-          mobileAberto ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={`fixed top-0 bottom-0 left-0 z-50 flex flex-col border-r border-[#1E293B] bg-[#070D1E] text-slate-200 shadow-2xl transition-all duration-300 ease-in-out lg:translate-x-0 ${
+          mobileAberto ? "translate-x-0 w-72" : "-translate-x-full lg:translate-x-0"
+        } ${recolhido ? "lg:w-20" : "lg:w-72"}`}
       >
-        {/* Cabeçalho da Sidebar / Logo Maior e Destacado */}
-        <div className="flex h-24 items-center justify-between px-6 border-b border-[#1E293B]/60">
-          <div className="flex items-center gap-3.5">
-            <div className="h-14 w-14 flex items-center justify-center p-0.5">
+        {/* Cabeçalho da Sidebar / Logo & Botão de Abrir/Fechar Lateral */}
+        <div className={`flex h-24 items-center border-b border-[#1E293B]/60 transition-all ${
+          recolhido ? "justify-center px-2" : "justify-between px-5"
+        }`}>
+          <div className="flex items-center gap-3 truncate">
+            <div className="h-12 w-12 shrink-0 flex items-center justify-center p-0.5">
               <img src="/logo.png" alt="Gestão de Chamados Logo" className="h-full w-full object-contain filter drop-shadow-md" />
             </div>
-            <div>
-              <span className="text-[15px] font-black tracking-tight bg-gradient-to-r from-white via-slate-100 to-sky-300 bg-clip-text text-transparent block leading-tight">
-                Gestão de Chamados
-              </span>
-            </div>
+            {!recolhido && (
+              <div className="truncate">
+                <span className="text-[15px] font-black tracking-tight bg-gradient-to-r from-white via-slate-100 to-sky-300 bg-clip-text text-transparent block leading-tight truncate">
+                  Gestão de Chamados
+                </span>
+              </div>
+            )}
           </div>
 
+          {/* Botão de Recolher/Expandir Barra Lateral Desktop */}
+          <button
+            type="button"
+            onClick={() => setRecolhido(!recolhido)}
+            className="hidden lg:flex rounded-xl p-2 text-slate-400 hover:bg-white/10 hover:text-white transition"
+            title={recolhido ? "Expandir barra lateral" : "Recolher barra lateral"}
+          >
+            {recolhido ? (
+              <PanelLeftOpen className="h-5 w-5 text-sky-400" />
+            ) : (
+              <PanelLeftClose className="h-5 w-5" />
+            )}
+          </button>
+
+          {/* Botão de Fechar no Mobile */}
           <button
             type="button"
             onClick={() => setMobileAberto(false)}
@@ -136,7 +161,7 @@ export function SidebarPrincipal({
         </div>
 
         {/* Links de Navegação */}
-        <div className="flex-1 overflow-y-auto px-4 py-5 space-y-6 scrollbar-thin">
+        <div className="flex-1 overflow-y-auto px-3 py-5 space-y-6 scrollbar-thin">
           {/* Seção Principal */}
           <div>
             <ul className="space-y-1.5">
@@ -148,17 +173,20 @@ export function SidebarPrincipal({
                     <Link
                       href={rota.href}
                       onClick={() => setMobileAberto(false)}
-                      className={`flex items-center justify-between rounded-xl px-4 py-3 text-xs font-semibold transition-all ${
+                      title={recolhido ? rota.rotulo : undefined}
+                      className={`flex items-center rounded-xl py-3 text-xs font-semibold transition-all ${
+                        recolhido ? "justify-center px-2" : "justify-between px-4"
+                      } ${
                         ativo
                           ? "bg-[#1D4ED8] text-white shadow-lg shadow-blue-900/40"
                           : "text-slate-300 hover:bg-white/5 hover:text-white"
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <Icone className={`h-4 w-4 shrink-0 ${ativo ? "text-white" : "text-slate-400"}`} />
-                        <span>{rota.rotulo}</span>
+                        <Icone className={`h-5 w-5 shrink-0 ${ativo ? "text-white" : "text-slate-400"}`} />
+                        {!recolhido && <span>{rota.rotulo}</span>}
                       </div>
-                      {rota.badge && (
+                      {!recolhido && rota.badge && (
                         <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white shadow-xs">
                           {rota.badge}
                         </span>
@@ -177,25 +205,30 @@ export function SidebarPrincipal({
               <button
                 type="button"
                 onClick={() => setConfigAberto(!configAberto)}
-                className={`flex w-full items-center justify-between rounded-xl px-4 py-3 text-xs font-semibold transition-all ${
+                title={recolhido ? "Configurações" : undefined}
+                className={`flex w-full items-center rounded-xl py-3 text-xs font-semibold transition-all ${
+                  recolhido ? "justify-center px-2" : "justify-between px-4"
+                } ${
                   estaNaConfiguracao
                     ? "bg-[#1D4ED8]/20 text-sky-400 border border-sky-500/30"
                     : "text-slate-300 hover:bg-white/5 hover:text-white"
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Settings className={`h-4 w-4 shrink-0 ${estaNaConfiguracao ? "text-sky-400" : "text-slate-400"}`} />
-                  <span>Configurações</span>
+                  <Settings className={`h-5 w-5 shrink-0 ${estaNaConfiguracao ? "text-sky-400" : "text-slate-400"}`} />
+                  {!recolhido && <span>Configurações</span>}
                 </div>
-                {configAberto ? (
-                  <ChevronDown className="h-4 w-4" />
-                ) : (
-                  <ChevronRight className="h-4 w-4" />
+                {!recolhido && (
+                  configAberto ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )
                 )}
               </button>
 
-              {/* Submenu de Configurações */}
-              {configAberto && (
+              {/* Submenu de Configurações (Apenas no modo expandido) */}
+              {configAberto && !recolhido && (
                 <ul className="mt-1.5 space-y-1 pl-4 border-l border-[#1E293B] ml-5">
                   {subRotasConfig.map((sub) => {
                     const SubIcone = sub.icone;
@@ -269,26 +302,30 @@ export function SidebarPrincipal({
         </div>
 
         {/* Rodapé da Sidebar: Usuário Conectado & Logout */}
-        <div className="border-t border-[#1E293B] bg-[#050A18] p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 truncate">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1D4ED8] text-xs font-extrabold text-white shadow-md">
+        <div className={`border-t border-[#1E293B] bg-[#050A18] p-3.5 transition-all ${
+          recolhido ? "flex flex-col items-center gap-3" : ""
+        }`}>
+          <div className={`flex items-center ${recolhido ? "flex-col gap-2.5" : "justify-between gap-3"}`}>
+            <div className={`flex items-center gap-3 truncate ${recolhido ? "justify-center" : ""}`}>
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1D4ED8] text-xs font-extrabold text-white shadow-md" title={perfil.nome_completo}>
                 {perfil.nome_completo.substring(0, 2).toUpperCase()}
               </div>
-              <div className="truncate">
-                <div className="text-xs font-bold text-white truncate" title={perfil.nome_completo}>
-                  {perfil.nome_completo}
+              {!recolhido && (
+                <div className="truncate">
+                  <div className="text-xs font-bold text-white truncate" title={perfil.nome_completo}>
+                    {perfil.nome_completo}
+                  </div>
+                  <div className="text-[11px] font-medium text-slate-400">
+                    {formatarPapel(perfil.papel)}
+                  </div>
                 </div>
-                <div className="text-[11px] font-medium text-slate-400">
-                  {formatarPapel(perfil.papel)}
-                </div>
-              </div>
+              )}
             </div>
 
             <form action={logoutUsuario}>
               <button
                 type="submit"
-                className="rounded-lg border border-[#1E293B] bg-[#0A1128] p-2 text-slate-400 hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-400 transition"
+                className="rounded-xl border border-[#1E293B] bg-[#0A1128] p-2 text-slate-400 hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-400 transition"
                 title="Encerrar sessão"
               >
                 <LogOut className="h-4 w-4" />
