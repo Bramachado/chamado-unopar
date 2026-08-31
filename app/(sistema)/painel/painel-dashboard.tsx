@@ -474,30 +474,45 @@ export function PainelDashboard({
           </div>
         ) : (
           <div className="space-y-3">
-            {dados.rankingEquipe.map((colab) => (
-              <div
-                key={colab.id}
-                className="flex flex-col gap-3 rounded-lg border border-borda bg-superficie p-4 sm:flex-row sm:items-center sm:justify-between"
-              >
-                {/* Lado Esquerdo: Identificação */}
-                <div className="flex items-center gap-3 min-w-[240px]">
-                  <span className="font-mono text-xs font-semibold text-texto-suave w-6 text-center">
-                    #{colab.posicao}
-                  </span>
+            {dados.rankingEquipe.map((colab) => {
+              const ehPrimeiro = colab.posicao === 1;
+              const ehSegundo = colab.posicao === 2;
+              const ehTerceiro = colab.posicao === 3;
 
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-fundo border border-borda text-xs font-bold text-texto">
-                    {colab.avatarTexto}
-                  </div>
+              return (
+                <div
+                  key={colab.id}
+                  className="flex flex-col gap-3 rounded-xl border border-borda bg-superficie p-4 sm:flex-row sm:items-center sm:justify-between hover:border-acento/50 transition shadow-xs"
+                >
+                  {/* Lado Esquerdo: Identificação & Posição */}
+                  <div className="flex items-center gap-3.5 min-w-[260px]">
+                    <div
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-black shadow-xs ${
+                        ehPrimeiro
+                          ? "bg-amber-500 text-white"
+                          : ehSegundo
+                          ? "bg-slate-400 text-white"
+                          : ehTerceiro
+                          ? "bg-amber-700 text-white"
+                          : "bg-fundo text-texto-suave border border-borda"
+                      }`}
+                    >
+                      {colab.posicao}º
+                    </div>
 
-                  <div className="truncate">
-                    <span className="text-xs font-semibold text-texto block truncate" title={colab.nome}>
-                      {colab.nome}
-                    </span>
-                    <span className="text-[11px] text-texto-suave block">
-                      {colab.papel}
-                    </span>
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1D4ED8] text-xs font-extrabold text-white shadow-sm">
+                      {colab.avatarTexto}
+                    </div>
+
+                    <div className="truncate">
+                      <span className="text-xs font-bold text-texto block truncate" title={colab.nome}>
+                        {colab.nome}
+                      </span>
+                      <span className="text-[11px] font-medium text-texto-suave block">
+                        {colab.papel}
+                      </span>
+                    </div>
                   </div>
-                </div>
 
                 {/* Lado Direito: Barra Proporcional Semântica */}
                 <div className="flex-1 sm:max-w-md">
@@ -527,13 +542,14 @@ export function PainelDashboard({
                     )}
                   </div>
 
-                  <div className="mt-1 flex items-center justify-between text-[11px] text-texto-suave">
-                    <span>Total atribuído: <strong className="text-texto font-medium">{colab.total}</strong></span>
-                    <span>Tempo médio: <strong className="text-texto font-medium">{colab.tempoMedioDias}d</strong></span>
+                    <div className="mt-1 flex items-center justify-between text-[11px] text-texto-suave">
+                      <span>Total atribuído: <strong className="text-texto font-medium">{colab.total}</strong></span>
+                      <span>Tempo médio: <strong className="text-texto font-medium">{colab.tempoMedioDias}d</strong></span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

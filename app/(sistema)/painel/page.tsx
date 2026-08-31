@@ -39,7 +39,31 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
     dataInicioStr = format(subMonths(hoje, 11), "yyyy-MM-01");
   }
 
-  // 1. Buscar chamados do período selecionado
+  const contagemColaboradores: Record<
+    string,
+    { id: string; nome: string; papel: string; resolvidos: number; abertos: number; total: number; diasTotais: number }
+  > = {};
+  const contagemMotivos: Record<string, { codigo: string; nome: string; total: number; diasTotais: number; concluidos: number }> = {};
+
+  // 1. Buscar todos os usuários ativos da equipe
+  const { data: todosPerfis } = await supabase
+    .from("perfis")
+    .select("id, nome_completo, papel")
+    .eq("ativo", true);
+
+  for (const p of todosPerfis || []) {
+    contagemColaboradores[p.id] = {
+      id: p.id,
+      nome: p.nome_completo,
+      papel: p.papel === "admin" ? "Administrador" : p.papel === "coordenador" ? "Coordenador" : "Atendimento",
+      resolvidos: 0,
+      abertos: 0,
+      total: 0,
+      diasTotais: 0,
+    };
+  }
+
+  // 2. Buscar chamados do período selecionado
   const { data: chamadosPeriodo } = await supabase
     .from("chamados")
     .select(`
@@ -70,12 +94,6 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
   let vencidos = 0;
   let vencendo_em_2_dias = 0;
 
-  const contagemMotivos: Record<string, { codigo: string; nome: string; total: number; diasTotais: number; concluidos: number }> = {};
-  const contagemColaboradores: Record<
-    string,
-    { id: string; nome: string; papel: string; resolvidos: number; abertos: number; total: number; diasTotais: number }
-  > = {};
-
   const chamadosCriticos: {
     id: string;
     protocolo: string;
@@ -98,7 +116,7 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
     const perfilColab = c.perfis as unknown as { id?: string; nome_completo?: string; papel?: string };
     const colabId = perfilColab?.id || "anon";
     const colabNome = perfilColab?.nome_completo || "Atendente";
-    const colabPapel = perfilColab?.papel === "admin" ? "Administradora" : perfilColab?.papel === "coordenador" ? "Coordenadora" : "Atendente";
+    const colabPapel = perfilColab?.papel === "admin" ? "Administrador" : perfilColab?.papel === "coordenador" ? "Coordenador" : "Atendimento";
 
     if (!contagemColaboradores[colabId]) {
       contagemColaboradores[colabId] = {
