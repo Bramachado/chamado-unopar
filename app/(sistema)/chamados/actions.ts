@@ -268,6 +268,8 @@ export async function salvarChamado(
             .input("criado_por", sql.UniqueIdentifier, perfil.id)
             .input("criado_por_nome", sql.VarChar(255), perfil.nome_completo)
             .query(`
+              DECLARE @out TABLE (id UNIQUEIDENTIFIER);
+
               INSERT INTO dados.chamados (
                 protocolo,
                 aluno_nome,
@@ -285,7 +287,7 @@ export async function salvarChamado(
                 criado_por,
                 criado_por_nome
               )
-              OUTPUT CAST(inserted.id AS NVARCHAR(50)) AS id
+              OUTPUT inserted.id INTO @out(id)
               VALUES (
                 @protocolo,
                 @aluno_nome,
@@ -302,7 +304,9 @@ export async function salvarChamado(
                 @observacao,
                 @criado_por,
                 @criado_por_nome
-              )
+              );
+
+              SELECT CAST(id AS NVARCHAR(50)) AS id FROM @out;
             `);
 
           return q.recordset[0]?.id;

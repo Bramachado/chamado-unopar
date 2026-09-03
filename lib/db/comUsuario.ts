@@ -23,6 +23,9 @@ export async function comUsuario<T>(
     .input("papel", sql.VarChar(20), sessao.papel)
     .execute("seg.definir_contexto");
 
+  // Limpa os parâmetros do request para não contaminar procedures/queries subsequentes
+  request.parameters = {};
+
   return await fn(request);
 }
 
@@ -43,6 +46,9 @@ export async function comTransacao<T>(
       .input("usuario_id", sql.UniqueIdentifier, sessao.usuario_id)
       .input("papel", sql.VarChar(20), sessao.papel)
       .execute("seg.definir_contexto");
+
+    // Limpa os parâmetros do request para não contaminar procedures/queries subsequentes
+    request.parameters = {};
 
     const result = await fn(request, transaction);
     await transaction.commit();
