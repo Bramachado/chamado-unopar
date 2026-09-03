@@ -1,34 +1,42 @@
-import { criarClienteServidor } from "@/lib/supabase/server";
 import { obterPerfilAtual } from "@/lib/auth/perfil";
+import { comUsuario } from "@/lib/db/comUsuario";
+import { sql } from "@/lib/db/pool";
 import { PainelPerfil } from "./painel-perfil";
 
 export default async function PaginaPerfil() {
   const perfil = await obterPerfilAtual();
-  const supabase = await criarClienteServidor();
 
-  // Buscar acessos à própria credencial
-  const { data: acessos } = await supabase
-    .from("credencial_acessos")
-    .select(`
-      id,
-      perfil_alvo,
-      admin_id,
-      data_hora,
-      ip,
-      user_agent,
-      admin:admin_id(nome_completo)
-    `)
-    .eq("perfil_alvo", perfil.id)
-    .order("data_hora", { ascending: false });
+  const acessos = await comUsuario(
+    { usuario_id: perfil.id, papel: perfil.papel },
+    async (req) => {
+      req.input("perfilId", sql.UniqueIdentifier, perfil.id);
+      const q = await req.query(`
+        SELECT 
+          a.id,
+          CAST(a.perfil_alvo_id AS NVARCHAR(50)) AS perfil_alvo,
+          CAST(a.acessado_por AS NVARCHAR(50)) AS admin_id,
+          a.data_hora,
+          a.ip,
+          a.user_agent,
+          p.nome_completo AS admin_nome
+        FROM auditoria.credencial_acessos a
+        LEFT JOIN dados.perfis p ON p.id = a.acessado_por
+        WHERE a.perfil_alvo_id = @perfilId
+        ORDER BY a.data_hora DESC
+      `).catch(() => ({ recordset: [] }));
 
-  const acessosFormatados = (acessos || []).map((a: any) => ({
+      return q.recordset;
+    }
+  );
+
+  const acessosFormatados = acessos.map((a: any) => ({
     id: a.id,
     perfil_alvo: a.perfil_alvo,
     admin_id: a.admin_id,
-    data_hora: a.data_hora,
+    data_hora: a.data_hora ? new Date(a.data_hora).toISOString() : new Date().toISOString(),
     ip: a.ip,
     user_agent: a.user_agent,
-    admin_nome: a.admin?.nome_completo || "Administradora",
+    admin_nome: a.admin_nome || "Administrador",
   }));
 
   return (

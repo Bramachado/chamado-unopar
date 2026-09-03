@@ -1,10 +1,9 @@
 "use server";
 
-import { criarClienteServidor } from "@/lib/supabase/server";
+import { destruirSessao } from "@/lib/auth/jwt";
 import { redirect } from "next/navigation";
 
 export async function logoutUsuario() {
-  const supabase = await criarClienteServidor();
-  await supabase.auth.signOut();
+  await destruirSessao();
   redirect("/login");
 }

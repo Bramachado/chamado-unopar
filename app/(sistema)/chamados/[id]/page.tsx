@@ -1,8 +1,9 @@
-import { criarClienteServidor } from "@/lib/supabase/server";
-import { obterPerfilAtual } from "@/lib/auth/perfil";
 import { notFound } from "next/navigation";
+import { obterPerfilAtual } from "@/lib/auth/perfil";
+import { comUsuario } from "@/lib/db/comUsuario";
+import { sql } from "@/lib/db/pool";
 import { PainelDetalheChamado } from "./painel-detalhe-chamado";
-import { type Chamado, type Motivo, type Perfil, type ArquivoChamado, type LogAuditoria } from "@/types/database";
+import { type ArquivoChamado, type LogAuditoria } from "@/types/database";
 
 interface DetailPageProps {
   params: Promise<{
@@ -13,68 +14,206 @@ interface DetailPageProps {
 export default async function PaginaDetalheChamado({ params }: DetailPageProps) {
   const { id } = await params;
   const perfilAtual = await obterPerfilAtual();
-  const supabase = await criarClienteServidor();
 
-  // 1. Carregar chamado principal com motivo e perfil do autor e atualizador
-  const { data: chamado, error } = await supabase
-    .from("chamados")
-    .select(`
-      *,
-      motivos:motivo_id(id, codigo, nome),
-      perfisCriador:criado_por(id, nome_completo, email),
-      perfisAtualizador:atualizado_por(id, nome_completo, email)
-    `)
-    .eq("id", id)
-    .is("excluido_em", null)
-    .single();
+  const dadosCarregados = await comUsuario(
+    { usuario_id: perfilAtual.id, papel: perfilAtual.papel },
+    async (req) => {
+      // 1. Carregar chamado principal com motivo e perfis
+      const qChamado = await req
+        .input("id", sql.UniqueIdentifier, id)
+        .query(`
+          SELECT 
+            CAST(c.id AS NVARCHAR(50)) AS id,
+            c.protocolo,
+            c.aluno_nome,
+            c.aluno_ra,
+            c.contato_telefone,
+            CAST(c.motivo_id AS NVARCHAR(50)) AS motivo_id,
+            c.descricao,
+            c.situacao,
+            c.prioridade,
+            c.data_solicitacao,
+            c.prazo,
+            c.data_conclusao,
+            CAST(c.chamado_vinculado_id AS NVARCHAR(50)) AS chamado_vinculado_id,
+            c.observacao,
+            c.importado,
+            CAST(c.criado_por AS NVARCHAR(50)) AS criado_por,
+            c.criado_por_nome,
+            CAST(c.atualizado_por AS NVARCHAR(50)) AS atualizado_por,
+            c.atualizado_por_nome,
+            c.criado_em,
+            c.atualizado_em,
+            CAST(m.id AS NVARCHAR(50)) AS motivo_id_join,
+            m.codigo AS motivo_codigo,
+            m.nome AS motivo_nome,
+            pCriador.nome_completo AS criador_nome,
+            pCriador.email AS criador_email,
+            pAtualizador.nome_completo AS atualizador_nome,
+            pAtualizador.email AS atualizador_email
+          FROM dados.chamados c
+          LEFT JOIN dados.motivos m ON m.id = c.motivo_id
+          LEFT JOIN dados.perfis pCriador ON pCriador.id = c.criado_por
+          LEFT JOIN dados.perfis pAtualizador ON pAtualizador.id = c.atualizado_por
+          WHERE c.id = @id AND c.excluido_em IS NULL
+        `);
 
-  if (error || !chamado) {
+      const chamado = qChamado.recordset[0];
+      if (!chamado) return null;
+
+      // 2. Carregar arquivos vinculados
+      const qArquivos = await req.query(`
+        SELECT 
+          CAST(a.id AS NVARCHAR(50)) AS id,
+          CAST(a.chamado_id AS NVARCHAR(50)) AS chamado_id,
+          a.nome_original,
+          a.caminho_storage,
+          a.tamanho_bytes,
+          a.tipo_mime,
+          a.descricao,
+          CAST(a.criado_por AS NVARCHAR(50)) AS criado_por,
+          a.criado_por_nome,
+          a.criado_em
+        FROM dados.arquivos_chamados a
+        WHERE a.chamado_id = @id
+        ORDER BY a.criado_em DESC
+      `);
+
+      // 3. Carregar chamado vinculado anterior (se houver)
+      let chamadoAnterior = null;
+      if (chamado.chamado_vinculado_id) {
+        req.input("vinculadoId", sql.UniqueIdentifier, chamado.chamado_vinculado_id);
+        const qAnt = await req.query(`
+          SELECT 
+            CAST(id AS NVARCHAR(50)) AS id,
+            protocolo,
+            aluno_nome,
+            situacao,
+            data_solicitacao
+          FROM dados.chamados
+          WHERE id = @vinculadoId
+        `);
+        chamadoAnterior = qAnt.recordset[0] || null;
+      }
+
+      // 4. Carregar chamados posteriores
+      const qPosteriores = await req.query(`
+        SELECT 
+          CAST(c.id AS NVARCHAR(50)) AS id,
+          c.protocolo,
+          c.aluno_nome,
+          c.situacao,
+          c.data_solicitacao,
+          p.nome_completo AS criador_nome
+        FROM dados.chamados c
+        LEFT JOIN dados.perfis p ON p.id = c.criado_por
+        WHERE c.chamado_vinculado_id = @id AND c.excluido_em IS NULL
+      `);
+
+      // 5. Carregar logs de auditoria
+      const qLogs = await req.query(`
+        SELECT 
+          id,
+          tabela,
+          registro_id,
+          operacao,
+          dados_antes,
+          dados_depois,
+          campos_alterados,
+          CAST(usuario_id AS NVARCHAR(50)) AS usuario_id,
+          usuario_nome,
+          protocolo,
+          ip,
+          criado_em
+        FROM auditoria.logs
+        WHERE tabela = 'chamados' AND registro_id = CAST(@id AS NVARCHAR(50))
+        ORDER BY criado_em DESC
+      `).catch(() => ({ recordset: [] })); // Fallback caso auditoria.logs ainda não esteja populada
+
+      return {
+        chamado,
+        arquivos: qArquivos.recordset,
+        chamadoAnterior,
+        chamadosPosteriores: qPosteriores.recordset,
+        logs: qLogs.recordset,
+      };
+    }
+  );
+
+  if (!dadosCarregados || !dadosCarregados.chamado) {
     notFound();
   }
 
-  // 2. Carregar arquivos vinculados a este chamado
-  const { data: arquivos } = await supabase
-    .from("arquivos")
-    .select(`
-      *,
-      perfis:criado_por(nome_completo)
-    `)
-    .eq("chamado_id", id)
-    .order("criado_em", { ascending: false });
+  const { chamado, arquivos, chamadoAnterior, chamadosPosteriores, logs } = dadosCarregados;
 
-  // 3. Carregar chamado vinculado anterior (se houver)
-  let chamadoAnterior = null;
-  if (chamado.chamado_vinculado_id) {
-    const { data: ant } = await supabase
-      .from("chamados")
-      .select("id, protocolo, aluno_nome, situacao, data_solicitacao")
-      .eq("id", chamado.chamado_vinculado_id)
-      .single();
-    chamadoAnterior = ant;
-  }
+  const chamadoFormatado = {
+    id: chamado.id,
+    protocolo: chamado.protocolo,
+    aluno_nome: chamado.aluno_nome,
+    aluno_ra: chamado.aluno_ra,
+    contato_telefone: chamado.contato_telefone,
+    motivo_id: chamado.motivo_id,
+    descricao: chamado.descricao,
+    situacao: chamado.situacao,
+    prioridade: chamado.prioridade,
+    data_solicitacao: chamado.data_solicitacao ? new Date(chamado.data_solicitacao).toISOString() : new Date().toISOString(),
+    prazo: chamado.prazo ? new Date(chamado.prazo).toISOString() : new Date().toISOString(),
+    data_conclusao: chamado.data_conclusao ? new Date(chamado.data_conclusao).toISOString() : null,
+    chamado_vinculado_id: chamado.chamado_vinculado_id,
+    observacao: chamado.observacao,
+    importado: Boolean(chamado.importado),
+    criado_por: chamado.criado_por,
+    criado_por_nome: chamado.criado_por_nome || chamado.criador_nome,
+    atualizado_por: chamado.atualizado_por,
+    atualizado_por_nome: chamado.atualizado_por_nome || chamado.atualizador_nome,
+    criado_em: chamado.criado_em ? new Date(chamado.criado_em).toISOString() : new Date().toISOString(),
+    atualizado_em: chamado.atualizado_em ? new Date(chamado.atualizado_em).toISOString() : new Date().toISOString(),
+    motivos: chamado.motivo_id_join
+      ? { id: chamado.motivo_id_join, codigo: chamado.motivo_codigo, nome: chamado.motivo_nome }
+      : undefined,
+    perfisCriador: chamado.criado_por
+      ? { id: chamado.criado_por, nome_completo: chamado.criado_por_nome || chamado.criador_nome, email: chamado.criador_email }
+      : undefined,
+    perfisAtualizador: chamado.atualizado_por
+      ? { id: chamado.atualizado_por, nome_completo: chamado.atualizado_por_nome || chamado.atualizador_nome, email: chamado.atualizador_email }
+      : undefined,
+  };
 
-  // 4. Carregar chamados subsequentes que vincularam a este
-  const { data: chamadosPosteriores } = await supabase
-    .from("chamados")
-    .select("id, protocolo, aluno_nome, situacao, data_solicitacao, perfis:criado_por(nome_completo)")
-    .eq("chamado_vinculado_id", id)
-    .is("excluido_em", null);
+  const arquivosFormatados: ArquivoChamado[] = arquivos.map((a: any) => ({
+    id: a.id,
+    chamado_id: a.chamado_id,
+    nome_original: a.nome_original,
+    caminho_storage: a.caminho_storage,
+    tamanho_bytes: a.tamanho_bytes,
+    tipo_mime: a.tipo_mime,
+    descricao: a.descricao,
+    criado_por: a.criado_por,
+    criado_por_nome: a.criado_por_nome,
+    criado_em: a.criado_em ? new Date(a.criado_em).toISOString() : new Date().toISOString(),
+  }));
 
-  // 5. Carregar histórico de auditoria deste chamado específico
-  const { data: logs } = await supabase
-    .from("logs_auditoria")
-    .select("*")
-    .eq("tabela", "chamados")
-    .eq("registro_id", id)
-    .order("criado_em", { ascending: false });
+  const logsFormatados: LogAuditoria[] = logs.map((l: any) => ({
+    id: l.id,
+    tabela: l.tabela,
+    registro_id: l.registro_id,
+    operacao: l.operacao,
+    dados_antes: typeof l.dados_antes === "string" ? JSON.parse(l.dados_antes) : l.dados_antes,
+    dados_depois: typeof l.dados_depois === "string" ? JSON.parse(l.dados_depois) : l.dados_depois,
+    campos_alterados: l.campos_alterados,
+    usuario_id: l.usuario_id,
+    usuario_nome: l.usuario_nome,
+    protocolo: l.protocolo,
+    ip: l.ip,
+    criado_em: l.criado_em ? new Date(l.criado_em).toISOString() : new Date().toISOString(),
+  }));
 
   return (
     <PainelDetalheChamado
-      chamado={chamado as unknown as (Chamado & { motivos?: Pick<Motivo, "id" | "codigo" | "nome">; perfisCriador?: Pick<Perfil, "id" | "nome_completo" | "email">; perfisAtualizador?: Pick<Perfil, "id" | "nome_completo" | "email"> })}
-      arquivos={(arquivos as unknown as (ArquivoChamado & { perfis?: Pick<Perfil, "nome_completo"> })[]) || []}
+      chamado={chamadoFormatado as any}
+      arquivos={arquivosFormatados as any}
       chamadoAnterior={chamadoAnterior}
       chamadosPosteriores={chamadosPosteriores}
-      logs={(logs as LogAuditoria[]) || []}
+      logs={logsFormatados}
       perfilAtual={perfilAtual}
     />
   );

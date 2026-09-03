@@ -320,7 +320,7 @@ export function PainelDetalheChamado({
 
                   <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
                     <a
-                      href={`/api/arquivos/${arq.id}/download`}
+                      href={`/api/anexos/${arq.id}`}
                       target="_blank"
                       rel="noreferrer"
                       className="inline-flex items-center gap-1 rounded-md border border-borda bg-superficie px-3 py-1.5 text-xs font-bold text-texto hover:bg-fundo transition shadow-xs"

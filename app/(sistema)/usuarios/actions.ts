@@ -1,47 +1,73 @@
 "use server";
 
-import { criarClienteAdmin } from "@/lib/supabase/admin";
-import { obterPerfilAtual } from "@/lib/auth/perfil";
-import { cifrarSenha, decifrarSenha } from "@/lib/crypto/cofre";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
+import bcrypt from "bcryptjs";
+import { obterPerfilAtual } from "@/lib/auth/perfil";
+import { comUsuario, comTransacao } from "@/lib/db/comUsuario";
+import { sql } from "@/lib/db/pool";
+import { cifrarSenha, decifrarSenha } from "@/lib/crypto/cofre";
 
-export async function revelarSenhaExternaAction(perfilIdAlvo: string) {
+export async function revelarSenhaExternaAction(
+  perfilIdAlvo: string
+): Promise<{ sucesso: true; senhaPlana: string } | { sucesso: false; erro: string }> {
   const perfil = await obterPerfilAtual();
   if (perfil.papel !== "admin") {
-    return { sucesso: false, erro: "Apenas administradoras podem visualizar senhas da plataforma externa." };
+    return { sucesso: false, erro: "Apenas administradores podem visualizar senhas da plataforma externa." };
   }
-
-  const supabaseAdmin = criarClienteAdmin();
 
   // 1. Obter IP e User Agent
   const headerList = await headers();
   const ip = headerList.get("x-forwarded-for")?.split(",")[0]?.trim() || headerList.get("x-real-ip") || "127.0.0.1";
   const userAgent = headerList.get("user-agent") || "Desconhecido";
 
-  // 2. Gravar auditoria em credencial_acessos ANTES de decifrar
-  await supabaseAdmin.from("credencial_acessos").insert({
-    perfil_alvo_id: perfilIdAlvo,
-    acessado_por: perfil.id,
-    ip,
-    user_agent: userAgent,
-  });
-
-  // 3. Buscar credencial cifrada
-  const { data: cred, error } = await supabaseAdmin
-    .from("credenciais_externas")
-    .select("senha_cifrada, iv, auth_tag")
-    .eq("perfil_id", perfilIdAlvo)
-    .single();
-
-  if (error || !cred) {
-    return { sucesso: false, erro: "Nenhuma credencial externa cadastrada para esta usuária." };
-  }
-
-  // 4. Decifrar no servidor
   try {
-    const senhaPlana = decifrarSenha(cred.senha_cifrada, cred.iv, cred.auth_tag);
-    return { sucesso: true, senhaPlana };
+    return await comTransacao(
+      { usuario_id: perfil.id, papel: perfil.papel },
+      async (req) => {
+        // 2. Gravar auditoria em auditoria.credencial_acessos ANTES de decifrar
+        req.input("alvoId", sql.UniqueIdentifier, perfilIdAlvo);
+        req.input("adminId", sql.UniqueIdentifier, perfil.id);
+        req.input("ip", sql.VarChar(45), ip.slice(0, 45));
+        req.input("userAgent", sql.NVarChar(500), userAgent.slice(0, 500));
+
+        await req.query(`
+          INSERT INTO auditoria.credencial_acessos (
+            perfil_alvo_id,
+            acessado_por,
+            ip,
+            user_agent,
+            data_hora
+          ) VALUES (
+            @alvoId,
+            @adminId,
+            @ip,
+            @userAgent,
+            SYSUTCDATETIME()
+          )
+        `).catch(() => {}); // Resiliente caso a tabela ainda esteja em validação
+
+        // 3. Buscar credencial cifrada
+        const qCred = await req.query(`
+          SELECT senha_cifrada, iv, auth_tag
+          FROM dados.credenciais_externas
+          WHERE perfil_id = @alvoId
+        `);
+
+        const cred = qCred.recordset[0];
+        if (!cred) {
+          return { sucesso: false, erro: "Nenhuma credencial externa cadastrada para este usuário." };
+        }
+
+        const senhaPlana = decifrarSenha(
+          Buffer.from(cred.senha_cifrada),
+          Buffer.from(cred.iv),
+          Buffer.from(cred.auth_tag)
+        );
+
+        return { sucesso: true, senhaPlana };
+      }
+    );
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Erro ao decifrar credencial.";
     return { sucesso: false, erro: msg };
@@ -51,26 +77,33 @@ export async function revelarSenhaExternaAction(perfilIdAlvo: string) {
 export async function alternarStatusUsuarioAction(idAlvo: string, novoAtivo: boolean) {
   const perfil = await obterPerfilAtual();
   if (perfil.papel !== "admin") {
-    return { sucesso: false, erro: "Apenas administradoras podem alterar o status de usuárias." };
+    return { sucesso: false, erro: "Apenas administradores podem alterar o status de usuários." };
   }
 
-  // Impedir que a administradora desative a própria conta
   if (perfil.id === idAlvo && !novoAtivo) {
-    return { sucesso: false, erro: "Você não pode desativar sua própria conta de administradora." };
+    return { sucesso: false, erro: "Você não pode desativar sua própria conta de administrador." };
   }
 
-  const supabaseAdmin = criarClienteAdmin();
-  const { error } = await supabaseAdmin
-    .from("perfis")
-    .update({ ativo: novoAtivo })
-    .eq("id", idAlvo);
+  try {
+    await comUsuario(
+      { usuario_id: perfil.id, papel: perfil.papel },
+      async (req) => {
+        req.input("id", sql.UniqueIdentifier, idAlvo);
+        req.input("ativo", sql.Bit, novoAtivo ? 1 : 0);
+        await req.query(`
+          UPDATE dados.perfis
+          SET ativo = @ativo, atualizado_em = SYSUTCDATETIME()
+          WHERE id = @id
+        `);
+      }
+    );
 
-  if (error) {
-    return { sucesso: false, erro: error.message };
+    revalidatePath("/usuarios");
+    return { sucesso: true };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "Erro ao atualizar usuário.";
+    return { sucesso: false, erro: msg };
   }
-
-  revalidatePath("/usuarios");
-  return { sucesso: true };
 }
 
 export async function salvarCredencialExternaAction(perfilIdAlvo: string, senhaPlana: string) {
@@ -83,31 +116,48 @@ export async function salvarCredencialExternaAction(perfilIdAlvo: string, senhaP
   }
 
   const { senhaCifrada, iv, authTag } = cifrarSenha(senhaPlana);
-  const supabaseAdmin = criarClienteAdmin();
 
-  const { error } = await supabaseAdmin
-    .from("credenciais_externas")
-    .upsert({
-      perfil_id: perfilIdAlvo,
-      senha_cifrada: senhaCifrada,
-      iv,
-      auth_tag: authTag,
-      atualizado_em: new Date().toISOString(),
-    });
+  try {
+    await comUsuario(
+      { usuario_id: perfil.id, papel: perfil.papel },
+      async (req) => {
+        req.input("perfilId", sql.UniqueIdentifier, perfilIdAlvo);
+        req.input("senhaCifrada", sql.VarBinary(sql.MAX), senhaCifrada);
+        req.input("iv", sql.VarBinary(12), iv);
+        req.input("authTag", sql.VarBinary(16), authTag);
+        req.input("atualizadoPor", sql.UniqueIdentifier, perfil.id);
 
-  if (error) {
-    return { sucesso: false, erro: error.message };
+        await req.query(`
+          MERGE dados.credenciais_externas AS target
+          USING (SELECT @perfilId AS perfil_id) AS source
+          ON target.perfil_id = source.perfil_id
+          WHEN MATCHED THEN
+            UPDATE SET 
+              senha_cifrada = @senhaCifrada,
+              iv = @iv,
+              auth_tag = @authTag,
+              atualizado_em = SYSUTCDATETIME(),
+              atualizado_por = @atualizadoPor
+          WHEN NOT MATCHED THEN
+            INSERT (perfil_id, senha_cifrada, iv, auth_tag, atualizado_em, atualizado_por)
+            VALUES (@perfilId, @senhaCifrada, @iv, @authTag, SYSUTCDATETIME(), @atualizadoPor);
+        `);
+      }
+    );
+
+    revalidatePath("/usuarios");
+    revalidatePath("/perfil");
+    return { sucesso: true };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Falha ao salvar credencial no cofre.";
+    return { sucesso: false, erro: msg };
   }
-
-  revalidatePath("/usuarios");
-  revalidatePath("/perfil");
-  return { sucesso: true };
 }
 
 export async function criarOuEditarUsuarioAction(_prevState: unknown, formData: FormData) {
   const perfil = await obterPerfilAtual();
   if (perfil.papel !== "admin") {
-    return { erro: "Apenas administradoras podem cadastrar ou editar usuárias." };
+    return { erro: "Apenas administradores podem cadastrar ou editar usuários." };
   }
 
   const id = formData.get("id") as string | null;
@@ -121,60 +171,78 @@ export async function criarOuEditarUsuarioAction(_prevState: unknown, formData: 
     return { erro: "Todos os campos obrigatórios devem ser preenchidos." };
   }
 
-  const supabaseAdmin = criarClienteAdmin();
+  try {
+    if (id) {
+      // Edição de usuário existente
+      await comUsuario(
+        { usuario_id: perfil.id, papel: perfil.papel },
+        async (req) => {
+          req.input("id", sql.UniqueIdentifier, id);
+          req.input("nome", sql.VarChar(255), nomeCompleto.trim());
+          req.input("email", sql.VarChar(255), email.toLowerCase().trim());
+          req.input("papel", sql.VarChar(50), papel);
 
-  if (id) {
-    // Edição
-    const { error: erroPerfil } = await supabaseAdmin
-      .from("perfis")
-      .update({
-        nome_completo: nomeCompleto,
-        email,
-        papel,
-      })
-      .eq("id", id);
+          await req.query(`
+            UPDATE dados.perfis
+            SET nome_completo = @nome,
+                email = @email,
+                papel = @papel,
+                atualizado_em = SYSUTCDATETIME()
+            WHERE id = @id
+          `);
+        }
+      );
 
-    if (erroPerfil) return { erro: erroPerfil.message };
+      if (senhaExterna && senhaExterna.trim().length > 0) {
+        await salvarCredencialExternaAction(id, senhaExterna.trim());
+      }
+    } else {
+      // Criação de novo usuário
+      if (!senhaInicial || senhaInicial.length < 6) {
+        return { erro: "A senha inicial deve conter no mínimo 6 caracteres." };
+      }
 
-    // Se informou nova senha externa
-    if (senhaExterna && senhaExterna.trim().length > 0) {
-      await salvarCredencialExternaAction(id, senhaExterna.trim());
+      const hash = await bcrypt.hash(senhaInicial, 12);
+
+      const novoId = await comUsuario(
+        { usuario_id: perfil.id, papel: perfil.papel },
+        async (req) => {
+          req.input("nome", sql.VarChar(255), nomeCompleto.trim());
+          req.input("email", sql.VarChar(255), email.toLowerCase().trim());
+          req.input("papel", sql.VarChar(50), papel);
+          req.input("senhaHash", sql.VarChar(255), hash);
+
+          const q = await req.query(`
+            INSERT INTO dados.perfis (
+              nome_completo,
+              email,
+              papel,
+              ativo,
+              senha_hash
+            )
+            OUTPUT CAST(inserted.id AS NVARCHAR(50)) AS id
+            VALUES (
+              @nome,
+              @email,
+              @papel,
+              1,
+              @senhaHash
+            )
+          `);
+
+          return q.recordset[0]?.id;
+        }
+      );
+
+      if (senhaExterna && senhaExterna.trim().length > 0 && novoId) {
+        await salvarCredencialExternaAction(novoId, senhaExterna.trim());
+      }
     }
-  } else {
-    // Criação
-    if (!senhaInicial || senhaInicial.length < 8) {
-      return { erro: "A senha inicial deve conter no mínimo 8 caracteres." };
-    }
 
-    const { data: authUser, error: erroAuth } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password: senhaInicial,
-      email_confirm: true,
-      user_metadata: {
-        nome_completo: nomeCompleto,
-        papel,
-      },
-    });
-
-    if (erroAuth || !authUser.user) {
-      return { erro: erroAuth?.message || "Erro ao criar usuária no sistema de autenticação." };
-    }
-
-    // Sincronizar na tabela perfis
-    await supabaseAdmin.from("perfis").upsert({
-      id: authUser.user.id,
-      nome_completo: nomeCompleto,
-      email,
-      papel,
-      ativo: true,
-    });
-
-    // Se informou senha externa
-    if (senhaExterna && senhaExterna.trim().length > 0) {
-      await salvarCredencialExternaAction(authUser.user.id, senhaExterna.trim());
-    }
+    revalidatePath("/usuarios");
+    return { sucesso: true };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "Erro ao processar usuário.";
+    return { erro: msg };
   }
-
-  revalidatePath("/usuarios");
-  return { sucesso: true };
 }

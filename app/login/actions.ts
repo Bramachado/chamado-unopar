@@ -1,12 +1,19 @@
 "use server";
 
 import { z } from "zod";
-import { criarClienteServidor } from "@/lib/supabase/server";
+import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
+import { getPool, sql } from "@/lib/db/pool";
+import { criarSessao, destruirSessao } from "@/lib/auth/jwt";
 
 const loginSchema = z.object({
   email: z.string().email("Informe um endereço de e-mail válido."),
   senha: z.string().min(1, "Informe a senha de acesso."),
+});
+
+const definirSenhaSchema = z.object({
+  email: z.string().email("Informe um endereço de e-mail válido."),
+  novaSenha: z.string().min(6, "A nova senha deve possuir no mínimo 6 caracteres."),
 });
 
 export type EstadoLogin = {
@@ -31,46 +38,106 @@ export async function autenticarUsuario(
   }
 
   const { email, senha } = validacao.data;
-  const supabase = await criarClienteServidor();
+  const pool = await getPool();
+  const request = pool.request();
 
-  const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-    email,
-    password: senha,
+  const resultado = await request
+    .input("email", sql.VarChar(255), email.toLowerCase().trim())
+    .query(`
+      SELECT 
+        CAST(id AS NVARCHAR(50)) AS id,
+        nome_completo,
+        email,
+        papel,
+        ativo,
+        senha_hash
+      FROM dados.perfis
+      WHERE email = @email
+    `);
+
+  const perfil = resultado.recordset[0];
+
+  // Mensagem genérica para não revelar existência de e-mail
+  const mensagemErroGenerico = "E-mail ou senha incorretos. Verifique suas credenciais e tente novamente.";
+
+  if (!perfil) {
+    return { erro: mensagemErroGenerico };
+  }
+
+  // Verifica se a conta está ativa
+  if (!perfil.ativo) {
+    return { erro: "Esta conta foi desativada pela coordenação ou administração." };
+  }
+
+  // Senhas com valor provisório exigem definição inicial
+  if (!perfil.senha_hash || perfil.senha_hash === "PROVISORIO_TROCAR_VIA_APP") {
+    return { erro: "Senha inicial ainda não definida para este usuário. Use a opção de definição de senha inicial." };
+  }
+
+  const senhaValida = await bcrypt.compare(senha, perfil.senha_hash);
+
+  if (!senhaValida) {
+    return { erro: mensagemErroGenerico };
+  }
+
+  await criarSessao({
+    id: perfil.id,
+    email: perfil.email,
+    nome_completo: perfil.nome_completo,
+    papel: perfil.papel,
   });
-
-  if (authError || !authData.user) {
-    // Mensagem genérica para não vazar se o e-mail existe no banco
-    return {
-      erro: "E-mail ou senha incorretos. Verifique suas credenciais e tente novamente.",
-    };
-  }
-
-  // Verificar se o perfil da usuária está ativo
-  const { data: perfil, error: perfilError } = await supabase
-    .from("perfis")
-    .select("ativo, papel, nome_completo")
-    .eq("id", authData.user.id)
-    .single();
-
-  if (perfilError || !perfil) {
-    await supabase.auth.signOut();
-    return {
-      erro: "Perfil de usuária não localizado no sistema. Contate a administração.",
-    };
-  }
-
-  if (perfil.ativo === false) {
-    await supabase.auth.signOut();
-    return {
-      erro: "Esta conta de usuária foi desativada pela coordenação/administração.",
-    };
-  }
 
   redirect("/painel");
 }
 
 export async function logoutUsuario() {
-  const supabase = await criarClienteServidor();
-  await supabase.auth.signOut();
+  await destruirSessao();
   redirect("/login");
+}
+
+/**
+ * Permite definir a senha real inicial para usuárias de teste que estão com 'PROVISORIO_TROCAR_VIA_APP'.
+ * Custo do bcrypt: 12.
+ */
+export async function definirSenhaInicial(formData: FormData): Promise<{ erro?: string; sucesso?: boolean }> {
+  const dados = {
+    email: formData.get("email"),
+    novaSenha: formData.get("novaSenha"),
+  };
+
+  const validacao = definirSenhaSchema.safeParse(dados);
+  if (!validacao.success) {
+    return { erro: validacao.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  const pool = await getPool();
+  const request = pool.request();
+
+  const resultado = await request
+    .input("email", sql.VarChar(255), validacao.data.email.toLowerCase().trim())
+    .query(`
+      SELECT 
+        CAST(id AS NVARCHAR(50)) AS id,
+        senha_hash
+      FROM dados.perfis
+      WHERE email = @email
+    `);
+
+  const perfil = resultado.recordset[0];
+  if (!perfil) {
+    return { erro: "Usuário não localizado." };
+  }
+
+  const hash = await bcrypt.hash(validacao.data.novaSenha, 12);
+
+  await pool.request()
+    .input("id", sql.UniqueIdentifier, perfil.id)
+    .input("hash", sql.VarChar(255), hash)
+    .query(`
+      UPDATE dados.perfis
+      SET senha_hash = @hash, atualizado_em = SYSUTCDATETIME()
+      WHERE id = @id
+    `);
+
+  return { sucesso: true };
 }

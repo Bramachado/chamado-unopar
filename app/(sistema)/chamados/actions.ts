@@ -1,15 +1,23 @@
 "use server";
 
 import { z } from "zod";
-import { criarClienteServidor } from "@/lib/supabase/server";
-import { type SituacaoChamado, type PrioridadeChamado } from "@/types/database";
 import { revalidatePath } from "next/cache";
+import { obterPerfilAtual } from "@/lib/auth/perfil";
+import { comUsuario, comTransacao } from "@/lib/db/comUsuario";
+import { sql } from "@/lib/db/pool";
+import { salvarArquivoLocal } from "@/lib/storage/anexos";
 
 const chamadoSchema = z.object({
   protocolo: z
     .string()
     .trim()
-    .regex(/^CS[0-9]{8}$/, "O protocolo deve seguir rigorosamente o padrão CS seguido de 8 dígitos (ex: CS12345678)."),
+    .regex(
+      /^(CS\d{8}|CS\d{8}-\d{4})$/,
+      "O protocolo deve seguir o padrão CSAAAAMMDD-NNNN (ex: CS20260902-0001) ou o formato histórico de 8 dígitos."
+    )
+    .optional()
+    .nullable()
+    .or(z.literal("")),
   aluno_nome: z.string().trim().min(3, "Informe o nome completo do aluno."),
   aluno_ra: z.string().trim().optional().nullable(),
   contato_telefone: z
@@ -35,78 +43,120 @@ export type EstadoSalvarChamado = {
   errosCampo?: Record<string, string>;
 };
 
+/**
+ * Gera atomicamente o próximo protocolo sequencial do dia no formato CSAAAAMMDD-NNNN.
+ */
+export async function gerarProximoProtocolo(dataSolicitacaoStr?: string): Promise<string> {
+  const dataRef = dataSolicitacaoStr ? new Date(dataSolicitacaoStr) : new Date();
+  const ano = dataRef.getFullYear();
+  const mes = String(dataRef.getMonth() + 1).padStart(2, "0");
+  const dia = String(dataRef.getDate()).padStart(2, "0");
+  const dataStr = `${ano}${mes}${dia}`;
+  const prefixoBase = `CS${dataStr}`;
+
+  const perfil = await obterPerfilAtual();
+
+  return await comTransacao(
+    { usuario_id: perfil.id, papel: perfil.papel },
+    async (req) => {
+      const q = await req
+        .input("prefixo", sql.VarChar(20), `${prefixoBase}-%`)
+        .query(`
+          SELECT ISNULL(MAX(CAST(RIGHT(protocolo, 4) AS INT)), 0) + 1 AS proximo
+          FROM dados.chamados WITH (UPDLOCK, HOLDLOCK)
+          WHERE protocolo LIKE @prefixo
+        `);
+
+      const proximoNum = q.recordset[0]?.proximo || 1;
+      const sequencialStr = String(proximoNum).padStart(4, "0");
+      return `${prefixoBase}-${sequencialStr}`;
+    }
+  );
+}
+
 export async function verificarProtocoloDuplicado(protocolo: string, chamadoAtualId?: string) {
-  const supabase = await criarClienteServidor();
   const limpo = protocolo.trim().toUpperCase();
-
-  if (!limpo.match(/^CS[0-9]{8}$/)) {
+  if (!limpo.match(/^(CS\d{8}|CS\d{8}-\d{4})$/)) {
     return null;
   }
 
-  let query = supabase
-    .from("chamados")
-    .select("id, protocolo, criado_em, criado_por, perfis:criado_por(nome_completo)")
-    .eq("protocolo", limpo)
-    .is("excluido_em", null);
+  const perfil = await obterPerfilAtual();
 
-  if (chamadoAtualId) {
-    query = query.neq("id", chamadoAtualId);
-  }
+  return await comUsuario(
+    { usuario_id: perfil.id, papel: perfil.papel },
+    async (req) => {
+      let sqlQuery = `
+        SELECT 
+          CAST(id AS NVARCHAR(50)) AS id,
+          protocolo,
+          criado_em,
+          CAST(criado_por AS NVARCHAR(50)) AS criado_por,
+          criado_por_nome
+        FROM dados.chamados
+        WHERE protocolo = @protocolo AND excluido_em IS NULL
+      `;
 
-  const { data, error } = await query.maybeSingle();
+      req.input("protocolo", sql.VarChar(30), limpo);
 
-  if (error || !data) {
-    return null;
-  }
+      if (chamadoAtualId) {
+        req.input("atualId", sql.UniqueIdentifier, chamadoAtualId);
+        sqlQuery += ` AND id != @atualId`;
+      }
 
-  const criadoPorNome = (data.perfis as unknown as { nome_completo?: string })?.nome_completo || "Usuária do sistema";
+      const q = await req.query(sqlQuery);
+      const data = q.recordset[0];
 
-  return {
-    duplicado: true,
-    protocolo: data.protocolo,
-    criado_em: data.criado_em,
-    criado_por_nome: criadoPorNome,
-  };
+      if (!data) return null;
+
+      return {
+        duplicado: true,
+        protocolo: data.protocolo,
+        criado_em: data.criado_em,
+        criado_por_nome: data.criado_por_nome || "Usuário do sistema",
+      };
+    }
+  );
 }
 
 export async function buscarChamadosParaVinculo(termo: string) {
   if (!termo || termo.trim().length < 2) return [];
 
-  const supabase = await criarClienteServidor();
+  const perfil = await obterPerfilAtual();
   const busca = termo.trim();
 
-  let query = supabase
-    .from("chamados")
-    .select("id, protocolo, aluno_nome, data_solicitacao, situacao")
-    .is("excluido_em", null)
-    .limit(10);
+  return await comUsuario(
+    { usuario_id: perfil.id, papel: perfil.papel },
+    async (req) => {
+      req.input("termoBusca", sql.VarChar(255), `%${busca}%`);
+      req.input("termoPrefixo", sql.VarChar(50), `${busca}%`);
 
-  if (busca.match(/^CS[0-9]{1,8}$/i)) {
-    query = query.ilike("protocolo", `${busca}%`);
-  } else {
-    query = query.ilike("aluno_nome", `%${busca}%`);
-  }
+      const q = await req.query(`
+        SELECT TOP 10
+          CAST(id AS NVARCHAR(50)) AS id,
+          protocolo,
+          aluno_nome,
+          data_solicitacao,
+          situacao
+        FROM dados.chamados
+        WHERE excluido_em IS NULL
+          AND (protocolo LIKE @termoPrefixo OR aluno_nome LIKE @termoBusca)
+        ORDER BY data_solicitacao DESC
+      `);
 
-  const { data, error } = await query;
-  if (error || !data) return [];
-  return data;
+      return q.recordset;
+    }
+  );
 }
 
 export async function salvarChamado(
   _estadoAnterior: EstadoSalvarChamado,
   formData: FormData
 ): Promise<EstadoSalvarChamado> {
-  const supabase = await criarClienteServidor();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { erro: "Sessão expirada. Autentique-se novamente." };
-  }
-
+  const perfil = await obterPerfilAtual();
   const chamadoId = formData.get("id") ? String(formData.get("id")) : undefined;
 
   const dadosBrutos = {
-    protocolo: formData.get("protocolo"),
+    protocolo: formData.get("protocolo") || null,
     aluno_nome: formData.get("aluno_nome"),
     aluno_ra: formData.get("aluno_ra") || null,
     contato_telefone: formData.get("contato_telefone") || null,
@@ -136,11 +186,17 @@ export async function salvarChamado(
 
   const payload = parseResult.data;
 
+  // Se não foi fornecido protocolo válido, gera atomicamente
+  let protocoloFinal = payload.protocolo;
+  if (!protocoloFinal || protocoloFinal.trim() === "") {
+    protocoloFinal = await gerarProximoProtocolo(payload.data_solicitacao);
+  }
+
   // Verificação de protocolo duplicado
-  const duplicado = await verificarProtocoloDuplicado(payload.protocolo, chamadoId);
+  const duplicado = await verificarProtocoloDuplicado(protocoloFinal, chamadoId);
   if (duplicado) {
     return {
-      erro: `Protocolo ${payload.protocolo} já cadastrado por ${duplicado.criado_por_nome} em ${new Date(duplicado.criado_em).toLocaleDateString("pt-BR")}.`,
+      erro: `Protocolo ${protocoloFinal} já cadastrado por ${duplicado.criado_por_nome} em ${new Date(duplicado.criado_em).toLocaleDateString("pt-BR")}.`,
       errosCampo: {
         protocolo: `Já cadastrado por ${duplicado.criado_por_nome}.`,
       },
@@ -149,106 +205,147 @@ export async function salvarChamado(
 
   let finalChamadoId = chamadoId;
 
-  if (chamadoId) {
-    // Atualização Colaborativa: registra quem fez a edição e data_conclusao se for concluído
-    const dataConclusao = (payload.situacao === "concluido" || payload.situacao === "encerrado")
-      ? new Date().toISOString()
-      : null;
+  try {
+    if (chamadoId) {
+      // Atualização Colaborativa com rastreamento visível
+      const dataConclusao = (payload.situacao === "concluido" || payload.situacao === "encerrado")
+        ? new Date()
+        : null;
 
-    const { error } = await supabase
-      .from("chamados")
-      .update({
-        aluno_nome: payload.aluno_nome,
-        aluno_ra: payload.aluno_ra,
-        contato_telefone: payload.contato_telefone,
-        motivo_id: payload.motivo_id,
-        descricao: payload.descricao,
-        situacao: payload.situacao as SituacaoChamado,
-        prioridade: payload.prioridade as PrioridadeChamado,
-        data_solicitacao: payload.data_solicitacao,
-        prazo: payload.prazo,
-        data_conclusao: dataConclusao,
-        chamado_vinculado_id: payload.chamado_vinculado_id ? payload.chamado_vinculado_id : null,
-        observacao: payload.observacao,
-        atualizado_por: user.id,
-        atualizado_em: new Date().toISOString(),
-      })
-      .eq("id", chamadoId);
+      await comUsuario(
+        { usuario_id: perfil.id, papel: perfil.papel },
+        async (req) => {
+          await req
+            .input("id", sql.UniqueIdentifier, chamadoId)
+            .input("aluno_nome", sql.VarChar(255), payload.aluno_nome)
+            .input("aluno_ra", sql.VarChar(50), payload.aluno_ra || null)
+            .input("contato_telefone", sql.VarChar(50), payload.contato_telefone || null)
+            .input("motivo_id", sql.UniqueIdentifier, payload.motivo_id)
+            .input("descricao", sql.NVarChar(sql.MAX), payload.descricao || null)
+            .input("situacao", sql.VarChar(30), payload.situacao)
+            .input("prioridade", sql.VarChar(20), payload.prioridade)
+            .input("data_solicitacao", sql.DateTimeOffset, new Date(payload.data_solicitacao))
+            .input("prazo", sql.DateTimeOffset, new Date(payload.prazo))
+            .input("data_conclusao", sql.DateTimeOffset, dataConclusao)
+            .input("chamado_vinculado_id", sql.UniqueIdentifier, payload.chamado_vinculado_id || null)
+            .input("observacao", sql.NVarChar(sql.MAX), payload.observacao || null)
+            .input("atualizado_por", sql.UniqueIdentifier, perfil.id)
+            .input("atualizado_por_nome", sql.VarChar(255), perfil.nome_completo)
+            .query(`
+              UPDATE dados.chamados
+              SET 
+                aluno_nome = @aluno_nome,
+                aluno_ra = @aluno_ra,
+                contato_telefone = @contato_telefone,
+                motivo_id = @motivo_id,
+                descricao = @descricao,
+                situacao = @situacao,
+                prioridade = @prioridade,
+                data_solicitacao = @data_solicitacao,
+                prazo = @prazo,
+                data_conclusao = @data_conclusao,
+                chamado_vinculado_id = @chamado_vinculado_id,
+                observacao = @observacao,
+                atualizado_por = @atualizado_por,
+                atualizado_por_nome = @atualizado_por_nome,
+                atualizado_em = SYSUTCDATETIME()
+              WHERE id = @id AND excluido_em IS NULL
+            `);
+        }
+      );
+    } else {
+      // Criação inicial
+      const dataConclusao = (payload.situacao === "concluido" || payload.situacao === "encerrado")
+        ? new Date()
+        : null;
 
-    if (error) {
-      return { erro: `Erro ao atualizar chamado: ${error.message}` };
+      finalChamadoId = await comTransacao(
+        { usuario_id: perfil.id, papel: perfil.papel },
+        async (req) => {
+          const q = await req
+            .input("protocolo", sql.VarChar(30), protocoloFinal!)
+            .input("aluno_nome", sql.VarChar(255), payload.aluno_nome)
+            .input("aluno_ra", sql.VarChar(50), payload.aluno_ra || null)
+            .input("contato_telefone", sql.VarChar(50), payload.contato_telefone || null)
+            .input("motivo_id", sql.UniqueIdentifier, payload.motivo_id)
+            .input("descricao", sql.NVarChar(sql.MAX), payload.descricao || null)
+            .input("situacao", sql.VarChar(30), payload.situacao)
+            .input("prioridade", sql.VarChar(20), payload.prioridade)
+            .input("data_solicitacao", sql.DateTimeOffset, new Date(payload.data_solicitacao))
+            .input("prazo", sql.DateTimeOffset, new Date(payload.prazo))
+            .input("data_conclusao", sql.DateTimeOffset, dataConclusao)
+            .input("chamado_vinculado_id", sql.UniqueIdentifier, payload.chamado_vinculado_id || null)
+            .input("observacao", sql.NVarChar(sql.MAX), payload.observacao || null)
+            .input("criado_por", sql.UniqueIdentifier, perfil.id)
+            .input("criado_por_nome", sql.VarChar(255), perfil.nome_completo)
+            .query(`
+              INSERT INTO dados.chamados (
+                protocolo,
+                aluno_nome,
+                aluno_ra,
+                contato_telefone,
+                motivo_id,
+                descricao,
+                situacao,
+                prioridade,
+                data_solicitacao,
+                prazo,
+                data_conclusao,
+                chamado_vinculado_id,
+                observacao,
+                criado_por,
+                criado_por_nome
+              )
+              OUTPUT CAST(inserted.id AS NVARCHAR(50)) AS id
+              VALUES (
+                @protocolo,
+                @aluno_nome,
+                @aluno_ra,
+                @contato_telefone,
+                @motivo_id,
+                @descricao,
+                @situacao,
+                @prioridade,
+                @data_solicitacao,
+                @prazo,
+                @data_conclusao,
+                @chamado_vinculado_id,
+                @observacao,
+                @criado_por,
+                @criado_por_nome
+              )
+            `);
+
+          return q.recordset[0]?.id;
+        }
+      );
     }
-  } else {
-    // Criação inicial
-    const dataConclusao = (payload.situacao === "concluido" || payload.situacao === "encerrado")
-      ? new Date().toISOString()
-      : null;
 
-    const { data, error } = await supabase
-      .from("chamados")
-      .insert({
-        protocolo: payload.protocolo,
-        aluno_nome: payload.aluno_nome,
-        aluno_ra: payload.aluno_ra,
-        contato_telefone: payload.contato_telefone,
-        motivo_id: payload.motivo_id,
-        descricao: payload.descricao,
-        situacao: payload.situacao as SituacaoChamado,
-        prioridade: payload.prioridade as PrioridadeChamado,
-        data_solicitacao: payload.data_solicitacao,
-        prazo: payload.prazo,
-        data_conclusao: dataConclusao,
-        chamado_vinculado_id: payload.chamado_vinculado_id ? payload.chamado_vinculado_id : null,
-        observacao: payload.observacao,
-        criado_por: user.id,
-      })
-      .select("id")
-      .single();
-
-    if (error || !data) {
-      return { erro: `Erro ao cadastrar chamado: ${error?.message || "falha desconhecida"}` };
-    }
-
-    finalChamadoId = data.id;
-  }
-
-  // Upload e vinculação de arquivos enviados no formulário
-  const arquivos = formData.getAll("arquivos") as File[];
-  if (finalChamadoId && arquivos && arquivos.length > 0) {
-    for (const arq of arquivos) {
-      if (arq && arq.size > 0 && arq.name) {
-        const nomeSanitizado = arq.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-        const caminhoStorage = `${finalChamadoId}/${Date.now()}_${nomeSanitizado}`;
-
-        // Inserir registro na tabela public.arquivos
-        await supabase.from("arquivos").insert({
-          chamado_id: finalChamadoId,
-          nome_original: arq.name,
-          caminho_storage: caminhoStorage,
-          tamanho_bytes: arq.size,
-          tipo_mime: arq.type || "application/octet-stream",
-          criado_por: user.id,
-        });
+    // Processamento de múltiplos arquivos anexados no formulário
+    const arquivos = formData.getAll("arquivos") as File[];
+    if (finalChamadoId && arquivos && arquivos.length > 0) {
+      for (const arq of arquivos) {
+        if (arq && arq.size > 0 && arq.name) {
+          await salvarArquivoLocal(finalChamadoId, arq, perfil);
+        }
       }
     }
-  }
 
-  revalidatePath("/chamados");
-  if (finalChamadoId) {
-    revalidatePath(`/chamados/${finalChamadoId}`);
-  }
+    revalidatePath("/chamados");
+    if (finalChamadoId) {
+      revalidatePath(`/chamados/${finalChamadoId}`);
+    }
 
-  return { sucesso: true, chamadoId: finalChamadoId };
+    return { sucesso: true, chamadoId: finalChamadoId };
+  } catch (error: unknown) {
+    console.error("[ERRO_SALVAR_CHAMADO]:", error);
+    const msg = error instanceof Error ? error.message : "Erro desconhecido ao salvar chamado.";
+    return { erro: `Falha ao salvar chamado: ${msg}` };
+  }
 }
 
 export async function anexarArquivoAction(formData: FormData) {
-  const supabase = await criarClienteServidor();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { sucesso: false, erro: "Sessão expirada." };
-  }
-
+  const perfil = await obterPerfilAtual();
   const chamadoId = String(formData.get("chamado_id"));
   const descricao = String(formData.get("descricao") || "");
   const arquivos = formData.getAll("arquivos") as File[];
@@ -257,58 +354,96 @@ export async function anexarArquivoAction(formData: FormData) {
     return { sucesso: false, erro: "Nenhum arquivo informado." };
   }
 
-  for (const arq of arquivos) {
-    if (arq && arq.size > 0 && arq.name) {
-      const nomeSanitizado = arq.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const caminhoStorage = `${chamadoId}/${Date.now()}_${nomeSanitizado}`;
-
-      await supabase.from("arquivos").insert({
-        chamado_id: chamadoId,
-        nome_original: arq.name,
-        caminho_storage: caminhoStorage,
-        tamanho_bytes: arq.size,
-        tipo_mime: arq.type || "application/octet-stream",
-        descricao: descricao || null,
-        criado_por: user.id,
-      });
+  try {
+    for (const arq of arquivos) {
+      if (arq && arq.size > 0 && arq.name) {
+        await salvarArquivoLocal(chamadoId, arq, perfil, descricao);
+      }
     }
+
+    // Atualiza metadados do chamado
+    await comUsuario(
+      { usuario_id: perfil.id, papel: perfil.papel },
+      async (req) => {
+        await req
+          .input("id", sql.UniqueIdentifier, chamadoId)
+          .input("atualizado_por", sql.UniqueIdentifier, perfil.id)
+          .input("atualizado_por_nome", sql.VarChar(255), perfil.nome_completo)
+          .query(`
+            UPDATE dados.chamados
+            SET atualizado_por = @atualizado_por,
+                atualizado_por_nome = @atualizado_por_nome,
+                atualizado_em = SYSUTCDATETIME()
+            WHERE id = @id AND excluido_em IS NULL
+          `);
+      }
+    );
+
+    revalidatePath(`/chamados/${chamadoId}`);
+    return { sucesso: true };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Falha ao anexar arquivo.";
+    return { sucesso: false, erro: msg };
   }
-
-  // Atualiza timestamp do chamado
-  await supabase
-    .from("chamados")
-    .update({
-      atualizado_por: user.id,
-      atualizado_em: new Date().toISOString(),
-    })
-    .eq("id", chamadoId);
-
-  revalidatePath(`/chamados/${chamadoId}`);
-  return { sucesso: true };
 }
 
 export async function excluirArquivoAction(arquivoId: string, chamadoId: string) {
-  const supabase = await criarClienteServidor();
-  const { error } = await supabase.from("arquivos").delete().eq("id", arquivoId);
+  const perfil = await obterPerfilAtual();
 
-  if (error) {
-    return { sucesso: false, erro: error.message };
+  try {
+    await comUsuario(
+      { usuario_id: perfil.id, papel: perfil.papel },
+      async (req) => {
+        await req
+          .input("id", sql.UniqueIdentifier, arquivoId)
+          .input("chamado_id", sql.UniqueIdentifier, chamadoId)
+          .query(`
+            DELETE FROM dados.arquivos_chamados
+            WHERE id = @id AND chamado_id = @chamado_id
+          `);
+      }
+    );
+
+    revalidatePath(`/chamados/${chamadoId}`);
+    return { sucesso: true };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Erro ao remover anexo.";
+    return { sucesso: false, erro: msg };
   }
-
-  revalidatePath(`/chamados/${chamadoId}`);
-  return { sucesso: true };
 }
 
 export async function excluirChamadoAction(id: string) {
-  const supabase = await criarClienteServidor();
+  const perfil = await obterPerfilAtual();
 
-  // Executa a RPC segura de soft delete (apenas autor ou admin)
-  const { error } = await supabase.rpc("excluir_chamado", { p_id: id });
+  try {
+    // Soft delete seguro via comUsuario (RLS e autoridade de admin ou criador)
+    await comUsuario(
+      { usuario_id: perfil.id, papel: perfil.papel },
+      async (req) => {
+        const queryAdmin = perfil.papel === "admin"
+          ? ""
+          : " AND criado_por = @usuario_logado";
 
-  if (error) {
-    return { sucesso: false, erro: error.message };
+        req.input("id", sql.UniqueIdentifier, id);
+        req.input("usuario_logado", sql.UniqueIdentifier, perfil.id);
+
+        const res = await req.query(`
+          UPDATE dados.chamados
+          SET excluido_em = SYSUTCDATETIME(),
+              excluido_por = @usuario_logado
+          WHERE id = @id AND excluido_em IS NULL ${queryAdmin}
+        `);
+
+        if (res.rowsAffected[0] === 0) {
+          throw new Error("Chamado não encontrado ou você não possui permissão para excluí-lo.");
+        }
+      }
+    );
+
+    revalidatePath("/chamados");
+    return { sucesso: true };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Erro ao excluir chamado.";
+    return { sucesso: false, erro: msg };
   }
-
-  revalidatePath("/chamados");
-  return { sucesso: true };
 }

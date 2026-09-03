@@ -1,57 +1,46 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { jwtVerify } from "jose";
+
+const SEGREDO_JWT = new TextEncoder().encode(
+  process.env.AUTH_SECRET || "chave-secreta-padrao-minimo-32-caracteres-para-dev"
+);
+
+const NOME_COOKIE_SESSAO = "chamados_unopar_session";
 
 export async function middleware(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({
-    request,
-  });
+  const token = request.cookies.get(NOME_COOKIE_SESSAO)?.value;
+  let usuarioAutenticado = false;
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!url || !anonKey) {
-    return supabaseResponse;
+  if (token) {
+    try {
+      await jwtVerify(token, SEGREDO_JWT);
+      usuarioAutenticado = true;
+    } catch {
+      usuarioAutenticado = false;
+    }
   }
 
-  const supabase = createServerClient(url, anonKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
-      },
-      setAll(cookiesToSet: { name: string; value: string; options?: CookieOptions }[]) {
-        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        supabaseResponse = NextResponse.next({
-          request,
-        });
-        cookiesToSet.forEach(({ name, value, options }) =>
-          supabaseResponse.cookies.set(name, value, options)
-        );
-      },
-    },
-  });
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const ehRotaLogin = request.nextUrl.pathname === "/login";
   const ehRotaPublica =
-    request.nextUrl.pathname === "/login" ||
+    ehRotaLogin ||
     request.nextUrl.pathname.startsWith("/_next") ||
-    request.nextUrl.pathname.startsWith("/api");
+    request.nextUrl.pathname.startsWith("/api/public") ||
+    request.nextUrl.pathname === "/favicon.ico" ||
+    request.nextUrl.pathname === "/logo.png";
 
-  if (!user && !ehRotaPublica) {
+  if (!usuarioAutenticado && !ehRotaPublica) {
     const urlLogin = request.nextUrl.clone();
     urlLogin.pathname = "/login";
     return NextResponse.redirect(urlLogin);
   }
 
-  if (user && request.nextUrl.pathname === "/login") {
+  if (usuarioAutenticado && ehRotaLogin) {
     const urlPainel = request.nextUrl.clone();
     urlPainel.pathname = "/painel";
     return NextResponse.redirect(urlPainel);
   }
 
-  return supabaseResponse;
+  return NextResponse.next();
 }
 
 export const config = {

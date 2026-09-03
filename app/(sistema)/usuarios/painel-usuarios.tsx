@@ -64,7 +64,7 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
   const handleRevelarSenha = async (perfilId: string) => {
     setMensagemErro(null);
     const res = await revelarSenhaExternaAction(perfilId);
-    if (res.erro || !res.senhaPlana) {
+    if (!res.sucesso) {
       setMensagemErro(res.erro || "Falha ao obter senha do cofre.");
     } else {
       setSenhaRevelada({ perfilId, senha: res.senhaPlana });

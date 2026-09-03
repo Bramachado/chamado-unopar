@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { type Perfil, type CredencialAcesso } from "@/types/database";
 import { salvarCredencialExternaAction } from "../usuarios/actions";
-import { criarClienteBrowser } from "@/lib/supabase/client";
+import { alterarMinhaSenhaAction } from "./actions";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { User, Lock, Key, History, Check, AlertCircle, ShieldCheck } from "lucide-react";
@@ -40,11 +40,10 @@ export function PainelPerfil({ perfil, historicoAcessos }: PainelPerfilProps) {
   const calcularForcaSenha = (senha: string) => {
     if (!senha) return { nivel: 0, rotulo: "", cor: "" };
     let pontos = 0;
-    if (senha.length >= 8) pontos += 1;
-    if (senha.length >= 12) pontos += 1;
+    if (senha.length >= 8) pontos += 2;
+    if (/[A-Z]/.test(senha)) pontos += 1;
     if (/[0-9]/.test(senha)) pontos += 1;
-    if (/[a-z]/.test(senha) && /[A-Z]/.test(senha)) pontos += 1;
-    if (/[^a-zA-Z0-9]/.test(senha)) pontos += 1;
+    if (/[^A-Za-z0-9]/.test(senha)) pontos += 1;
 
     if (pontos <= 2) return { nivel: 1, rotulo: "Fraca", cor: "bg-erro text-erro" };
     if (pontos <= 4) return { nivel: 2, rotulo: "Média", cor: "bg-alerta text-alerta" };
@@ -58,8 +57,8 @@ export function PainelPerfil({ perfil, historicoAcessos }: PainelPerfilProps) {
     setMsgSucesso(null);
     setMsgErro(null);
 
-    if (novaSenhaSistema.length < 8) {
-      setMsgErro("A nova senha deve ter no mínimo 8 caracteres.");
+    if (novaSenhaSistema.length < 6) {
+      setMsgErro("A nova senha deve ter no mínimo 6 caracteres.");
       return;
     }
 
@@ -69,13 +68,9 @@ export function PainelPerfil({ perfil, historicoAcessos }: PainelPerfilProps) {
     }
 
     startTransition(async () => {
-      const supabase = criarClienteBrowser();
-      const { error } = await supabase.auth.updateUser({
-        password: novaSenhaSistema,
-      });
-
-      if (error) {
-        setMsgErro(`Erro ao atualizar senha: ${error.message}`);
+      const res = await alterarMinhaSenhaAction(novaSenhaSistema);
+      if (!res.sucesso) {
+        setMsgErro(res.erro || "Erro ao atualizar senha.");
       } else {
         setMsgSucesso("Sua senha de acesso ao sistema foi atualizada com sucesso.");
         setNovaSenhaSistema("");

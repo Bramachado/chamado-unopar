@@ -1,7 +1,8 @@
-import { criarClienteServidor } from "@/lib/supabase/server";
 import { obterPerfilAtual } from "@/lib/auth/perfil";
+import { comUsuario } from "@/lib/db/comUsuario";
+import { sql } from "@/lib/db/pool";
 import { PainelDashboard } from "./painel-dashboard";
-import { startOfMonth, endOfMonth, subMonths, format, parseISO, isBefore, addDays, startOfDay } from "date-fns";
+import { startOfMonth, endOfMonth, subMonths, format, isBefore, addDays, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 interface PageProps {
@@ -11,9 +12,8 @@ interface PageProps {
 }
 
 export default async function PaginaPainel({ searchParams }: PageProps) {
-  await obterPerfilAtual();
+  const perfilAtual = await obterPerfilAtual();
   const params = await searchParams;
-  const supabase = await criarClienteServidor();
 
   const periodo = params.periodo || "mes_atual";
   const hoje = new Date();
@@ -22,7 +22,7 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
   let dataFimStr = format(hoje, "yyyy-MM-dd");
 
   if (periodo === "mes_atual") {
-    dataInicioStr = format(startOfMonth(hoje), "yyyy-MM-dd");
+    dataInicioStr = format(startOfMonth(hoje), "yyyy-MM-01");
     dataFimStr = format(endOfMonth(hoje), "yyyy-MM-dd");
   } else if (periodo === "semestre_atual") {
     const ano = hoje.getFullYear();
@@ -35,9 +35,68 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
       dataFimStr = `${ano}-12-31`;
     }
   } else {
-    // ultimos 12 meses
     dataInicioStr = format(subMonths(hoje, 11), "yyyy-MM-01");
   }
+
+  const dadosBanco = await comUsuario(
+    { usuario_id: perfilAtual.id, papel: perfilAtual.papel },
+    async (req) => {
+      // 1. Perfis ativos
+      const qPerfis = await req.query(`
+        SELECT CAST(id AS NVARCHAR(50)) AS id, nome_completo, papel
+        FROM dados.perfis
+        WHERE ativo = 1
+      `);
+
+      // 2. Chamados do período
+      req.input("dtInicio", sql.DateTimeOffset, new Date(dataInicioStr));
+      req.input("dtFim", sql.DateTimeOffset, new Date(dataFimStr + "T23:59:59.999Z"));
+
+      const qChamados = await req.query(`
+        SELECT 
+          CAST(c.id AS NVARCHAR(50)) AS id,
+          c.protocolo,
+          c.aluno_nome,
+          c.situacao,
+          c.prioridade,
+          c.data_solicitacao,
+          c.prazo,
+          c.data_conclusao,
+          m.codigo AS motivo_codigo,
+          m.nome AS motivo_nome,
+          CAST(p.id AS NVARCHAR(50)) AS criador_id,
+          p.nome_completo AS criador_nome,
+          p.papel AS criador_papel
+        FROM dados.chamados c
+        LEFT JOIN dados.motivos m ON m.id = c.motivo_id
+        LEFT JOIN dados.perfis p ON p.id = c.criado_por
+        WHERE c.excluido_em IS NULL
+          AND c.data_solicitacao >= @dtInicio
+          AND c.data_solicitacao <= @dtFim
+      `);
+
+      // 3. Chamados dos últimos 12 meses
+      const dtInicio12m = format(subMonths(hoje, 11), "yyyy-MM-01");
+      req.input("dtInicio12m", sql.DateTimeOffset, new Date(dtInicio12m));
+
+      const q12m = await req.query(`
+        SELECT 
+          c.data_solicitacao,
+          c.situacao,
+          c.prazo,
+          c.data_conclusao
+        FROM dados.chamados c
+        WHERE c.excluido_em IS NULL
+          AND c.data_solicitacao >= @dtInicio12m
+      `);
+
+      return {
+        perfis: qPerfis.recordset,
+        chamadosPeriodo: qChamados.recordset,
+        chamados12m: q12m.recordset,
+      };
+    }
+  );
 
   const contagemColaboradores: Record<
     string,
@@ -45,13 +104,7 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
   > = {};
   const contagemMotivos: Record<string, { codigo: string; nome: string; total: number; diasTotais: number; concluidos: number }> = {};
 
-  // 1. Buscar todos os usuários ativos da equipe
-  const { data: todosPerfis } = await supabase
-    .from("perfis")
-    .select("id, nome_completo, papel")
-    .eq("ativo", true);
-
-  for (const p of todosPerfis || []) {
+  for (const p of dadosBanco.perfis) {
     contagemColaboradores[p.id] = {
       id: p.id,
       nome: p.nome_completo,
@@ -63,27 +116,7 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
     };
   }
 
-  // 2. Buscar chamados do período selecionado
-  const { data: chamadosPeriodo } = await supabase
-    .from("chamados")
-    .select(`
-      id,
-      protocolo,
-      aluno_nome,
-      situacao,
-      prioridade,
-      data_solicitacao,
-      prazo,
-      data_conclusao,
-      motivos:motivo_id(codigo, nome),
-      perfis:criado_por(id, nome_completo, papel)
-    `)
-    .is("excluido_em", null)
-    .gte("data_solicitacao", dataInicioStr)
-    .lte("data_solicitacao", dataFimStr);
-
-  const lista = chamadosPeriodo || [];
-
+  const lista = dadosBanco.chamadosPeriodo;
   const hojeStart = startOfDay(hoje);
   const limite2Dias = addDays(hojeStart, 2);
 
@@ -111,12 +144,10 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
     if (c.situacao === "concluido") concluidos++;
     if (c.situacao === "encerrado") encerrados++;
 
-    const dataPrazo = startOfDay(parseISO(c.prazo));
-
-    const perfilColab = c.perfis as unknown as { id?: string; nome_completo?: string; papel?: string };
-    const colabId = perfilColab?.id || "anon";
-    const colabNome = perfilColab?.nome_completo || "Atendente";
-    const colabPapel = perfilColab?.papel === "admin" ? "Administrador" : perfilColab?.papel === "coordenador" ? "Coordenador" : "Atendimento";
+    const dataPrazo = startOfDay(new Date(c.prazo));
+    const colabId = c.criador_id || "anon";
+    const colabNome = c.criador_nome || "Atendente";
+    const colabPapel = c.criador_papel === "admin" ? "Administrador" : c.criador_papel === "coordenador" ? "Coordenador" : "Atendimento";
 
     if (!contagemColaboradores[colabId]) {
       contagemColaboradores[colabId] = {
@@ -144,7 +175,7 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
           id: c.id,
           protocolo: c.protocolo,
           aluno_nome: c.aluno_nome,
-          prazo: c.prazo,
+          prazo: new Date(c.prazo).toISOString(),
           status: "vencido",
           atendente: colabNome,
         });
@@ -154,24 +185,22 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
           id: c.id,
           protocolo: c.protocolo,
           aluno_nome: c.aluno_nome,
-          prazo: c.prazo,
+          prazo: new Date(c.prazo).toISOString(),
           status: "vencendo_em_2_dias",
           atendente: colabNome,
         });
       }
     }
 
-    // Motivos
-    const mot = c.motivos as unknown as { codigo?: string; nome?: string };
-    const cod = mot?.codigo || "#00";
-    const nomeMot = mot?.nome || "Outros";
+    const cod = c.motivo_codigo || "#00";
+    const nomeMot = c.motivo_nome || "Outros";
     if (!contagemMotivos[cod]) {
       contagemMotivos[cod] = { codigo: cod, nome: nomeMot, total: 0, diasTotais: 0, concluidos: 0 };
     }
     contagemMotivos[cod].total++;
 
     if (c.situacao === "concluido" && c.data_conclusao) {
-      const dias = Math.max(0, Math.round((parseISO(c.data_conclusao).getTime() - parseISO(c.data_solicitacao).getTime()) / (1000 * 60 * 60 * 24)));
+      const dias = Math.max(0, Math.round((new Date(c.data_conclusao).getTime() - new Date(c.data_solicitacao).getTime()) / (1000 * 60 * 60 * 24)));
       contagemMotivos[cod].diasTotais += dias;
       contagemMotivos[cod].concluidos++;
       contagemColaboradores[colabId].diasTotais += dias;
@@ -180,7 +209,6 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
     }
   }
 
-  // Ranking de Colaboradores reais calculados do banco
   const rankingEquipe = Object.values(contagemColaboradores)
     .sort((a, b) => {
       if (b.resolvidos !== a.resolvidos) return b.resolvidos - a.resolvidos;
@@ -207,7 +235,6 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
       };
     });
 
-  // Top 10 Motivos
   const topMotivos = Object.values(contagemMotivos)
     .sort((a, b) => b.total - a.total)
     .slice(0, 10)
@@ -217,7 +244,6 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
       total: m.total,
     }));
 
-  // Tempo Médio por Motivo (apenas motivos com >= 3 concluídos)
   const mediaGeralDias = totalConcluidosGeral > 0 ? Math.round((somaDiasGeral / totalConcluidosGeral) * 10) / 10 : 0;
 
   const tempoMedioPorMotivo = Object.values(contagemMotivos)
@@ -242,14 +268,6 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
     }
   }
 
-  // 2. Buscar dados dos últimos 12 meses para os gráficos temporais
-  const inicio12m = format(subMonths(hoje, 11), "yyyy-MM-01");
-  const { data: chamados12m } = await supabase
-    .from("chamados")
-    .select("data_solicitacao, situacao, prazo, data_conclusao")
-    .is("excluido_em", null)
-    .gte("data_solicitacao", inicio12m);
-
   const mesesMap: Record<string, { total: number; concluidos: number; noPrazo: number }> = {};
   for (let i = 11; i >= 0; i--) {
     const d = subMonths(hoje, i);
@@ -257,14 +275,14 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
     mesesMap[chaveMes] = { total: 0, concluidos: 0, noPrazo: 0 };
   }
 
-  for (const c of chamados12m || []) {
-    const d = parseISO(c.data_solicitacao);
+  for (const c of dadosBanco.chamados12m) {
+    const d = new Date(c.data_solicitacao);
     const chaveMes = format(d, "MMM/yy", { locale: ptBR });
     if (mesesMap[chaveMes]) {
       mesesMap[chaveMes].total++;
       if (c.situacao === "concluido") {
         mesesMap[chaveMes].concluidos++;
-        if (c.data_conclusao && parseISO(c.data_conclusao) <= parseISO(c.prazo)) {
+        if (c.data_conclusao && new Date(c.data_conclusao) <= new Date(c.prazo)) {
           mesesMap[chaveMes].noPrazo++;
         }
       }
