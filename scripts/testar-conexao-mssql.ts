@@ -1,3 +1,25 @@
+import fs from "fs";
+import path from "path";
+
+// Carregar .env.local se existir
+const envPath = path.resolve(process.cwd(), ".env.local");
+if (fs.existsSync(envPath)) {
+  const envConfig = fs.readFileSync(envPath, "utf8");
+  envConfig.split("\n").forEach((line) => {
+    const trimmed = line.trim();
+    if (trimmed && !trimmed.startsWith("#")) {
+      const idx = trimmed.indexOf("=");
+      if (idx > -1) {
+        const key = trimmed.slice(0, idx).trim();
+        const val = trimmed.slice(idx + 1).trim();
+        if (!process.env[key]) {
+          process.env[key] = val;
+        }
+      }
+    }
+  });
+}
+
 import { getPool } from "../lib/db/pool";
 import { comUsuario } from "../lib/db/comUsuario";
 
@@ -36,7 +58,7 @@ async function testarConexaoEContexto() {
     console.log("[OK] Contexto Recuperado do SQL Server:", resultadoContexto);
 
     if (
-      resultadoContexto.ctx_uid === uidFicticio &&
+      resultadoContexto.ctx_uid?.toLowerCase() === uidFicticio.toLowerCase() &&
       resultadoContexto.ctx_papel === papelFicticio
     ) {
       console.log("=== EVIDENCIA ETAPA 1 COMPROVADA: CONTEXTO DEFINIDO COM SUCESSO ===");
