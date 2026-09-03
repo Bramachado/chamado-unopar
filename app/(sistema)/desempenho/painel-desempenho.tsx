@@ -535,11 +535,11 @@ export function PainelDesempenho({
 
               <div className="rounded-xl border border-borda bg-fundo p-3 space-y-2">
                 <div className="flex justify-between font-bold text-texto">
-                  <span>1. Volume de Soluções Efetivas</span>
+                  <span>1. Volume Relativo à Equipe</span>
                   <span>Até 40 pontos (40%)</span>
                 </div>
                 <p className="text-[11px]">
-                  Cada chamado concluído com sucesso contribui proporcionalmente para o volume do período.
+                  Calculado proporcionalmente em relação ao colaborador com maior volume ponderado no período (sem teto fixo). Chamados concluídos têm peso 1.0 e encerrados têm peso 0.5.
                 </p>
               </div>
 
@@ -549,7 +549,7 @@ export function PainelDesempenho({
                   <span>Até 40 pontos (40%)</span>
                 </div>
                 <p className="text-[11px]">
-                  Percentual de chamados finalizados dentro do prazo regulamentar de 5 dias úteis.
+                  Percentual de chamados finalizados dentro do prazo regulamentar de 5 dias úteis (proporcional até 40 pontos).
                 </p>
               </div>
 

@@ -97,15 +97,28 @@ async function calcularRanking(
     }
   }
 
+  // Cálculo do maior volume ponderado da equipe no período (Opção A: Volume Relativo à Equipe)
+  const volumesPonderados = Object.values(statsMap).map(
+    (item) => item.resolvidos * 1.0 + item.encerrados * 0.5
+  );
+  const maiorVolumeEquipe = Math.max(0, ...volumesPonderados);
+
   const listaComPontos = Object.values(statsMap).map((item) => {
     const volumePonderado = item.resolvidos * 1.0 + item.encerrados * 0.5;
     const taxaPrazo = item.resolvidos > 0 ? (item.no_prazo / item.resolvidos) * 100 : 0;
     const tempoMedioDias = item.resolvidos > 0 ? Math.round((item.dias_totais / item.resolvidos) * 10) / 10 : 0;
 
-    // Fórmula fixa equilibrada (Volume 40%, Prazo 40%, Agilidade 20%)
-    const pontosVolume = Math.min(40, Math.round(item.resolvidos * 2.67 * 10) / 10);
-    const pontosPrazo = item.resolvidos > 0 ? Math.round((item.no_prazo / item.resolvidos) * 40 * 10) / 10 : 0;
+    // 1. Volume Relativo à Equipe (Peso 40% = máx 40 pts, proporcional ao maior volume do período)
+    const pontosVolume = maiorVolumeEquipe > 0
+      ? Math.round((volumePonderado / maiorVolumeEquipe) * 40 * 10) / 10
+      : 0;
 
+    // 2. Cumprimento de Prazo (Peso 40% = máx 40 pts)
+    const pontosPrazo = item.resolvidos > 0
+      ? Math.round((item.no_prazo / item.resolvidos) * 40 * 10) / 10
+      : 0;
+
+    // 3. Agilidade de Atendimento (Peso 20% = máx 20 pts)
     let pontosAgilidade = 0;
     if (item.resolvidos > 0) {
       if (tempoMedioDias <= 1.0) pontosAgilidade = 20;
