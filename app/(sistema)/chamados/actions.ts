@@ -44,32 +44,21 @@ export type EstadoSalvarChamado = {
 };
 
 /**
- * Gera atomicamente o próximo protocolo sequencial do dia no formato CSAAAAMMDD-NNNN.
+ * Gera atomicamente o próximo protocolo sequencial do dia chamando a procedure dados.gerar_protocolo.
  */
 export async function gerarProximoProtocolo(dataSolicitacaoStr?: string): Promise<string> {
   const dataRef = dataSolicitacaoStr ? new Date(dataSolicitacaoStr) : new Date();
-  const ano = dataRef.getFullYear();
-  const mes = String(dataRef.getMonth() + 1).padStart(2, "0");
-  const dia = String(dataRef.getDate()).padStart(2, "0");
-  const dataStr = `${ano}${mes}${dia}`;
-  const prefixoBase = `CS${dataStr}`;
-
   const perfil = await obterPerfilAtual();
 
-  return await comTransacao(
+  return await comUsuario(
     { usuario_id: perfil.id, papel: perfil.papel },
     async (req) => {
-      const q = await req
-        .input("prefixo", sql.VarChar(20), `${prefixoBase}-%`)
-        .query(`
-          SELECT ISNULL(MAX(CAST(RIGHT(protocolo, 4) AS INT)), 0) + 1 AS proximo
-          FROM dados.chamados WITH (UPDLOCK, HOLDLOCK)
-          WHERE protocolo LIKE @prefixo
-        `);
+      const res = await req
+        .input("data_solicitacao", sql.Date, dataRef)
+        .output("protocolo_gerado", sql.VarChar(20))
+        .execute("dados.gerar_protocolo");
 
-      const proximoNum = q.recordset[0]?.proximo || 1;
-      const sequencialStr = String(proximoNum).padStart(4, "0");
-      return `${prefixoBase}-${sequencialStr}`;
+      return res.output.protocolo_gerado;
     }
   );
 }

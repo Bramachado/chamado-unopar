@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 import { obterPerfilAtual } from "@/lib/auth/perfil";
-import { comUsuario, comTransacao } from "@/lib/db/comUsuario";
+import { comUsuario } from "@/lib/db/comUsuario";
 import { sql } from "@/lib/db/pool";
 import { cifrarSenha, decifrarSenha } from "@/lib/crypto/cofre";
 
@@ -22,39 +22,16 @@ export async function revelarSenhaExternaAction(
   const userAgent = headerList.get("user-agent") || "Desconhecido";
 
   try {
-    return await comTransacao(
+    return await comUsuario(
       { usuario_id: perfil.id, papel: perfil.papel },
       async (req) => {
-        // 2. Gravar auditoria em auditoria.credencial_acessos ANTES de decifrar
-        req.input("alvoId", sql.UniqueIdentifier, perfilIdAlvo);
-        req.input("adminId", sql.UniqueIdentifier, perfil.id);
-        req.input("ip", sql.VarChar(45), ip.slice(0, 45));
-        req.input("userAgent", sql.NVarChar(500), userAgent.slice(0, 500));
+        const res = await req
+          .input("perfil_alvo", sql.UniqueIdentifier, perfilIdAlvo)
+          .input("ip", sql.VarChar(45), ip.slice(0, 45))
+          .input("user_agent", sql.NVarChar(400), userAgent.slice(0, 400))
+          .execute("dados.revelar_credencial");
 
-        await req.query(`
-          INSERT INTO auditoria.credencial_acessos (
-            perfil_alvo_id,
-            acessado_por,
-            ip,
-            user_agent,
-            data_hora
-          ) VALUES (
-            @alvoId,
-            @adminId,
-            @ip,
-            @userAgent,
-            SYSUTCDATETIME()
-          )
-        `).catch(() => {}); // Resiliente caso a tabela ainda esteja em validação
-
-        // 3. Buscar credencial cifrada
-        const qCred = await req.query(`
-          SELECT senha_cifrada, iv, auth_tag
-          FROM dados.credenciais_externas
-          WHERE perfil_id = @alvoId
-        `);
-
-        const cred = qCred.recordset[0];
+        const cred = res.recordset[0];
         if (!cred) {
           return { sucesso: false, erro: "Nenhuma credencial externa cadastrada para este usuário." };
         }
