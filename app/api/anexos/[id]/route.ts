@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
-import { obterPerfilAtual } from "@/lib/auth/perfil";
+import { verificarSessao } from "@/lib/auth/jwt";
 import { comUsuario } from "@/lib/db/comUsuario";
-import { sql } from "@/lib/db/pool";
+import { getPool, sql } from "@/lib/db/pool";
 import { obterCaminhoAbsolutoSeguro } from "@/lib/storage/anexos";
 
 interface Params {
@@ -11,9 +11,32 @@ interface Params {
   }>;
 }
 
-export async function GET(_request: NextRequest, { params }: Params) {
+export async function GET(request: NextRequest, { params }: Params) {
   try {
-    const perfil = await obterPerfilAtual();
+    let token = request.cookies.get("chamados_unopar_session")?.value;
+    if (!token) {
+      const cookieHeader = request.headers.get("cookie");
+      if (cookieHeader) {
+        const match = cookieHeader.match(/chamados_unopar_session=([^;]+)/);
+        if (match) token = match[1];
+      }
+    }
+
+    const sessao = await verificarSessao(token);
+    if (!sessao) {
+      return NextResponse.json({ erro: "Não autenticado." }, { status: 401 });
+    }
+
+    const pool = await getPool();
+    const resPerfil = await pool.request()
+      .input("id", sql.UniqueIdentifier, sessao.id)
+      .query("SELECT CAST(id AS NVARCHAR(50)) AS id, papel, ativo FROM dados.perfis WHERE id = @id");
+
+    const perfil = resPerfil.recordset[0];
+    if (!perfil || !perfil.ativo) {
+      return NextResponse.json({ erro: "Acesso negado." }, { status: 403 });
+    }
+
     const { id } = await params;
 
     // Busca metadados do arquivo via comUsuario (RLS do SQL Server garante permissão de visualização do chamado)

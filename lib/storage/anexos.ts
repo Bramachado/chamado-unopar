@@ -58,6 +58,19 @@ export async function salvarArquivoLocal(
         .input("criado_por", sql.UniqueIdentifier, perfil.id)
         .input("criado_por_nome", sql.VarChar(255), perfil.nome_completo)
         .query(`
+          DECLARE @out TABLE (
+            id UNIQUEIDENTIFIER,
+            chamado_id UNIQUEIDENTIFIER,
+            nome_original VARCHAR(255),
+            caminho_storage VARCHAR(500),
+            tamanho_bytes BIGINT,
+            tipo_mime VARCHAR(100),
+            descricao VARCHAR(255),
+            criado_por UNIQUEIDENTIFIER,
+            criado_por_nome VARCHAR(255),
+            criado_em DATETIMEOFFSET
+          );
+
           INSERT INTO dados.arquivos_chamados (
             chamado_id,
             nome_original,
@@ -69,16 +82,17 @@ export async function salvarArquivoLocal(
             criado_por_nome
           )
           OUTPUT 
-            CAST(inserted.id AS NVARCHAR(50)) AS id,
-            CAST(inserted.chamado_id AS NVARCHAR(50)) AS chamado_id,
+            inserted.id,
+            inserted.chamado_id,
             inserted.nome_original,
             inserted.caminho_storage,
             inserted.tamanho_bytes,
             inserted.tipo_mime,
             inserted.descricao,
-            CAST(inserted.criado_por AS NVARCHAR(50)) AS criado_por,
+            inserted.criado_por,
             inserted.criado_por_nome,
             inserted.criado_em
+          INTO @out
           VALUES (
             @chamado_id,
             @nome_original,
@@ -88,7 +102,20 @@ export async function salvarArquivoLocal(
             @descricao,
             @criado_por,
             @criado_por_nome
-          )
+          );
+
+          SELECT 
+            CAST(id AS NVARCHAR(50)) AS id,
+            CAST(chamado_id AS NVARCHAR(50)) AS chamado_id,
+            nome_original,
+            caminho_storage,
+            tamanho_bytes,
+            tipo_mime,
+            descricao,
+            CAST(criado_por AS NVARCHAR(50)) AS criado_por,
+            criado_por_nome,
+            criado_em
+          FROM @out;
         `);
       return q.recordset[0];
     }
