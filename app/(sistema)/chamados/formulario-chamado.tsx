@@ -4,16 +4,16 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { type Chamado, type Motivo } from "@/types/database";
 import { salvarChamado, verificarProtocoloDuplicado, buscarChamadosParaVinculo } from "./actions";
-import { 
-  AlertCircle, 
-  Link as LinkIcon, 
-  ArrowLeft, 
-  Paperclip, 
-  FileText, 
-  X, 
+import {
+  AlertCircle,
+  Link as LinkIcon,
+  ArrowLeft,
+  Paperclip,
+  FileText,
+  X,
   UploadCloud,
   Calendar,
-  Search
+  Search,
 } from "lucide-react";
 import Link from "next/link";
 import { CustomSelect, type CustomSelectOption } from "@/components/ui/custom-select";
@@ -40,7 +40,7 @@ export function FormularioChamado({
   const [alunoNome, setAlunoNome] = useState(chamadoInicial?.aluno_nome || "");
   const [alunoRa, setAlunoRa] = useState(chamadoInicial?.aluno_ra || "");
   const [contatoTelefone, setContatoTelefone] = useState(chamadoInicial?.contato_telefone || "");
-  const [motivoId, setMotivoId] = useState(chamadoInicial?.motivo_id || (motivos[0]?.id || ""));
+  const [motivoId, setMotivoId] = useState(chamadoInicial?.motivo_id || motivos[0]?.id || "");
   const [descricao, setDescricao] = useState(chamadoInicial?.descricao || "");
   const [situacao, setSituacao] = useState(chamadoInicial?.situacao || "aguardando");
   const [prioridade, setPrioridade] = useState(chamadoInicial?.prioridade || "normal");
@@ -48,7 +48,8 @@ export function FormularioChamado({
     chamadoInicial?.data_solicitacao || new Date().toISOString().split("T")[0]
   );
   const [prazo, setPrazo] = useState(
-    chamadoInicial?.prazo || new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
+    chamadoInicial?.prazo ||
+      new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
   );
   const [observacao, setObservacao] = useState(chamadoInicial?.observacao || "");
 
@@ -62,7 +63,13 @@ export function FormularioChamado({
   const [chamadoVinculado, setChamadoVinculado] = useState(chamadoVinculadoInicial || null);
   const [buscaVinculo, setBuscaVinculo] = useState("");
   const [resultadosVinculo, setResultadosVinculo] = useState<
-    { id: string; protocolo: string; aluno_nome: string; data_solicitacao: string; situacao: string }[]
+    {
+      id: string;
+      protocolo: string;
+      aluno_nome: string;
+      data_solicitacao: string;
+      situacao: string;
+    }[]
   >([]);
   const [buscandoVinculo, setBuscandoVinculo] = useState(false);
 
@@ -166,6 +173,20 @@ export function FormularioChamado({
     });
   };
 
+  const calcularSla5DiasUteis = () => {
+    if (!dataSolicitacao) return;
+    const data = new Date(dataSolicitacao + "T12:00:00");
+    let diasUteis = 0;
+    while (diasUteis < 5) {
+      data.setDate(data.getDate() + 1);
+      const dia = data.getDay();
+      if (dia !== 0 && dia !== 6) {
+        diasUteis++;
+      }
+    }
+    setPrazo(data.toISOString().split("T")[0]);
+  };
+
   return (
     <form onSubmit={handleSubmit} className="mx-auto max-w-4xl space-y-8 pb-12">
       {/* Topo do Formulário */}
@@ -173,14 +194,16 @@ export function FormularioChamado({
         <div className="flex items-center gap-3">
           <Link
             href="/chamados"
-            className="h-9 w-9 rounded-lg border border-borda bg-superficie flex items-center justify-center text-texto-suave hover:bg-fundo hover:text-texto transition"
+            className="btn-tátil h-9 w-9 rounded-lg border border-borda bg-superficie flex items-center justify-center text-texto-suave hover:bg-fundo hover:text-texto transition shadow-xs"
             title="Voltar para a listagem"
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-texto">
-              {chamadoInicial ? `Editar Chamado: ${chamadoInicial.protocolo}` : "Abertura de Novo Chamado"}
+              {chamadoInicial
+                ? `Editar Chamado: ${chamadoInicial.protocolo}`
+                : "Abertura de Novo Chamado"}
             </h1>
             <p className="text-sm text-texto-suave mt-0.5">
               {chamadoInicial
@@ -193,14 +216,14 @@ export function FormularioChamado({
         <div className="flex items-center gap-2">
           <Link
             href="/chamados"
-            className="h-9 px-4 rounded-lg border border-borda bg-superficie text-xs font-semibold text-texto hover:bg-fundo transition inline-flex items-center"
+            className="btn-tátil h-9 px-4 rounded-lg border border-borda bg-superficie text-xs font-semibold text-texto hover:bg-fundo transition inline-flex items-center shadow-xs"
           >
             Cancelar
           </Link>
           <button
             type="submit"
             disabled={isPending}
-            className="h-9 px-5 rounded-lg bg-acento text-xs font-semibold text-white hover:bg-acento-hover disabled:opacity-50 transition inline-flex items-center"
+            className="btn-tátil h-9 px-5 rounded-lg bg-acento text-xs font-semibold text-white hover:bg-acento-hover disabled:opacity-50 transition inline-flex items-center shadow-xs"
           >
             {isPending ? "Salvando..." : chamadoInicial ? "Salvar Alterações" : "Salvar Chamado"}
           </button>
@@ -215,7 +238,7 @@ export function FormularioChamado({
       )}
 
       {/* Seção 1: Identificação do Chamado */}
-      <div className="rounded-xl border border-borda bg-superficie p-6 space-y-4 shadow-sm">
+      <div className="rounded-xl border border-borda bg-superficie p-6 space-y-4 shadow-xs">
         <h2 className="font-heading text-sm font-bold text-texto border-b border-borda pb-3">
           Identificação do Protocolo e Aluno
         </h2>
@@ -307,16 +330,24 @@ export function FormularioChamado({
       </div>
 
       {/* Seção 2: Prazos e Situação */}
-      <div className="rounded-xl border border-borda bg-superficie p-6 space-y-4 shadow-sm">
-        <h2 className="font-heading text-sm font-bold text-texto border-b border-borda pb-3">
-          Controle de Prazo e Situação
-        </h2>
+      <div className="rounded-xl border border-borda bg-superficie p-6 space-y-4 shadow-xs">
+        <div className="flex items-center justify-between border-b border-borda pb-3">
+          <h2 className="font-heading text-sm font-bold text-texto">
+            Controle de Prazo e Situação
+          </h2>
+          <button
+            type="button"
+            onClick={calcularSla5DiasUteis}
+            className="btn-tátil text-[11px] font-semibold text-acento hover:underline flex items-center gap-1"
+            title="Preencher com 5 dias úteis a partir da abertura"
+          >
+            <span>Auto: 5 dias úteis (SLA)</span>
+          </button>
+        </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
           <div>
-            <label className="block text-xs font-bold text-texto mb-1.5">
-              Data de Abertura *
-            </label>
+            <label className="block text-xs font-bold text-texto mb-1.5">Data de Abertura *</label>
             <div className="flex items-center gap-2 rounded-lg border border-borda bg-fundo px-3 py-2 shadow-xs">
               <Calendar className="h-4 w-4 text-texto-suave" />
               <input
@@ -330,9 +361,7 @@ export function FormularioChamado({
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-texto mb-1.5">
-              Prazo Limite *
-            </label>
+            <label className="block text-xs font-bold text-texto mb-1.5">Prazo Limite *</label>
             <div className="flex items-center gap-2 rounded-lg border border-borda bg-fundo px-3 py-2 shadow-xs">
               <Calendar className="h-4 w-4 text-texto-suave" />
               <input
@@ -365,9 +394,7 @@ export function FormularioChamado({
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-texto mb-1.5">
-            Descrição do Chamado
-          </label>
+          <label className="block text-xs font-bold text-texto mb-1.5">Descrição do Chamado</label>
           <textarea
             rows={3}
             value={descricao}
@@ -454,7 +481,9 @@ export function FormularioChamado({
           <div className="flex items-center justify-between rounded-lg border border-acento/40 bg-acento/10 p-3.5 text-xs shadow-xs">
             <div className="flex items-center gap-2 font-medium text-texto">
               <span>Vinculado ao protocolo anterior:</span>
-              <strong className="font-mono text-acento font-bold">{chamadoVinculado.protocolo}</strong>
+              <strong className="font-mono text-acento font-bold">
+                {chamadoVinculado.protocolo}
+              </strong>
               <span className="text-texto-suave">({chamadoVinculado.aluno_nome})</span>
             </div>
             <button
@@ -468,7 +497,8 @@ export function FormularioChamado({
         ) : (
           <div className="space-y-3">
             <p className="text-xs text-texto-suave">
-              Se este chamado for a reabertura ou continuação de um problema já tratado, busque o protocolo anterior para vinculá-los.
+              Se este chamado for a reabertura ou continuação de um problema já tratado, busque o
+              protocolo anterior para vinculá-los.
             </p>
             <div className="flex gap-2">
               <div className="relative flex-1">
@@ -501,11 +531,16 @@ export function FormularioChamado({
             {resultadosVinculo.length > 0 && (
               <div className="divide-y divide-borda/60 rounded-lg border border-borda bg-fundo max-h-48 overflow-y-auto">
                 {resultadosVinculo.map((r) => (
-                  <div key={r.id} className="flex items-center justify-between p-3 text-xs hover:bg-superficie transition">
+                  <div
+                    key={r.id}
+                    className="flex items-center justify-between p-3 text-xs hover:bg-superficie transition"
+                  >
                     <div>
                       <span className="font-mono font-bold text-acento mr-2">{r.protocolo}</span>
                       <span className="font-semibold text-texto mr-2">{r.aluno_nome}</span>
-                      <span className="text-[11px] text-texto-suave font-mono">({r.data_solicitacao})</span>
+                      <span className="text-[11px] text-texto-suave font-mono">
+                        ({r.data_solicitacao})
+                      </span>
                     </div>
                     <button
                       type="button"
@@ -553,7 +588,11 @@ export function FormularioChamado({
           disabled={isPending}
           className="rounded-lg bg-acento px-6 py-2.5 text-xs font-bold text-white hover:bg-acento-hover disabled:opacity-50 shadow-md transition"
         >
-          {isPending ? "Salvando..." : chamadoInicial ? "Salvar Alterações" : "Concluir Abertura do Chamado"}
+          {isPending
+            ? "Salvando..."
+            : chamadoInicial
+              ? "Salvar Alterações"
+              : "Concluir Abertura do Chamado"}
         </button>
       </div>
     </form>

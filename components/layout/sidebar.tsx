@@ -5,22 +5,22 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type Perfil } from "@/types/database";
 import { logoutUsuario } from "@/app/login/actions";
-import { 
-  LayoutDashboard, 
-  Ticket, 
-  Trophy, 
-  Settings, 
-  User, 
-  Users, 
-  FileText, 
-  LogOut, 
-  Sun, 
-  Moon, 
-  BookOpen, 
-  ChevronDown, 
+import {
+  LayoutDashboard,
+  Ticket,
+  Trophy,
+  Settings,
+  User,
+  Users,
+  FileText,
+  LogOut,
+  Sun,
+  Moon,
+  BookOpen,
+  ChevronDown,
   ChevronRight,
   X,
-  PanelLeftClose
+  PanelLeftClose,
 } from "lucide-react";
 
 interface SidebarPrincipalProps {
@@ -43,9 +43,9 @@ export function SidebarPrincipal({
   const pathname = usePathname();
   const [configAberto, setConfigAberto] = useState(
     pathname.startsWith("/configuracoes") ||
-    pathname.startsWith("/perfil") ||
-    pathname.startsWith("/usuarios") ||
-    pathname.startsWith("/auditoria")
+      pathname.startsWith("/perfil") ||
+      pathname.startsWith("/usuarios") ||
+      pathname.startsWith("/auditoria")
   );
 
   const [temaAtual, setTemaAtual] = useState<Tema>("claro");
@@ -95,7 +95,7 @@ export function SidebarPrincipal({
     }
   };
 
-  const estaNaConfiguracao = 
+  const estaNaConfiguracao =
     pathname.startsWith("/configuracoes") ||
     pathname.startsWith("/perfil") ||
     pathname.startsWith("/usuarios") ||
@@ -118,9 +118,11 @@ export function SidebarPrincipal({
         } ${recolhido ? "lg:w-20" : "lg:w-72"}`}
       >
         {/* Cabeçalho da Sidebar / Logo & Botão de Abrir/Fechar Lateral */}
-        <div className={`flex h-24 items-center border-b border-[#1E293B]/60 transition-all ${
-          recolhido ? "justify-center px-2" : "justify-between px-5"
-        }`}>
+        <div
+          className={`flex h-24 items-center border-b border-[#1E293B]/60 transition-all ${
+            recolhido ? "justify-center px-2" : "justify-between px-5"
+          }`}
+        >
           {recolhido ? (
             /* Modo Recolhido: Apenas a Logo Centralizada que ao clicar expande */
             <button
@@ -183,27 +185,31 @@ export function SidebarPrincipal({
             <ul className="space-y-1.5">
               {rotasPrincipais.map((rota) => {
                 const Icone = rota.icone;
-                const ativo = pathname === rota.href || (rota.href !== "/painel" && pathname.startsWith(`${rota.href}/`));
+                const ativo =
+                  pathname === rota.href ||
+                  (rota.href !== "/painel" && pathname.startsWith(`${rota.href}/`));
                 return (
                   <li key={rota.href}>
                     <Link
                       href={rota.href}
                       onClick={() => setMobileAberto(false)}
                       title={recolhido ? rota.rotulo : undefined}
-                      className={`flex items-center rounded-xl py-3 text-xs font-semibold transition-all ${
+                      className={`btn-tátil flex items-center rounded-xl py-3 text-xs font-semibold transition-all ${
                         recolhido ? "justify-center px-2" : "justify-between px-4"
                       } ${
                         ativo
-                          ? "bg-[#1D4ED8] text-white shadow-lg shadow-blue-900/40"
+                          ? "bg-[#1D4ED8] text-white shadow-md shadow-blue-950/50"
                           : "text-slate-300 hover:bg-white/5 hover:text-white"
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <Icone className={`h-5 w-5 shrink-0 ${ativo ? "text-white" : "text-slate-400"}`} />
+                        <Icone
+                          className={`h-4.5 w-4.5 shrink-0 ${ativo ? "text-white" : "text-slate-400"}`}
+                        />
                         {!recolhido && <span>{rota.rotulo}</span>}
                       </div>
                       {!recolhido && rota.badge && (
-                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white shadow-xs">
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-rose-600 text-[10px] font-bold text-white shadow-xs">
                           {rota.badge}
                         </span>
                       )}
@@ -231,16 +237,17 @@ export function SidebarPrincipal({
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Settings className={`h-5 w-5 shrink-0 ${estaNaConfiguracao ? "text-sky-400" : "text-slate-400"}`} />
+                  <Settings
+                    className={`h-5 w-5 shrink-0 ${estaNaConfiguracao ? "text-sky-400" : "text-slate-400"}`}
+                  />
                   {!recolhido && <span>Configurações</span>}
                 </div>
-                {!recolhido && (
-                  configAberto ? (
+                {!recolhido &&
+                  (configAberto ? (
                     <ChevronDown className="h-4 w-4" />
                   ) : (
                     <ChevronRight className="h-4 w-4" />
-                  )
-                )}
+                  ))}
               </button>
 
               {/* Submenu de Configurações (Apenas no modo expandido) */}
@@ -318,17 +325,29 @@ export function SidebarPrincipal({
         </div>
 
         {/* Rodapé da Sidebar: Usuário Conectado & Logout */}
-        <div className={`border-t border-[#1E293B] bg-[#050A18] p-3.5 transition-all ${
-          recolhido ? "flex flex-col items-center gap-3" : ""
-        }`}>
-          <div className={`flex items-center ${recolhido ? "flex-col gap-2.5" : "justify-between gap-3"}`}>
-            <div className={`flex items-center gap-3 truncate ${recolhido ? "justify-center" : ""}`}>
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1D4ED8] text-xs font-extrabold text-white shadow-md" title={perfil.nome_completo}>
+        <div
+          className={`border-t border-[#1E293B] bg-[#050A18] p-3.5 transition-all ${
+            recolhido ? "flex flex-col items-center gap-3" : ""
+          }`}
+        >
+          <div
+            className={`flex items-center ${recolhido ? "flex-col gap-2.5" : "justify-between gap-3"}`}
+          >
+            <div
+              className={`flex items-center gap-3 truncate ${recolhido ? "justify-center" : ""}`}
+            >
+              <div
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1D4ED8] text-xs font-extrabold text-white shadow-md"
+                title={perfil.nome_completo}
+              >
                 {perfil.nome_completo.substring(0, 2).toUpperCase()}
               </div>
               {!recolhido && (
                 <div className="truncate">
-                  <div className="text-xs font-bold text-white truncate" title={perfil.nome_completo}>
+                  <div
+                    className="text-xs font-bold text-white truncate"
+                    title={perfil.nome_completo}
+                  >
                     {perfil.nome_completo}
                   </div>
                   <div className="text-[11px] font-medium text-slate-400">

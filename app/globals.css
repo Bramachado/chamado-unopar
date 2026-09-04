@@ -4,66 +4,66 @@
 
 :root,
 [data-theme="claro"] {
-  --fundo: #F1F5F9; /* Fundo slate suave para destacar os cards com profundidade e contraste */
-  --superficie: #FFFFFF; /* Superfície branca nítida */
-  --superficie-destaque: #F8FAFC;
-  --borda: #CBD5E1; /* Borda bem definida de 1px */
-  --borda-suave: #E2E8F0;
-  --texto: #0F172A; /* Slate 900 (Contraste 14:1) */
-  --texto-suave: #334155; /* Slate 700 (Contraste > 8:1 AAA) */
-  --acento: #0284C7; /* Azul institucional / Teal */
-  --acento-hover: #0369A1;
-  --sucesso: #16A34A;
-  --sucesso-fundo: #DCFCE7;
-  --alerta: #D97706;
-  --alerta-fundo: #FEF3C7;
-  --erro: #DC2626;
-  --erro-fundo: #FEE2E2;
+  --fundo: #f8fafc; /* Fundo slate suave e arejado */
+  --superficie: #ffffff; /* Superfície branca pura */
+  --superficie-destaque: #f1f5f9;
+  --borda: #e2e8f0; /* Borda nítida de 1px */
+  --borda-suave: #f1f5f9;
+  --texto: #0f172a; /* Slate 900 (Contraste 14:1) */
+  --texto-suave: #475569; /* Slate 600 */
+  --acento: #1d4ed8; /* Azul institucional Edunorte */
+  --acento-hover: #1e40af;
+  --sucesso: #15803d;
+  --sucesso-fundo: #ecfdf5;
+  --alerta: #b45309;
+  --alerta-fundo: #fffbeb;
+  --erro: #b91c1c;
+  --erro-fundo: #fef2f2;
 }
 
 [data-theme="sepia"] {
-  --fundo: #E8E1D1;
-  --superficie: #F4EFE6;
-  --superficie-destaque: #EDE5D8;
-  --borda: #C9BFA8;
-  --borda-suave: #D9D0BE;
-  --texto: #25211A;
-  --texto-suave: #4C4436;
-  --acento: #0E6F63;
+  --fundo: #f5f1e9;
+  --superficie: #fcfbf8;
+  --superficie-destaque: #efe9dc;
+  --borda: #dcd3c1;
+  --borda-suave: #eae3d4;
+  --texto: #25211a;
+  --texto-suave: #574f3f;
+  --acento: #0e6f63;
   --acento-hover: #095047;
   --sucesso: #166534;
-  --sucesso-fundo: #D1E7DD;
-  --alerta: #9A3412;
-  --alerta-fundo: #F5DEB3;
-  --erro: #991B1B;
-  --erro-fundo: #F8D7DA;
+  --sucesso-fundo: #d1e7dd;
+  --alerta: #9a3412;
+  --alerta-fundo: #f5deb3;
+  --erro: #991b1b;
+  --erro-fundo: #f8d7da;
 }
 
 [data-theme="escuro"] {
-  --fundo: #0B0E12;
-  --superficie: #141920;
-  --superficie-destaque: #1C222C;
-  --borda: #2D3748;
-  --borda-suave: #222933;
-  --texto: #F1F5F9;
-  --texto-suave: #94A3B8;
-  --acento: #38BDF8;
-  --acento-hover: #0EA5E9;
-  --sucesso: #4ADE80;
-  --sucesso-fundo: #14532D;
-  --alerta: #FBBF24;
-  --alerta-fundo: #78350F;
-  --erro: #F87171;
-  --erro-fundo: #7F1D1D;
+  --fundo: #090d16;
+  --superficie: #0f172a;
+  --superficie-destaque: #1e293b;
+  --borda: #1e293b;
+  --borda-suave: #162032;
+  --texto: #f8fafc;
+  --texto-suave: #94a3b8;
+  --acento: #38bdf8;
+  --acento-hover: #0ea5e9;
+  --sucesso: #4ade80;
+  --sucesso-fundo: #064e3b;
+  --alerta: #fbbf24;
+  --alerta-fundo: #78350f;
+  --erro: #f87171;
+  --erro-fundo: #7f1d1d;
 }
 
 body {
   background-color: var(--fundo);
   color: var(--texto);
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
-/* Tipografia de dados numéricos alinhados */
+/* Tipografia tabular mono para números, códigos e protocolos alinhados */
 .tabular-nums {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
@@ -75,7 +75,7 @@ body {
   outline-offset: 2px;
 }
 
-/* Tabela densa corporativa padronizada com altura de linha 44px */
+/* Tabela densa corporativa padronizada */
 .tabela-densa {
   width: 100%;
   border-collapse: collapse;
@@ -85,7 +85,7 @@ body {
 .tabela-densa th {
   background-color: var(--superficie-destaque);
   border-bottom: 1px solid var(--borda);
-  padding: 0.6rem 0.85rem;
+  padding: 0.65rem 0.85rem;
   text-align: left;
   font-weight: 600;
   color: var(--texto-suave);
@@ -94,10 +94,20 @@ body {
 
 .tabela-densa td {
   border-bottom: 1px solid var(--borda-suave);
-  padding: 0.6rem 0.85rem;
+  padding: 0.65rem 0.85rem;
   height: 44px;
 }
 
 .tabela-densa tr:hover td {
   background-color: var(--superficie-destaque);
+}
+
+/* Micro-interação tátil de clique */
+.btn-tátil {
+  transition:
+    transform 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 0.15s ease;
+}
+.btn-tátil:active {
+  transform: scale(0.98);
 }

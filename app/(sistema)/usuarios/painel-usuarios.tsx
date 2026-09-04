@@ -2,21 +2,21 @@
 
 import { useState, useEffect, useTransition } from "react";
 import { type Perfil, type CredencialAcesso } from "@/types/database";
-import { 
-  revelarSenhaExternaAction, 
+import {
+  revelarSenhaExternaAction,
   alternarStatusUsuarioAction,
-  criarOuEditarUsuarioAction 
+  criarOuEditarUsuarioAction,
 } from "./actions";
-import { 
-  Eye, 
-  EyeOff, 
-  Key, 
-  UserPlus, 
-  AlertTriangle, 
-  Check, 
-  Clock, 
+import {
+  Eye,
+  EyeOff,
+  Key,
+  UserPlus,
+  AlertTriangle,
+  Check,
+  Clock,
   History,
-  Shield
+  Shield,
 } from "lucide-react";
 import { CustomSelect, type CustomSelectOption } from "@/components/ui/custom-select";
 
@@ -34,7 +34,9 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
   const [isPending] = useTransition();
 
   // Estados de revelação temporária (30s)
-  const [senhaRevelada, setSenhaRevelada] = useState<{ perfilId: string; senha: string } | null>(null);
+  const [senhaRevelada, setSenhaRevelada] = useState<{ perfilId: string; senha: string } | null>(
+    null
+  );
   const [tempoRestante, setTempoRestante] = useState<number>(0);
 
   // Estados do modal de criação/edição
@@ -42,7 +44,11 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
   const [usuarioEditando, setUsuarioEditando] = useState<Perfil | null>(null);
 
   // Estado do modal de confirmação de desativação
-  const [usuarioDesativando, setUsuarioDesativando] = useState<{ id: string; nome: string; ativo: boolean } | null>(null);
+  const [usuarioDesativando, setUsuarioDesativando] = useState<{
+    id: string;
+    nome: string;
+    ativo: boolean;
+  } | null>(null);
 
   // Mensagens de retorno
   const [mensagemErro, setMensagemErro] = useState<string | null>(null);
@@ -112,7 +118,8 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
             Gestão de Equipe e Credenciais
           </h1>
           <p className="text-sm text-texto-suave mt-0.5">
-            Controle de acesso, papéis no sistema e cofre de senhas da plataforma externa sob auditoria.
+            Controle de acesso, papéis no sistema e cofre de senhas da plataforma externa sob
+            auditoria.
           </p>
         </div>
 
@@ -143,36 +150,56 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
         </div>
       )}
 
-      {/* Caixa de Senha Revelada Ativa (30 segundos) */}
+      {/* Notificação de Senha Revelada com Barra de Tempo Linear */}
       {senhaRevelada && (
-        <div className="rounded-lg border border-acento/40 bg-acento/5 p-5 space-y-3">
+        <div className="rounded-xl border border-sky-200 bg-sky-50/70 p-5 space-y-3 shadow-xs dark:bg-sky-950/30 dark:border-sky-800">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 font-semibold text-xs text-acento">
+            <div className="flex items-center gap-2 font-semibold text-xs text-sky-800 dark:text-sky-300">
               <Key className="h-4 w-4" />
               <span>Senha da Plataforma Externa (Visualização Temporária)</span>
             </div>
-            <div className="flex items-center gap-1.5 font-mono text-xs font-semibold text-acento tabular-nums bg-superficie px-3 py-1 rounded-md border border-acento/30">
-              <Clock className="h-3.5 w-3.5" />
+            <div className="flex items-center gap-1.5 font-mono text-xs font-semibold text-sky-800 tabular-nums bg-white dark:bg-slate-900 px-3 py-1 rounded-md border border-sky-200 dark:border-sky-800 dark:text-sky-300">
+              <Clock className="h-3.5 w-3.5 text-sky-600" />
               <span>Expira em {tempoRestante}s</span>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="font-mono text-base font-bold text-texto bg-superficie px-4 py-2 rounded-lg border border-borda select-all">
+
+          {/* Barra de Progresso do Timer */}
+          <div className="w-full bg-sky-200 dark:bg-sky-900 h-1 rounded-full overflow-hidden">
+            <div
+              className="bg-sky-600 h-full transition-all duration-1000 ease-linear"
+              style={{ width: `${(tempoRestante / 30) * 100}%` }}
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            <span className="font-mono text-base font-bold text-texto bg-white dark:bg-slate-900 px-4 py-2 rounded-lg border border-borda select-all">
               {senhaRevelada.senha}
             </span>
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard.writeText(senhaRevelada.senha);
+              }}
+              className="btn-tátil h-9 px-3.5 rounded-lg border border-borda bg-white dark:bg-slate-900 text-xs font-semibold text-texto hover:bg-fundo transition flex items-center gap-1.5 shadow-xs"
+            >
+              <Check className="h-3.5 w-3.5 text-emerald-600" />
+              <span>Copiar senha</span>
+            </button>
             <button
               type="button"
               onClick={() => {
                 setSenhaRevelada(null);
                 setTempoRestante(0);
               }}
-              className="text-xs font-semibold text-texto-suave hover:text-texto underline"
+              className="btn-tátil text-xs font-semibold text-texto-suave hover:text-texto underline ml-auto"
             >
               Ocultar agora
             </button>
           </div>
-          <p className="text-xs text-texto-suave">
-            Esta visualização foi registrada no histórico de auditoria com seu endereço IP e data/hora.
+          <p className="text-[11px] text-texto-suave">
+            Esta visualização foi registrada no histórico de auditoria com seu endereço IP e
+            data/hora.
           </p>
         </div>
       )}
@@ -200,7 +227,7 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
                   <td className="text-xs font-medium text-texto">
                     {u.nome_completo}
                     {ehPropriaConta && (
-                      <span className="ml-2 rounded bg-acento/15 px-1.5 py-0.2 text-[10px] font-bold text-acento border border-acento/30">
+                      <span className="ml-2 rounded bg-sky-50 text-sky-700 border border-sky-200 px-1.5 py-0.2 text-[10px] font-bold dark:bg-sky-950 dark:text-sky-300 dark:border-sky-800">
                         (Você)
                       </span>
                     )}
@@ -208,12 +235,12 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
                   <td className="text-xs text-texto-suave font-mono">{u.email}</td>
                   <td className="text-center">
                     <span
-                      className={`inline-flex items-center justify-center h-6 px-2.5 rounded text-[11px] font-medium border ${
+                      className={`inline-flex items-center justify-center h-6 px-2.5 rounded-full text-[11px] font-semibold border ${
                         u.papel === "admin"
-                          ? "bg-acento/15 text-acento border-acento/30"
+                          ? "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800"
                           : u.papel === "coordenador"
-                          ? "bg-superficie text-texto border-borda"
-                          : "bg-fundo text-texto-suave border-borda"
+                            ? "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800"
+                            : "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"
                       }`}
                     >
                       {formatarPapel(u.papel)}
@@ -221,10 +248,10 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
                   </td>
                   <td className="text-center">
                     <span
-                      className={`inline-flex items-center justify-center h-6 px-2.5 rounded text-[11px] font-medium border ${
+                      className={`inline-flex items-center justify-center h-6 px-2.5 rounded-full text-[11px] font-semibold border ${
                         u.ativo
-                          ? "bg-sucesso-fundo/40 text-sucesso border-sucesso/30"
-                          : "bg-erro-fundo text-erro border-erro/30"
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+                          : "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800"
                       }`}
                     >
                       {u.ativo ? "Ativo" : "Inativo"}
@@ -235,14 +262,18 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
                       <button
                         type="button"
                         onClick={() => handleRevelarSenha(u.id)}
-                        className={`inline-flex items-center gap-1 h-7 px-2.5 rounded text-[11px] font-semibold transition ${
+                        className={`btn-tátil inline-flex items-center gap-1 h-7 px-2.5 rounded-lg text-[11px] font-semibold transition ${
                           revelandoEsta
-                            ? "bg-acento text-white"
+                            ? "bg-[#1D4ED8] text-white shadow-xs"
                             : "border border-borda bg-fundo text-texto hover:bg-superficie"
                         }`}
                         title="Revelar senha do cofre (auditado)"
                       >
-                        {revelandoEsta ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                        {revelandoEsta ? (
+                          <EyeOff className="h-3.5 w-3.5" />
+                        ) : (
+                          <Eye className="h-3.5 w-3.5" />
+                        )}
                         <span>{revelandoEsta ? "Revelada" : "Ver senha"}</span>
                       </button>
                     ) : (
@@ -266,10 +297,16 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
                         type="button"
                         onClick={() => {
                           if (ehPropriaConta) {
-                            setMensagemErro("Você não pode desativar sua própria conta de administrador.");
+                            setMensagemErro(
+                              "Você não pode desativar sua própria conta de administrador."
+                            );
                             return;
                           }
-                          setUsuarioDesativando({ id: u.id, nome: u.nome_completo, ativo: u.ativo });
+                          setUsuarioDesativando({
+                            id: u.id,
+                            nome: u.nome_completo,
+                            ativo: u.ativo,
+                          });
                         }}
                         className="h-7 px-2.5 rounded border border-borda bg-fundo text-[11px] font-medium text-texto-suave hover:text-texto hover:bg-superficie"
                       >
@@ -294,7 +331,9 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
         </div>
 
         {acessosRecentes.length === 0 ? (
-          <p className="text-xs text-texto-suave">Nenhum acesso ao cofre registrado nas últimas semanas.</p>
+          <p className="text-xs text-texto-suave">
+            Nenhum acesso ao cofre registrado nas últimas semanas.
+          </p>
         ) : (
           <div className="overflow-x-auto rounded-lg border border-borda bg-superficie">
             <table className="tabela-densa">
@@ -315,9 +354,7 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
                     <td className="text-xs font-medium text-texto">
                       {a.admin_nome || "Administrador"}
                     </td>
-                    <td className="text-xs text-acento font-medium">
-                      {a.perfil_alvo_nome || "—"}
-                    </td>
+                    <td className="text-xs text-acento font-medium">{a.perfil_alvo_nome || "—"}</td>
                     <td className="font-mono text-xs text-texto-suave tabular-nums">
                       {a.ip || "127.0.0.1"}
                     </td>
@@ -382,7 +419,11 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
 }
 
 const opcoesPapel: CustomSelectOption[] = [
-  { value: "atendente", label: "Atendente", sublabel: "Acesso operacional a chamados e desempenho" },
+  {
+    value: "atendente",
+    label: "Atendente",
+    sublabel: "Acesso operacional a chamados e desempenho",
+  },
   { value: "coordenador", label: "Coordenador", sublabel: "Acompanhamento geral e relatórios" },
   { value: "admin", label: "Administrador", sublabel: "Acesso total, cofre e auditoria" },
 ];
@@ -433,7 +474,11 @@ function ModalFormularioUsuario({
           <h3 className="text-sm font-semibold text-texto">
             {usuario ? `Editar Membro: ${usuario.nome_completo}` : "Cadastrar Novo Membro"}
           </h3>
-          <button type="button" onClick={aoFechar} className="text-texto-suave hover:text-texto font-semibold">
+          <button
+            type="button"
+            onClick={aoFechar}
+            className="text-texto-suave hover:text-texto font-semibold"
+          >
             ✕
           </button>
         </div>
@@ -446,9 +491,7 @@ function ModalFormularioUsuario({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-texto mb-1.5">
-              Nome Completo *
-            </label>
+            <label className="block text-xs font-medium text-texto mb-1.5">Nome Completo *</label>
             <input
               type="text"
               required
@@ -483,7 +526,9 @@ function ModalFormularioUsuario({
 
           <div>
             <label className="block text-xs font-medium text-texto mb-1.5">
-              {usuario ? "Nova Senha do Sistema (Opcional)" : "Senha de Acesso ao Sistema (mínimo 8 caracteres) *"}
+              {usuario
+                ? "Nova Senha do Sistema (Opcional)"
+                : "Senha de Acesso ao Sistema (mínimo 8 caracteres) *"}
             </label>
             <input
               type="password"

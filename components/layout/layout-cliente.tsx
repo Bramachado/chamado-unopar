@@ -29,7 +29,7 @@ export function LayoutCliente({ perfil, children }: LayoutClienteProps) {
   };
 
   return (
-    <div className="min-h-screen flex bg-fundo text-texto relative">
+    <div className="min-h-[100dvh] flex bg-fundo text-texto relative antialiased selection:bg-blue-100 selection:text-blue-900">
       {/* Sidebar Lateral com Controle de Recolher/Expandir */}
       <SidebarPrincipal
         perfil={perfil}
@@ -40,17 +40,19 @@ export function LayoutCliente({ perfil, children }: LayoutClienteProps) {
       />
 
       {/* Conteúdo Principal com compensação da largura da Sidebar */}
-      <div className={`flex flex-1 flex-col transition-all duration-300 ${
-        recolhido ? "lg:pl-20" : "lg:pl-72"
-      }`}>
+      <div
+        className={`flex flex-1 flex-col transition-all duration-300 ${
+          recolhido ? "lg:pl-20" : "lg:pl-72"
+        }`}
+      >
         {/* Header Superior Limpo: Apenas Notificação e Usuário */}
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-borda bg-superficie/95 backdrop-blur-xs px-4 sm:px-8 shadow-xs">
+        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-borda bg-superficie/95 backdrop-blur-md px-4 sm:px-8 shadow-xs">
           <div className="flex items-center gap-3">
             {/* Toggle Mobile */}
             <button
               type="button"
               onClick={() => setMobileAberto(true)}
-              className="rounded-xl border border-borda bg-fundo p-2 text-texto hover:bg-superficie lg:hidden shadow-xs"
+              className="btn-tátil rounded-xl border border-borda bg-fundo p-2 text-texto hover:bg-superficie lg:hidden shadow-xs"
               title="Abrir menu de navegação"
             >
               <Menu className="h-5 w-5" />
@@ -60,7 +62,7 @@ export function LayoutCliente({ perfil, children }: LayoutClienteProps) {
             <button
               type="button"
               onClick={() => setRecolhido(!recolhido)}
-              className="hidden lg:flex items-center gap-2 rounded-xl border border-borda bg-fundo px-3 py-1.5 text-xs font-semibold text-texto-suave hover:text-texto hover:bg-superficie transition shadow-xs"
+              className="btn-tátil hidden lg:flex items-center gap-2 rounded-xl border border-borda bg-fundo px-3 py-1.5 text-xs font-semibold text-texto-suave hover:text-texto hover:bg-superficie transition shadow-xs"
               title={recolhido ? "Expandir barra lateral" : "Recolher barra lateral"}
             >
               {recolhido ? (
@@ -82,11 +84,11 @@ export function LayoutCliente({ perfil, children }: LayoutClienteProps) {
             {/* Notificações com Badge */}
             <Link
               href="/chamados"
-              className="relative rounded-xl border border-borda bg-fundo p-2 text-texto-suave hover:text-texto hover:bg-superficie transition shadow-xs"
+              className="btn-tátil relative rounded-xl border border-borda bg-fundo p-2 text-texto-suave hover:text-texto hover:bg-superficie transition shadow-xs"
               title="Notificações"
             >
               <Bell className="h-4 w-4" />
-              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[9px] font-bold text-white shadow-xs">
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-600 text-[9px] font-bold text-white shadow-xs">
                 3
               </span>
             </Link>
@@ -94,7 +96,7 @@ export function LayoutCliente({ perfil, children }: LayoutClienteProps) {
             {/* Perfil Pill Badge */}
             <Link
               href="/perfil"
-              className="flex items-center gap-2.5 rounded-xl border border-borda bg-superficie px-3 py-1.5 hover:bg-fundo transition shadow-xs"
+              className="btn-tátil flex items-center gap-2.5 rounded-xl border border-borda bg-superficie px-3 py-1.5 hover:bg-fundo transition shadow-xs"
             >
               <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1D4ED8] text-xs font-bold text-white shadow-xs">
                 {perfil.nome_completo.substring(0, 2).toUpperCase()}
@@ -103,7 +105,7 @@ export function LayoutCliente({ perfil, children }: LayoutClienteProps) {
                 <span className="text-xs font-bold text-texto block leading-tight truncate max-w-[130px]">
                   {perfil.nome_completo}
                 </span>
-                <span className="text-[10px] text-texto-suave block leading-none mt-0.5">
+                <span className="text-[10px] text-texto-suave block leading-none mt-0.5 font-medium">
                   {formatarPapel(perfil.papel)}
                 </span>
               </div>
@@ -126,10 +128,10 @@ export function LayoutCliente({ perfil, children }: LayoutClienteProps) {
       {/* Botão Flutuante (FAB) de Atalho para Novo Chamado */}
       <Link
         href="/chamados/novo"
-        className="group fixed bottom-6 right-6 z-40 flex items-center gap-2.5 rounded-full bg-[#1D4ED8] p-4 text-white shadow-xl shadow-blue-900/40 transition-all duration-300 hover:scale-105 hover:bg-blue-600 hover:shadow-2xl sm:px-5 sm:py-3.5"
+        className="btn-tátil group fixed bottom-6 right-6 z-40 flex items-center gap-2.5 rounded-full bg-[#1D4ED8] p-4 text-white shadow-xl shadow-blue-900/30 transition-all duration-300 hover:scale-105 hover:bg-blue-600 hover:shadow-2xl sm:px-5 sm:py-3.5"
         title="Abrir novo chamado"
       >
-        <Plus className="h-6 w-6 transition-transform duration-300 group-hover:rotate-90" />
+        <Plus className="h-5 w-5 transition-transform duration-300 group-hover:rotate-90" />
         <span className="hidden text-xs font-extrabold tracking-wide sm:inline-block">
           Novo Chamado
         </span>

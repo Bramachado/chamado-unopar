@@ -4,17 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { type Chamado, type Motivo, type Perfil } from "@/types/database";
-import { 
-  Eye, 
-  Edit, 
-  Trash2, 
-  Search, 
-  Download, 
-  Plus, 
-  Users,
-  Filter,
-  Calendar
-} from "lucide-react";
+import { Eye, Edit, Trash2, Search, Download, Plus, Users, Filter, Calendar } from "lucide-react";
 import { format, parseISO, isBefore, startOfDay, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { excluirChamadoAction } from "./actions";
@@ -39,12 +29,7 @@ interface TabelaChamadosProps {
   };
 }
 
-export function TabelaChamados({
-  chamados,
-  motivos,
-  perfilAtual,
-  filtros,
-}: TabelaChamadosProps) {
+export function TabelaChamados({ chamados, motivos, perfilAtual, filtros }: TabelaChamadosProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -364,9 +349,7 @@ export function TabelaChamados({
                     </td>
 
                     {/* Aluno */}
-                    <td className="text-xs font-medium text-texto">
-                      {c.aluno_nome}
-                    </td>
+                    <td className="text-xs font-medium text-texto">{c.aluno_nome}</td>
 
                     {/* Contato */}
                     <td className="font-mono text-xs tabular-nums text-texto-suave">
@@ -384,22 +367,26 @@ export function TabelaChamados({
                     {/* Situação */}
                     <td className="text-center">
                       <span
-                        className={`inline-flex items-center justify-center h-6 px-2.5 rounded text-[11px] font-medium border ${
+                        className={`inline-flex items-center justify-center h-6 px-2.5 rounded-full text-[11px] font-semibold border ${
                           c.situacao === "concluido"
-                            ? "bg-sucesso-fundo/40 text-sucesso border-sucesso/30"
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
                             : c.situacao === "encerrado"
-                            ? "bg-fundo text-texto-suave border-borda"
-                            : "bg-fundo text-texto border-borda"
+                              ? "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"
+                              : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800"
                         }`}
                       >
-                        {c.situacao === "concluido" ? "Concluído" : c.situacao === "aguardando" ? "Aguardando" : "Encerrado"}
+                        {c.situacao === "concluido"
+                          ? "Concluído"
+                          : c.situacao === "aguardando"
+                            ? "Aguardando"
+                            : "Encerrado"}
                       </span>
                     </td>
 
                     {/* Prioridade */}
                     <td className="text-center">
                       {c.prioridade === "priorizar" ? (
-                        <span className="inline-flex items-center justify-center h-6 px-2 rounded border border-alerta/40 bg-alerta-fundo/40 text-[11px] font-semibold text-alerta">
+                        <span className="inline-flex items-center justify-center h-6 px-2 rounded-full border border-rose-200 bg-rose-50 text-[11px] font-semibold text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800">
                           Priorizar
                         </span>
                       ) : (
@@ -415,12 +402,12 @@ export function TabelaChamados({
                     {/* Prazo */}
                     <td className="font-mono text-xs tabular-nums text-right">
                       <span
-                        className={`rounded px-1.5 py-0.5 font-medium ${
+                        className={`rounded px-1.5 py-0.5 font-semibold ${
                           estaVencido
-                            ? "bg-erro-fundo text-erro border border-erro/30"
+                            ? "bg-rose-100 text-rose-800 border border-rose-200 dark:bg-rose-950 dark:text-rose-300"
                             : estaProximoVencimento
-                            ? "bg-alerta-fundo text-alerta border border-alerta/30"
-                            : "text-texto"
+                              ? "bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-950 dark:text-amber-300"
+                              : "text-texto"
                         }`}
                       >
                         {format(parseISO(c.prazo), "dd/MM/yyyy", { locale: ptBR })}
@@ -437,7 +424,7 @@ export function TabelaChamados({
                       <div className="inline-flex items-center gap-1">
                         <Link
                           href={`/chamados/${c.id}`}
-                          className="rounded-md p-1.5 text-texto-suave hover:bg-fundo hover:text-acento transition"
+                          className="btn-tátil rounded-md p-1.5 text-texto-suave hover:bg-fundo hover:text-acento transition"
                           title="Visualizar chamado"
                         >
                           <Eye className="h-4 w-4" />
@@ -446,7 +433,7 @@ export function TabelaChamados({
                         {podeEditar && (
                           <Link
                             href={`/chamados/${c.id}/editar`}
-                            className="rounded-md p-1.5 text-texto-suave hover:bg-fundo hover:text-acento transition"
+                            className="btn-tátil rounded-md p-1.5 text-texto-suave hover:bg-fundo hover:text-acento transition"
                             title="Editar chamado"
                           >
                             <Edit className="h-4 w-4" />
@@ -457,7 +444,7 @@ export function TabelaChamados({
                           <button
                             type="button"
                             onClick={() => setChamadoExcluir(c)}
-                            className="rounded-md p-1.5 text-texto-suave hover:bg-fundo hover:text-erro transition"
+                            className="btn-tátil rounded-md p-1.5 text-texto-suave hover:bg-fundo hover:text-erro transition"
                             title="Excluir chamado"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -486,9 +473,15 @@ export function TabelaChamados({
             const podeExcluir = ehAdmin || ehAutor;
 
             return (
-              <div key={c.id} className="rounded-lg border border-borda bg-superficie p-4 space-y-2.5">
+              <div
+                key={c.id}
+                className="rounded-lg border border-borda bg-superficie p-4 space-y-2.5"
+              >
                 <div className="flex items-center justify-between">
-                  <Link href={`/chamados/${c.id}`} className="font-mono font-semibold text-sm text-acento">
+                  <Link
+                    href={`/chamados/${c.id}`}
+                    className="font-mono font-semibold text-sm text-acento"
+                  >
                     {c.protocolo}
                   </Link>
                   <span
@@ -496,20 +489,20 @@ export function TabelaChamados({
                       c.situacao === "concluido"
                         ? "bg-sucesso-fundo/40 text-sucesso border-sucesso/30"
                         : c.situacao === "encerrado"
-                        ? "bg-fundo text-texto-suave border-borda"
-                        : "bg-fundo text-texto border-borda"
+                          ? "bg-fundo text-texto-suave border-borda"
+                          : "bg-fundo text-texto border-borda"
                     }`}
                   >
                     {c.situacao}
                   </span>
                 </div>
 
-                <div className="text-xs font-semibold text-texto">
-                  {c.aluno_nome}
-                </div>
+                <div className="text-xs font-semibold text-texto">{c.aluno_nome}</div>
 
                 <div className="text-[11px] text-texto-suave flex items-center justify-between">
-                  <span>{c.motivos?.codigo} {c.motivos?.nome}</span>
+                  <span>
+                    {c.motivos?.codigo} {c.motivos?.nome}
+                  </span>
                   <span className="font-mono text-texto">
                     Prazo: {format(parseISO(c.prazo), "dd/MM/yyyy")}
                   </span>
@@ -517,7 +510,10 @@ export function TabelaChamados({
 
                 <div className="flex items-center justify-between border-t border-borda pt-2 text-xs">
                   <span className="text-[11px] text-texto-suave">
-                    Responsável: <strong className="text-texto font-medium">{formatarResponsavel(c.perfis?.nome_completo)}</strong>
+                    Responsável:{" "}
+                    <strong className="text-texto font-medium">
+                      {formatarResponsavel(c.perfis?.nome_completo)}
+                    </strong>
                   </span>
 
                   <div className="flex items-center gap-2">
@@ -559,7 +555,8 @@ export function TabelaChamados({
               <span>Confirmar Exclusão</span>
             </h3>
             <p className="text-xs text-texto leading-relaxed">
-              Deseja realmente excluir o chamado <strong>{chamadoExcluir.protocolo}</strong>? Esta ação é auditada.
+              Deseja realmente excluir o chamado <strong>{chamadoExcluir.protocolo}</strong>? Esta
+              ação é auditada.
             </p>
             <div className="flex items-center justify-end gap-2 pt-3 border-t border-borda">
               <button
