@@ -4,12 +4,13 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { type Chamado, type Motivo, type Perfil } from "@/types/database";
-import { Eye, Edit, Trash2, Search, Download, Plus, Users, Filter, Calendar } from "lucide-react";
+import { Eye, Edit, Trash2, Search, Download, Plus, Users, Filter } from "lucide-react";
 import { format, parseISO, isBefore, startOfDay, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { excluirChamadoAction } from "./actions";
 import { CustomSelect, type CustomSelectOption } from "@/components/ui/custom-select";
 import { CustomCheckbox } from "@/components/ui/custom-checkbox";
+import { CustomDatePicker } from "@/components/ui/custom-date-picker";
 
 interface TabelaChamadosProps {
   chamados: (Chamado & {
@@ -230,23 +231,22 @@ export function TabelaChamados({ chamados, motivos, perfilAtual, filtros }: Tabe
 
         {/* Linha 2 de Filtros (Datas e Reincidência) */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-borda pt-3.5">
-          <div className="flex flex-wrap items-center gap-4">
-            {/* Seletor de Datas */}
-            <div className="flex items-center gap-2 bg-fundo px-3 py-1.5 rounded-lg border border-borda">
-              <Calendar className="h-4 w-4 text-texto-suave" />
-              <span className="text-xs font-medium text-texto">Período:</span>
-              <input
-                type="date"
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Seletores de Datas Estilizados */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-texto">Período:</span>
+              <CustomDatePicker
                 value={dataInicio}
-                onChange={(e) => setDataInicio(e.target.value)}
-                className="rounded-md border border-borda bg-superficie px-2 py-1 font-mono text-xs text-texto focus:border-acento focus:outline-none"
+                onChange={(val) => setDataInicio(val)}
+                placeholder="dd/mm/aaaa"
+                className="w-36"
               />
               <span className="text-xs text-texto-suave font-medium">até</span>
-              <input
-                type="date"
+              <CustomDatePicker
                 value={dataFim}
-                onChange={(e) => setDataFim(e.target.value)}
-                className="rounded-md border border-borda bg-superficie px-2 py-1 font-mono text-xs text-texto focus:border-acento focus:outline-none"
+                onChange={(val) => setDataFim(val)}
+                placeholder="dd/mm/aaaa"
+                className="w-36"
               />
             </div>
 

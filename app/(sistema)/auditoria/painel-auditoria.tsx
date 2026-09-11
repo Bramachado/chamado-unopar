@@ -5,18 +5,10 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { type LogAuditoria } from "@/types/database";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { 
-  Search, 
-  ChevronLeft, 
-  ChevronRight, 
-  Download, 
-  RotateCcw, 
-  Eye, 
-  X, 
-  Calendar 
-} from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Download, RotateCcw, Eye, X } from "lucide-react";
 import Link from "next/link";
 import { CustomSelect, type CustomSelectOption } from "@/components/ui/custom-select";
+import { CustomDatePicker } from "@/components/ui/custom-date-picker";
 
 interface PainelAuditoriaProps {
   logs: LogAuditoria[];
@@ -103,7 +95,8 @@ export function PainelAuditoria({
             Logs de Auditoria do Sistema
           </h1>
           <p className="text-sm text-texto-suave mt-0.5">
-            Rastreamento completo de operações em banco de dados, alterações cadastrais, arquivos e acessos.
+            Rastreamento completo de operações em banco de dados, alterações cadastrais, arquivos e
+            acessos.
           </p>
         </div>
 
@@ -157,18 +150,12 @@ export function PainelAuditoria({
 
           {/* Período */}
           <div>
-            <label className="block text-xs font-medium text-texto mb-1.5">
-              Data Específica
-            </label>
-            <div className="flex items-center gap-1 bg-fundo px-2.5 py-1 rounded-lg border border-borda">
-              <Calendar className="h-4 w-4 text-texto-suave" />
-              <input
-                type="date"
-                value={filtrosAtuais.data_inicio || ""}
-                onChange={(e) => aplicarFiltro("data_inicio", e.target.value)}
-                className="w-full rounded border border-borda bg-superficie px-2 py-1 font-mono text-xs text-texto focus:border-acento focus:outline-none"
-              />
-            </div>
+            <CustomDatePicker
+              label="Data Específica"
+              value={filtrosAtuais.data_inicio || ""}
+              onChange={(val) => aplicarFiltro("data_inicio", val)}
+              placeholder="dd/mm/aaaa"
+            />
           </div>
         </div>
 
@@ -226,16 +213,14 @@ export function PainelAuditoria({
                         log.operacao === "INSERT"
                           ? "bg-sucesso-fundo/40 text-sucesso border-sucesso/30"
                           : log.operacao === "UPDATE"
-                          ? "bg-alerta-fundo/40 text-alerta border-alerta/30"
-                          : "bg-erro-fundo text-erro border-erro/30"
+                            ? "bg-alerta-fundo/40 text-alerta border-alerta/30"
+                            : "bg-erro-fundo text-erro border-erro/30"
                       }`}
                     >
                       {log.operacao}
                     </span>
                   </td>
-                  <td className="font-mono text-xs text-acento">
-                    {log.tabela}
-                  </td>
+                  <td className="font-mono text-xs text-acento">{log.tabela}</td>
                   <td className="text-xs text-texto truncate max-w-[150px]">
                     {log.usuario_nome || "Sistema Automático"}
                   </td>
@@ -265,7 +250,8 @@ export function PainelAuditoria({
       {/* Paginação */}
       <div className="flex items-center justify-between text-xs text-texto-suave">
         <span>
-          Total de <strong>{totalRegistros}</strong> registros (Página {paginaAtual} de {totalPaginas})
+          Total de <strong>{totalRegistros}</strong> registros (Página {paginaAtual} de{" "}
+          {totalPaginas})
         </span>
 
         <div className="flex items-center gap-1.5">
@@ -308,15 +294,26 @@ export function PainelAuditoria({
 
             <div className="space-y-3 flex-1 overflow-y-auto text-xs font-mono">
               <div className="grid grid-cols-2 gap-2 text-texto bg-fundo p-3 rounded-lg border border-borda">
-                <div><strong>Tabela:</strong> {logSelecionado.tabela}</div>
-                <div><strong>Operação:</strong> {logSelecionado.operacao}</div>
-                <div><strong>Responsável:</strong> {logSelecionado.usuario_nome || "Sistema"}</div>
-                <div><strong>Data:</strong> {new Date(logSelecionado.criado_em).toLocaleString("pt-BR")}</div>
+                <div>
+                  <strong>Tabela:</strong> {logSelecionado.tabela}
+                </div>
+                <div>
+                  <strong>Operação:</strong> {logSelecionado.operacao}
+                </div>
+                <div>
+                  <strong>Responsável:</strong> {logSelecionado.usuario_nome || "Sistema"}
+                </div>
+                <div>
+                  <strong>Data:</strong>{" "}
+                  {new Date(logSelecionado.criado_em).toLocaleString("pt-BR")}
+                </div>
               </div>
 
               {logSelecionado.dados_antes && (
                 <div>
-                  <span className="text-[11px] font-bold text-texto-suave block mb-1">Dados Anteriores:</span>
+                  <span className="text-[11px] font-bold text-texto-suave block mb-1">
+                    Dados Anteriores:
+                  </span>
                   <pre className="rounded bg-fundo p-3 text-[11px] text-texto overflow-x-auto border border-borda">
                     {JSON.stringify(logSelecionado.dados_antes, null, 2)}
                   </pre>
@@ -325,7 +322,9 @@ export function PainelAuditoria({
 
               {logSelecionado.dados_depois && (
                 <div>
-                  <span className="text-[11px] font-bold text-texto-suave block mb-1">Dados Novos:</span>
+                  <span className="text-[11px] font-bold text-texto-suave block mb-1">
+                    Dados Novos:
+                  </span>
                   <pre className="rounded bg-fundo p-3 text-[11px] text-texto overflow-x-auto border border-borda">
                     {JSON.stringify(logSelecionado.dados_depois, null, 2)}
                   </pre>

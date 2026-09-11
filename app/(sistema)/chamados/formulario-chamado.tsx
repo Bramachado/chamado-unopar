@@ -12,11 +12,11 @@ import {
   FileText,
   X,
   UploadCloud,
-  Calendar,
   Search,
 } from "lucide-react";
 import Link from "next/link";
 import { CustomSelect, type CustomSelectOption } from "@/components/ui/custom-select";
+import { CustomDatePicker } from "@/components/ui/custom-date-picker";
 
 interface FormularioChamadoProps {
   chamadoInicial?: Chamado | null;
@@ -347,31 +347,21 @@ export function FormularioChamado({
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
           <div>
-            <label className="block text-xs font-bold text-texto mb-1.5">Data de Abertura *</label>
-            <div className="flex items-center gap-2 rounded-lg border border-borda bg-fundo px-3 py-2 shadow-xs">
-              <Calendar className="h-4 w-4 text-texto-suave" />
-              <input
-                type="date"
-                required
-                value={dataSolicitacao}
-                onChange={(e) => setDataSolicitacao(e.target.value)}
-                className="w-full bg-transparent font-mono text-xs font-semibold text-texto focus:outline-none"
-              />
-            </div>
+            <CustomDatePicker
+              label="Data de Abertura"
+              required
+              value={dataSolicitacao}
+              onChange={(val) => setDataSolicitacao(val)}
+            />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-texto mb-1.5">Prazo Limite *</label>
-            <div className="flex items-center gap-2 rounded-lg border border-borda bg-fundo px-3 py-2 shadow-xs">
-              <Calendar className="h-4 w-4 text-texto-suave" />
-              <input
-                type="date"
-                required
-                value={prazo}
-                onChange={(e) => setPrazo(e.target.value)}
-                className="w-full bg-transparent font-mono text-xs font-semibold text-texto focus:outline-none"
-              />
-            </div>
+            <CustomDatePicker
+              label="Prazo Limite"
+              required
+              value={prazo}
+              onChange={(val) => setPrazo(val)}
+            />
           </div>
 
           <div>
