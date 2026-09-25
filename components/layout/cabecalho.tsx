@@ -2,18 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { SeletorTema } from "@/components/ui/theme-switcher";
 import { type Perfil } from "@/types/database";
-import { 
-  LayoutDashboard, 
-  Ticket, 
-  Tag, 
-  Trophy, 
-  FileText, 
-  Users, 
-  User, 
+import {
+  LayoutDashboard,
+  Ticket,
+  Tag,
+  Trophy,
+  FileText,
+  Users,
+  User,
   LogOut,
-  Shield
+  Shield,
 } from "lucide-react";
 import { logoutUsuario } from "./actions";
 
@@ -65,23 +64,15 @@ export function CabecalhoPrincipal({ perfil }: CabecalhoProps) {
             <span className="font-heading text-sm font-bold tracking-tight text-texto">
               UNOPAR Parauapebas
             </span>
-            <span className="ml-2 text-xs text-texto-suave">
-              Controle de Protocolos
-            </span>
+            <span className="ml-2 text-xs text-texto-suave">Controle de Protocolos</span>
           </div>
         </div>
 
         <div className="flex items-center gap-4">
           <div className="text-right">
-            <div className="text-sm font-medium text-texto">
-              {perfil.nome_completo}
-            </div>
-            <div className="text-xs text-texto-suave">
-              {formatarPapel(perfil.papel)}
-            </div>
+            <div className="text-sm font-medium text-texto">{perfil.nome_completo}</div>
+            <div className="text-xs text-texto-suave">{formatarPapel(perfil.papel)}</div>
           </div>
-
-          <SeletorTema />
 
           <form action={logoutUsuario}>
             <button

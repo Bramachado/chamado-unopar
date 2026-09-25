@@ -13,7 +13,6 @@ import {
   BookOpen,
   ArrowRight,
   ShieldCheck,
-  Key,
   Lock,
 } from "lucide-react";
 
@@ -60,51 +59,48 @@ export function PainelConfiguracoes({ perfil }: PainelConfiguracoesProps) {
 
       {/* Grid de Configurações */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        {/* Card 1: Meu Perfil & Segurança (Apenas Admin) */}
-        {ehAdmin && (
-          <div className="rounded-lg border border-borda bg-superficie p-5 flex flex-col justify-between space-y-4 hover:border-acento/50 transition">
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-lg bg-acento/15 text-acento flex items-center justify-center border border-acento/30">
-                  <User className="h-5 w-5" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-semibold text-texto">Meu Perfil e Segurança</h2>
-                  <span className="text-xs text-texto-suave block">
-                    Dados cadastrais, senha do sistema e credencial externa
-                  </span>
-                </div>
+        {/* Card 1: Meu Perfil, Foto & Segurança */}
+        <div className="rounded-xl border border-borda bg-superficie p-5 flex flex-col justify-between space-y-4 hover:border-acento/50 transition shadow-xs">
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-lg bg-acento/15 text-acento flex items-center justify-center border border-acento/30">
+                <User className="h-5 w-5" />
               </div>
-
-              <p className="text-xs text-texto-suave leading-relaxed">
-                Altere sua senha de acesso ao sistema, gerencie a senha de acesso à plataforma
-                externa e visualize o histórico de quem consultou suas credenciais.
-              </p>
-
-              <div className="flex flex-wrap gap-2 pt-1 text-xs">
-                <span className="inline-flex items-center gap-1 rounded-md bg-fundo px-2.5 py-1 font-medium text-texto border border-borda">
-                  <Lock className="h-3 w-3 text-acento" />
-                  <span>Trocar senha</span>
-                </span>
-                <span className="inline-flex items-center gap-1 rounded-md bg-fundo px-2.5 py-1 font-medium text-texto border border-borda">
-                  <Key className="h-3 w-3 text-acento" />
-                  <span>Cofre cifrado</span>
+              <div>
+                <h2 className="text-sm font-semibold text-texto">Meu Perfil e Foto</h2>
+                <span className="text-xs text-texto-suave block">
+                  Foto de perfil, identificação cadastral e segurança
                 </span>
               </div>
             </div>
 
-            <Link
-              href="/perfil"
-              className="inline-flex items-center justify-between h-9 px-4 rounded-lg bg-fundo text-xs font-semibold text-acento hover:bg-superficie hover:text-acento-hover border border-borda transition"
-            >
-              <span>Acessar Meu Perfil</span>
-              <ArrowRight className="h-4 w-4" />
-            </Link>
+            <p className="text-xs text-texto-suave leading-relaxed">
+              Anexe ou altere sua foto de perfil, visualize seus dados de acesso institucional e
+              gerencie suas credenciais e senhas com segurança.
+            </p>
+
+            <div className="flex flex-wrap gap-2 pt-1 text-xs">
+              <span className="inline-flex items-center gap-1 rounded-md bg-fundo px-2.5 py-1 font-medium text-texto border border-borda">
+                <span>Foto de perfil</span>
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-md bg-fundo px-2.5 py-1 font-medium text-texto border border-borda">
+                <Lock className="h-3 w-3 text-acento" />
+                <span>Segurança</span>
+              </span>
+            </div>
           </div>
-        )}
+
+          <Link
+            href="/perfil"
+            className="inline-flex items-center justify-between h-9 px-4 rounded-lg bg-fundo text-xs font-semibold text-acento hover:bg-superficie hover:text-acento-hover border border-borda transition"
+          >
+            <span>Acessar Meu Perfil</span>
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
 
         {/* Card 2: Preferências de Tema Visual */}
-        <div className="rounded-lg border border-borda bg-superficie p-5 flex flex-col justify-between space-y-4">
+        <div className="rounded-xl border border-borda bg-superficie p-5 flex flex-col justify-between space-y-4 shadow-xs">
           <div className="space-y-3">
             <div className="flex items-center gap-3">
               <div className="h-9 w-9 rounded-lg bg-acento/15 text-acento flex items-center justify-center border border-acento/30">
@@ -119,50 +115,100 @@ export function PainelConfiguracoes({ perfil }: PainelConfiguracoesProps) {
             </div>
 
             <p className="text-xs text-texto-suave leading-relaxed">
-              Escolha a paleta de cores ideal para o seu ambiente de trabalho. As preferências são
-              salvas automaticamente no seu navegador.
+              Personalize o esquema de cores para sua rotina de trabalho. O ajuste é aplicado
+              instantaneamente e fica salvo no seu navegador.
             </p>
 
-            {/* Seletores de Tema */}
-            <div className="grid grid-cols-3 gap-2 pt-1">
-              <button
-                type="button"
+            {/* Pílula Seletora de Tema (Conforme Imagem Solicitada) */}
+            <div className="pt-2">
+              <div className="inline-flex items-center rounded-xl border border-borda bg-fundo p-1 text-xs shadow-xs w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => alterarTema("claro")}
+                  className={`btn-tátil flex-1 sm:flex-initial flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    temaAtual === "claro"
+                      ? "bg-superficie text-texto font-bold shadow-xs border border-borda/80 ring-1 ring-amber-500/20"
+                      : "text-texto-suave hover:text-texto"
+                  }`}
+                  title="Tema Claro"
+                >
+                  <Sun className="h-4 w-4 text-amber-500" />
+                  <span>Claro</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => alterarTema("sepia")}
+                  className={`btn-tátil flex-1 sm:flex-initial flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    temaAtual === "sepia"
+                      ? "bg-superficie text-texto font-bold shadow-xs border border-borda/80 ring-1 ring-blue-600/20"
+                      : "text-texto-suave hover:text-texto"
+                  }`}
+                  title="Tema Sépia (Bege e Azul)"
+                >
+                  <BookOpen className="h-4 w-4 text-blue-600" />
+                  <span>Sépia</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => alterarTema("escuro")}
+                  className={`btn-tátil flex-1 sm:flex-initial flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    temaAtual === "escuro"
+                      ? "bg-superficie text-texto font-bold shadow-xs border border-borda/80 ring-1 ring-indigo-400/20"
+                      : "text-texto-suave hover:text-texto"
+                  }`}
+                  title="Tema Escuro"
+                >
+                  <Moon className="h-4 w-4 text-indigo-400" />
+                  <span>Escuro</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Cards de Demonstração / Preview das Cores */}
+            <div className="grid grid-cols-3 gap-2 pt-2">
+              <div
                 onClick={() => alterarTema("claro")}
-                className={`flex flex-col items-center justify-center gap-1.5 rounded-lg border p-3 text-xs font-semibold transition ${
+                className={`cursor-pointer rounded-lg border p-2.5 text-center transition ${
                   temaAtual === "claro"
-                    ? "border-acento bg-acento/10 text-acento ring-2 ring-acento"
-                    : "border-borda bg-fundo text-texto hover:bg-superficie"
+                    ? "border-amber-500 bg-amber-500/5 ring-2 ring-amber-500/30"
+                    : "border-borda bg-fundo opacity-70 hover:opacity-100"
                 }`}
               >
-                <Sun className="h-4 w-4" />
-                <span>Claro</span>
-              </button>
+                <div className="h-4 rounded bg-white border border-slate-200 mb-1.5 flex items-center px-1">
+                  <div className="h-1.5 w-1.5 rounded-full bg-blue-600"></div>
+                </div>
+                <span className="text-[10px] font-bold text-texto block">Branco / Azul</span>
+              </div>
 
-              <button
-                type="button"
+              <div
                 onClick={() => alterarTema("sepia")}
-                className={`flex flex-col items-center justify-center gap-1.5 rounded-lg border p-3 text-xs font-semibold transition ${
+                className={`cursor-pointer rounded-lg border p-2.5 text-center transition ${
                   temaAtual === "sepia"
-                    ? "border-acento bg-acento/10 text-acento ring-2 ring-acento"
-                    : "border-borda bg-fundo text-texto hover:bg-superficie"
+                    ? "border-blue-600 bg-blue-600/5 ring-2 ring-blue-600/30"
+                    : "border-borda bg-fundo opacity-70 hover:opacity-100"
                 }`}
               >
-                <BookOpen className="h-4 w-4" />
-                <span>Sépia</span>
-              </button>
+                <div className="h-4 rounded bg-[#f4ece1] border border-[#d8c8b4] mb-1.5 flex items-center px-1">
+                  <div className="h-1.5 w-1.5 rounded-full bg-[#1e40af]"></div>
+                </div>
+                <span className="text-[10px] font-bold text-texto block">Bege / Azul</span>
+              </div>
 
-              <button
-                type="button"
+              <div
                 onClick={() => alterarTema("escuro")}
-                className={`flex flex-col items-center justify-center gap-1.5 rounded-lg border p-3 text-xs font-semibold transition ${
+                className={`cursor-pointer rounded-lg border p-2.5 text-center transition ${
                   temaAtual === "escuro"
-                    ? "border-acento bg-acento/10 text-acento ring-2 ring-acento"
-                    : "border-borda bg-fundo text-texto hover:bg-superficie"
+                    ? "border-indigo-500 bg-indigo-500/5 ring-2 ring-indigo-500/30"
+                    : "border-borda bg-fundo opacity-70 hover:opacity-100"
                 }`}
               >
-                <Moon className="h-4 w-4" />
-                <span>Escuro</span>
-              </button>
+                <div className="h-4 rounded bg-[#0b1329] border border-[#1e293b] mb-1.5 flex items-center px-1">
+                  <div className="h-1.5 w-1.5 rounded-full bg-sky-400"></div>
+                </div>
+                <span className="text-[10px] font-bold text-texto block">Noturno / Azul</span>
+              </div>
             </div>
           </div>
 

@@ -21,6 +21,7 @@ import {
   MapPin,
 } from "lucide-react";
 import { CustomSelect, type CustomSelectOption } from "@/components/ui/custom-select";
+import { AvatarUsuario } from "@/components/ui/avatar-usuario";
 
 interface UsuarioComCredencial extends Perfil {
   tem_credencial_externa?: boolean;
@@ -250,12 +251,15 @@ export function PainelUsuarios({
               return (
                 <tr key={u.id}>
                   <td className="text-xs font-medium text-texto">
-                    {u.nome_completo}
-                    {ehPropriaConta && (
-                      <span className="ml-2 rounded bg-sky-50 text-sky-700 border border-sky-200 px-1.5 py-0.2 text-[10px] font-bold dark:bg-sky-950 dark:text-sky-300 dark:border-sky-800">
-                        (Você)
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2.5">
+                      <AvatarUsuario nome={u.nome_completo} fotoUrl={u.avatar_url} tamanho="xs" />
+                      <span className="font-semibold text-texto">{u.nome_completo}</span>
+                      {ehPropriaConta && (
+                        <span className="ml-1 rounded bg-sky-50 text-sky-700 border border-sky-200 px-1.5 py-0.2 text-[10px] font-bold dark:bg-sky-950 dark:text-sky-300 dark:border-sky-800">
+                          (Você)
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="text-xs text-texto-suave font-mono">{u.email}</td>
                   <td className="text-xs">

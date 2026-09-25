@@ -1,12 +1,28 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef } from "react";
 import { type Perfil, type CredencialAcesso } from "@/types/database";
 import { salvarCredencialExternaAction } from "../usuarios/actions";
-import { alterarMinhaSenhaAction } from "./actions";
+import {
+  alterarMinhaSenhaAction,
+  atualizarMinhaFotoAction,
+  removerMinhaFotoAction,
+} from "./actions";
+import { AvatarUsuario } from "@/components/ui/avatar-usuario";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { User, Lock, Key, History, Check, AlertCircle, ShieldCheck } from "lucide-react";
+import {
+  User,
+  Lock,
+  Key,
+  History,
+  Check,
+  AlertCircle,
+  ShieldCheck,
+  Camera,
+  Trash2,
+  Loader2,
+} from "lucide-react";
 
 interface PainelPerfilProps {
   perfil: Perfil;
@@ -21,8 +37,106 @@ export function PainelPerfil({ perfil, historicoAcessos }: PainelPerfilProps) {
   const [confirmaSenhaSistema, setConfirmaSenhaSistema] = useState("");
   const [novaSenhaExterna, setNovaSenhaExterna] = useState("");
 
+  const [fotoUrl, setFotoUrl] = useState<string | null>(perfil.avatar_url || null);
+  const [salvandoFoto, setSalvandoFoto] = useState(false);
+  const inputArquivoRef = useRef<HTMLInputElement>(null);
+
   const [msgSucesso, setMsgSucesso] = useState<string | null>(null);
   const [msgErro, setMsgErro] = useState<string | null>(null);
+
+  const processarEComprimirImagem = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const leitor = new FileReader();
+      leitor.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const maxDim = 380;
+          const largura = img.width;
+          const altura = img.height;
+
+          // Corta em formato quadrado central
+          const menorLado = Math.min(largura, altura);
+          const sx = (largura - menorLado) / 2;
+          const sy = (altura - menorLado) / 2;
+
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.min(menorLado, maxDim);
+          canvas.height = Math.min(menorLado, maxDim);
+
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            resolve(e.target?.result as string);
+            return;
+          }
+
+          ctx.drawImage(img, sx, sy, menorLado, menorLado, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL("image/webp", 0.85);
+          resolve(dataUrl);
+        };
+        img.onerror = () => reject(new Error("Falha ao carregar a imagem."));
+        img.src = e.target?.result as string;
+      };
+      leitor.onerror = () => reject(new Error("Falha ao ler o arquivo selecionado."));
+      leitor.readAsDataURL(file);
+    });
+  };
+
+  const handleSelecionarFoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setMsgErro("Por favor, selecione um arquivo de imagem válido (JPG, PNG ou WebP).");
+      return;
+    }
+
+    try {
+      setSalvandoFoto(true);
+      setMsgErro(null);
+      setMsgSucesso(null);
+
+      const base64Comprimido = await processarEComprimirImagem(file);
+      setFotoUrl(base64Comprimido);
+
+      const res = await atualizarMinhaFotoAction(base64Comprimido);
+      if (!res.sucesso) {
+        setMsgErro(res.erro || "Falha ao salvar a foto de perfil.");
+        setFotoUrl(perfil.avatar_url || null);
+      } else {
+        setMsgSucesso("Foto de perfil anexada e atualizada com sucesso!");
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Erro ao processar imagem.";
+      setMsgErro(msg);
+      setFotoUrl(perfil.avatar_url || null);
+    } finally {
+      setSalvandoFoto(false);
+      if (inputArquivoRef.current) {
+        inputArquivoRef.current.value = "";
+      }
+    }
+  };
+
+  const handleRemoverFoto = async () => {
+    try {
+      setSalvandoFoto(true);
+      setMsgErro(null);
+      setMsgSucesso(null);
+
+      const res = await removerMinhaFotoAction();
+      if (!res.sucesso) {
+        setMsgErro(res.erro || "Falha ao remover a foto.");
+      } else {
+        setFotoUrl(null);
+        setMsgSucesso("Foto removida. O sistema agora exibe as iniciais do seu nome.");
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Erro ao remover foto.";
+      setMsgErro(msg);
+    } finally {
+      setSalvandoFoto(false);
+    }
+  };
 
   const formatarPapel = (papel: string) => {
     switch (papel) {
@@ -133,31 +247,96 @@ export function PainelPerfil({ perfil, historicoAcessos }: PainelPerfilProps) {
         </div>
       )}
 
-      {/* Cartão de Identificação */}
-      <div className="rounded-lg border border-borda bg-superficie p-5 space-y-4">
-        <div className="flex items-center gap-2 border-b border-borda pb-3">
-          <User className="h-4 w-4 text-acento" />
-          <h2 className="text-sm font-semibold text-texto">Identificação Cadastral</h2>
+      {/* Cartão de Identificação & Foto de Perfil */}
+      <div className="rounded-xl border border-borda bg-superficie p-6 space-y-6 shadow-xs">
+        <div className="flex items-center gap-2 border-b border-borda pb-4">
+          <User className="h-4.5 w-4.5 text-acento" />
+          <h2 className="text-base font-semibold text-texto">Identificação e Foto de Perfil</h2>
         </div>
 
+        {/* Bloco de Foto / Avatar e Instrução */}
+        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 rounded-xl border border-borda bg-fundo/60 p-5">
+          <div className="relative group">
+            <AvatarUsuario
+              nome={perfil.nome_completo}
+              fotoUrl={fotoUrl}
+              tamanho="2xl"
+              className="ring-4 ring-acento/20"
+            />
+            {salvandoFoto && (
+              <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-xs">
+                <Loader2 className="h-6 w-6 animate-spin text-white" />
+              </div>
+            )}
+          </div>
+
+          <div className="flex-1 text-center sm:text-left space-y-3">
+            <div>
+              <h3 className="text-sm font-semibold text-texto">Sua Foto de Perfil</h3>
+              <p className="text-xs text-texto-suave mt-1 leading-relaxed">
+                Você pode anexar uma foto para personalizar seu perfil no sistema. Caso não anexe
+                nenhuma foto, as iniciais do seu nome e sobrenome serão exibidas automaticamente no
+                cabeçalho e nos menus.
+              </p>
+            </div>
+
+            {/* Input de arquivo invisível */}
+            <input
+              ref={inputArquivoRef}
+              type="file"
+              accept="image/png, image/jpeg, image/webp"
+              onChange={handleSelecionarFoto}
+              className="hidden"
+            />
+
+            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5 pt-1">
+              <button
+                type="button"
+                disabled={salvandoFoto}
+                onClick={() => inputArquivoRef.current?.click()}
+                className="btn-tátil inline-flex items-center gap-2 rounded-xl bg-acento px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-acento/90 transition disabled:opacity-50"
+              >
+                <Camera className="h-4 w-4" />
+                <span>{fotoUrl ? "Alterar Foto" : "Anexar Foto"}</span>
+              </button>
+
+              {fotoUrl && (
+                <button
+                  type="button"
+                  disabled={salvandoFoto}
+                  onClick={handleRemoverFoto}
+                  className="btn-tátil inline-flex items-center gap-1.5 rounded-xl border border-erro/30 bg-erro/10 px-3 py-2 text-xs font-semibold text-erro hover:bg-erro/20 transition disabled:opacity-50"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span>Remover Foto</span>
+                </button>
+              )}
+            </div>
+            <p className="text-[11px] text-texto-suave">
+              Formatos aceitos: JPG, PNG ou WebP. A foto é cortada e comprimida automaticamente.
+            </p>
+          </div>
+        </div>
+
+        {/* Dados Cadastrais */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 text-xs">
-          <div className="rounded-lg border border-borda bg-fundo p-3.5">
+          <div className="rounded-xl border border-borda bg-fundo p-4">
             <span className="font-medium text-texto-suave block text-[11px]">Nome Completo</span>
-            <span className="text-texto font-semibold text-sm block mt-0.5">
+            <span className="text-texto font-semibold text-sm block mt-1">
               {perfil.nome_completo}
             </span>
           </div>
 
-          <div className="rounded-lg border border-borda bg-fundo p-3.5">
+          <div className="rounded-xl border border-borda bg-fundo p-4">
             <span className="font-medium text-texto-suave block text-[11px]">
               E-mail Institucional
             </span>
-            <span className="text-texto font-mono font-medium block mt-0.5">{perfil.email}</span>
+            <span className="text-texto font-mono font-medium block mt-1">{perfil.email}</span>
           </div>
 
-          <div className="rounded-lg border border-borda bg-fundo p-3.5">
+          <div className="rounded-xl border border-borda bg-fundo p-4">
             <span className="font-medium text-texto-suave block text-[11px]">Papel no Sistema</span>
-            <span className="text-acento font-semibold block mt-0.5">
+            <span className="text-acento font-semibold block mt-1">
               {formatarPapel(perfil.papel)}
             </span>
           </div>

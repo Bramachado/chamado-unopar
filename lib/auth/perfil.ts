@@ -2,6 +2,7 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { verificarSessao, destruirSessao } from "./jwt";
 import { getPool, sql } from "@/lib/db/pool";
+import { obterAvatarUsuario } from "./avatar";
 import { type Perfil } from "@/types/database";
 
 /**
@@ -42,6 +43,8 @@ export const obterPerfilAtual = cache(async (): Promise<Perfil> => {
     redirect("/login");
   }
 
+  const avatarUrl = await obterAvatarUsuario(perfil.id);
+
   return {
     id: perfil.id,
     nome_completo: perfil.nome_completo,
@@ -51,6 +54,7 @@ export const obterPerfilAtual = cache(async (): Promise<Perfil> => {
     polo_id: perfil.polo_id || null,
     polo_nome: perfil.polo_nome || null,
     polo_cidade: perfil.polo_cidade || null,
+    avatar_url: avatarUrl,
     criado_em: perfil.criado_em
       ? new Date(perfil.criado_em).toISOString()
       : new Date().toISOString(),

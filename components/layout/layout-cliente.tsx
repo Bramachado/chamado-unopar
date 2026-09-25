@@ -7,7 +7,7 @@ import { SidebarPrincipal } from "./sidebar";
 import { Menu, ChevronDown, Plus, User, Settings, Users, FileText, LogOut } from "lucide-react";
 import { logoutUsuario } from "./actions";
 import { MenuNotificacoes } from "./menu-notificacoes";
-import { SeletorTema } from "@/components/ui/theme-switcher";
+import { AvatarUsuario } from "@/components/ui/avatar-usuario";
 import { type DadosNotificacoesPrazos } from "@/lib/chamados/notificacoes";
 
 interface LayoutClienteProps {
@@ -81,9 +81,6 @@ export function LayoutCliente({ perfil, notificacoesIniciais, children }: Layout
             >
               <Menu className="h-5 w-5" />
             </button>
-
-            {/* Seletor de Temas na barra superior esquerda */}
-            <SeletorTema />
           </div>
 
           {/* Lado Direito: Apenas Notificação e Perfil da Usuária */}
@@ -112,9 +109,11 @@ export function LayoutCliente({ perfil, notificacoesIniciais, children }: Layout
                 title="Abrir menu de configurações do usuário"
                 aria-expanded={menuUsuarioAberto}
               >
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1D4ED8] text-xs font-bold text-white shadow-xs">
-                  {perfil.nome_completo.substring(0, 2).toUpperCase()}
-                </div>
+                <AvatarUsuario
+                  nome={perfil.nome_completo}
+                  fotoUrl={perfil.avatar_url}
+                  tamanho="sm"
+                />
                 <div className="hidden sm:block text-left">
                   <span className="text-xs font-bold text-texto block leading-tight truncate max-w-[130px]">
                     {perfil.nome_completo}
@@ -133,31 +132,33 @@ export function LayoutCliente({ perfil, notificacoesIniciais, children }: Layout
               {/* Menu Suspenso */}
               {menuUsuarioAberto && (
                 <div className="absolute right-0 top-full mt-2 w-64 rounded-2xl border border-borda bg-superficie p-2 shadow-xl z-50 animate-in fade-in zoom-in-95 duration-150">
-                  {/* Cabeçalho do Usuário */}
-                  <div className="px-3 py-2.5 border-b border-borda mb-1.5">
-                    <p className="text-xs font-bold text-texto truncate leading-tight">
-                      {perfil.nome_completo}
-                    </p>
-                    <p className="text-[11px] text-texto-suave font-mono truncate mt-0.5">
-                      {perfil.email}
-                    </p>
-                    <div className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-acento/10 px-2 py-0.5 text-[10px] font-bold text-acento">
-                      <span>{formatarPapel(perfil.papel)}</span>
+                  {/* Cabeçalho do Usuário com Avatar */}
+                  <div className="flex items-center gap-3 px-3 py-2.5 border-b border-borda mb-1.5">
+                    <AvatarUsuario
+                      nome={perfil.nome_completo}
+                      fotoUrl={perfil.avatar_url}
+                      tamanho="md"
+                    />
+                    <div className="truncate">
+                      <p className="text-xs font-bold text-texto truncate leading-tight">
+                        {perfil.nome_completo}
+                      </p>
+                      <p className="text-[11px] text-texto-suave font-mono truncate mt-0.5">
+                        {perfil.email}
+                      </p>
                     </div>
                   </div>
 
                   {/* Links de Configuração */}
                   <div className="space-y-0.5">
-                    {perfil.papel === "admin" && (
-                      <Link
-                        href="/perfil"
-                        onClick={() => setMenuUsuarioAberto(false)}
-                        className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-texto hover:bg-fundo hover:text-acento transition"
-                      >
-                        <User className="h-4 w-4 text-texto-suave" />
-                        <span>Meu Perfil</span>
-                      </Link>
-                    )}
+                    <Link
+                      href="/perfil"
+                      onClick={() => setMenuUsuarioAberto(false)}
+                      className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-texto hover:bg-fundo hover:text-acento transition"
+                    >
+                      <User className="h-4 w-4 text-texto-suave" />
+                      <span>Meu Perfil</span>
+                    </Link>
 
                     {perfil.papel === "admin" && (
                       <>

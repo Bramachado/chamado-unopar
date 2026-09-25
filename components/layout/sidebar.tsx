@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type Perfil } from "@/types/database";
 import { logoutUsuario } from "@/app/login/actions";
+import { AvatarUsuario } from "@/components/ui/avatar-usuario";
 import {
   LayoutDashboard,
   Ticket,
@@ -56,9 +57,9 @@ export function SidebarPrincipal({
   ];
 
   const subRotasConfig = [
+    { href: "/perfil", rotulo: "Meu Perfil", icone: User },
     ...(ehAdmin
       ? [
-          { href: "/perfil", rotulo: "Meu Perfil", icone: User },
           { href: "/usuarios", rotulo: "Equipe & Cofre", icone: Users },
           { href: "/auditoria", rotulo: "Auditoria", icone: FileText },
         ]
@@ -277,12 +278,7 @@ export function SidebarPrincipal({
             <div
               className={`flex items-center gap-3 truncate ${recolhido ? "justify-center" : ""}`}
             >
-              <div
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1D4ED8] text-xs font-extrabold text-white shadow-md"
-                title={perfil.nome_completo}
-              >
-                {perfil.nome_completo.substring(0, 2).toUpperCase()}
-              </div>
+              <AvatarUsuario nome={perfil.nome_completo} fotoUrl={perfil.avatar_url} tamanho="sm" />
               {!recolhido && (
                 <div className="truncate">
                   <div

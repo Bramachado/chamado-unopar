@@ -21,6 +21,7 @@ export interface Usuario {
   polo_id?: string | null;
   polo_nome?: string | null;
   polo_cidade?: string | null;
+  avatar_url?: string | null;
   criado_em: string;
   atualizado_em: string;
 }

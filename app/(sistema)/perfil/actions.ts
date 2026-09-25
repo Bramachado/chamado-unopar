@@ -37,3 +37,43 @@ export async function alterarMinhaSenhaAction(novaSenha: string) {
     return { sucesso: false, erro: msg };
   }
 }
+
+import { revalidatePath } from "next/cache";
+import { salvarAvatarUsuario, removerAvatarUsuario } from "@/lib/auth/avatar";
+
+export async function atualizarMinhaFotoAction(fotoBase64: string) {
+  const perfil = await obterPerfilAtual();
+
+  if (!fotoBase64 || !fotoBase64.startsWith("data:image/")) {
+    return { sucesso: false, erro: "Arquivo de imagem inválido." };
+  }
+
+  // Limite de segurança: 1.5MB de base64 (~1.1MB de imagem)
+  if (fotoBase64.length > 2 * 1024 * 1024) {
+    return { sucesso: false, erro: "A imagem é muito grande. Escolha uma foto menor." };
+  }
+
+  const ok = await salvarAvatarUsuario(perfil.id, fotoBase64, perfil.nome_completo);
+
+  if (!ok) {
+    return { sucesso: false, erro: "Não foi possível salvar a foto de perfil." };
+  }
+
+  revalidatePath("/perfil");
+  revalidatePath("/", "layout");
+  return { sucesso: true };
+}
+
+export async function removerMinhaFotoAction() {
+  const perfil = await obterPerfilAtual();
+
+  const ok = await removerAvatarUsuario(perfil.id, perfil.nome_completo);
+
+  if (!ok) {
+    return { sucesso: false, erro: "Não foi possível remover a foto de perfil." };
+  }
+
+  revalidatePath("/perfil");
+  revalidatePath("/", "layout");
+  return { sucesso: true };
+}
