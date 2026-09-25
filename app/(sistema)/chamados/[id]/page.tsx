@@ -19,17 +19,20 @@ export default async function PaginaDetalheChamado({ params }: DetailPageProps) 
     { usuario_id: perfilAtual.id, papel: perfilAtual.papel },
     async (req) => {
       // 1. Carregar chamado principal com motivo e perfis
-      const qChamado = await req
-        .input("id", sql.UniqueIdentifier, id)
-        .query(`
+      const qChamado = await req.input("id", sql.UniqueIdentifier, id).query(`
           SELECT 
             CAST(c.id AS NVARCHAR(50)) AS id,
             c.protocolo,
             c.aluno_nome,
             c.aluno_ra,
+            c.aluno_cpf,
+            CAST(c.polo_id AS NVARCHAR(50)) AS polo_id,
+            pol.nome AS polo_nome,
+            pol.cidade AS polo_cidade,
+            pol.codigo AS polo_codigo,
             c.contato_telefone,
             CAST(c.motivo_id AS NVARCHAR(50)) AS motivo_id,
-            c.descricao,
+            descricao,
             c.situacao,
             c.prioridade,
             c.data_solicitacao,
@@ -52,6 +55,7 @@ export default async function PaginaDetalheChamado({ params }: DetailPageProps) 
             pAtualizador.nome_completo AS atualizador_nome,
             pAtualizador.email AS atualizador_email
           FROM dados.chamados c
+          LEFT JOIN dados.polos pol ON pol.id = c.polo_id
           LEFT JOIN dados.motivos m ON m.id = c.motivo_id
           LEFT JOIN dados.perfis pCriador ON pCriador.id = c.criado_por
           LEFT JOIN dados.perfis pAtualizador ON pAtualizador.id = c.atualizado_por
@@ -111,7 +115,9 @@ export default async function PaginaDetalheChamado({ params }: DetailPageProps) 
       `);
 
       // 5. Carregar logs de auditoria
-      const qLogs = await req.query(`
+      const qLogs = await req
+        .query(
+          `
         SELECT 
           id,
           tabela,
@@ -128,7 +134,9 @@ export default async function PaginaDetalheChamado({ params }: DetailPageProps) 
         FROM auditoria.logs
         WHERE tabela = 'chamados' AND registro_id = CAST(@id AS NVARCHAR(50))
         ORDER BY criado_em DESC
-      `).catch(() => ({ recordset: [] })); // Fallback caso auditoria.logs ainda não esteja populada
+      `
+        )
+        .catch(() => ({ recordset: [] })); // Fallback caso auditoria.logs ainda não esteja populada
 
       return {
         chamado,
@@ -151,12 +159,19 @@ export default async function PaginaDetalheChamado({ params }: DetailPageProps) 
     protocolo: chamado.protocolo,
     aluno_nome: chamado.aluno_nome,
     aluno_ra: chamado.aluno_ra,
+    aluno_cpf: chamado.aluno_cpf,
+    polo_id: chamado.polo_id,
+    polo_nome: chamado.polo_nome,
+    polo_cidade: chamado.polo_cidade,
+    polo_codigo: chamado.polo_codigo,
     contato_telefone: chamado.contato_telefone,
     motivo_id: chamado.motivo_id,
     descricao: chamado.descricao,
     situacao: chamado.situacao,
     prioridade: chamado.prioridade,
-    data_solicitacao: chamado.data_solicitacao ? new Date(chamado.data_solicitacao).toISOString() : new Date().toISOString(),
+    data_solicitacao: chamado.data_solicitacao
+      ? new Date(chamado.data_solicitacao).toISOString()
+      : new Date().toISOString(),
     prazo: chamado.prazo ? new Date(chamado.prazo).toISOString() : new Date().toISOString(),
     data_conclusao: chamado.data_conclusao ? new Date(chamado.data_conclusao).toISOString() : null,
     chamado_vinculado_id: chamado.chamado_vinculado_id,
@@ -166,16 +181,28 @@ export default async function PaginaDetalheChamado({ params }: DetailPageProps) 
     criado_por_nome: chamado.criado_por_nome || chamado.criador_nome,
     atualizado_por: chamado.atualizado_por,
     atualizado_por_nome: chamado.atualizado_por_nome || chamado.atualizador_nome,
-    criado_em: chamado.criado_em ? new Date(chamado.criado_em).toISOString() : new Date().toISOString(),
-    atualizado_em: chamado.atualizado_em ? new Date(chamado.atualizado_em).toISOString() : new Date().toISOString(),
+    criado_em: chamado.criado_em
+      ? new Date(chamado.criado_em).toISOString()
+      : new Date().toISOString(),
+    atualizado_em: chamado.atualizado_em
+      ? new Date(chamado.atualizado_em).toISOString()
+      : new Date().toISOString(),
     motivos: chamado.motivo_id_join
       ? { id: chamado.motivo_id_join, codigo: chamado.motivo_codigo, nome: chamado.motivo_nome }
       : undefined,
     perfisCriador: chamado.criado_por
-      ? { id: chamado.criado_por, nome_completo: chamado.criado_por_nome || chamado.criador_nome, email: chamado.criador_email }
+      ? {
+          id: chamado.criado_por,
+          nome_completo: chamado.criado_por_nome || chamado.criador_nome,
+          email: chamado.criador_email,
+        }
       : undefined,
     perfisAtualizador: chamado.atualizado_por
-      ? { id: chamado.atualizado_por, nome_completo: chamado.atualizado_por_nome || chamado.atualizador_nome, email: chamado.atualizador_email }
+      ? {
+          id: chamado.atualizado_por,
+          nome_completo: chamado.atualizado_por_nome || chamado.atualizador_nome,
+          email: chamado.atualizador_email,
+        }
       : undefined,
   };
 

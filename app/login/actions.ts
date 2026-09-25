@@ -41,24 +41,27 @@ export async function autenticarUsuario(
   const pool = await getPool();
   const request = pool.request();
 
-  const resultado = await request
-    .input("email", sql.VarChar(255), email.toLowerCase().trim())
+  const resultado = await request.input("email", sql.VarChar(255), email.toLowerCase().trim())
     .query(`
       SELECT 
-        CAST(id AS NVARCHAR(50)) AS id,
-        nome_completo,
-        email,
-        papel,
-        ativo,
-        senha_hash
-      FROM dados.perfis
-      WHERE email = @email
+        CAST(p.id AS NVARCHAR(50)) AS id,
+        p.nome_completo,
+        p.email,
+        p.papel,
+        p.ativo,
+        p.senha_hash,
+        CAST(p.polo_id AS NVARCHAR(50)) AS polo_id,
+        pol.nome AS polo_nome
+      FROM dados.perfis p
+      LEFT JOIN dados.polos pol ON pol.id = p.polo_id
+      WHERE p.email = @email
     `);
 
   const perfil = resultado.recordset[0];
 
   // Mensagem genérica para não revelar existência de e-mail
-  const mensagemErroGenerico = "E-mail ou senha incorretos. Verifique suas credenciais e tente novamente.";
+  const mensagemErroGenerico =
+    "E-mail ou senha incorretos. Verifique suas credenciais e tente novamente.";
 
   if (!perfil) {
     return { erro: mensagemErroGenerico };
@@ -71,7 +74,9 @@ export async function autenticarUsuario(
 
   // Senhas com valor provisório exigem definição inicial
   if (!perfil.senha_hash || perfil.senha_hash === "PROVISORIO_TROCAR_VIA_APP") {
-    return { erro: "Senha inicial ainda não definida para este usuário. Use a opção de definição de senha inicial." };
+    return {
+      erro: "Senha inicial ainda não definida para este usuário. Use a opção de definição de senha inicial.",
+    };
   }
 
   const senhaValida = await bcrypt.compare(senha, perfil.senha_hash);
@@ -85,6 +90,8 @@ export async function autenticarUsuario(
     email: perfil.email,
     nome_completo: perfil.nome_completo,
     papel: perfil.papel,
+    polo_id: perfil.polo_id || null,
+    polo_nome: perfil.polo_nome || null,
   });
 
   redirect("/painel");
@@ -99,7 +106,9 @@ export async function logoutUsuario() {
  * Permite definir a senha real inicial para usuárias de teste que estão com 'PROVISORIO_TROCAR_VIA_APP'.
  * Custo do bcrypt: 12.
  */
-export async function definirSenhaInicial(formData: FormData): Promise<{ erro?: string; sucesso?: boolean }> {
+export async function definirSenhaInicial(
+  formData: FormData
+): Promise<{ erro?: string; sucesso?: boolean }> {
   const dados = {
     email: formData.get("email"),
     novaSenha: formData.get("novaSenha"),
@@ -113,9 +122,11 @@ export async function definirSenhaInicial(formData: FormData): Promise<{ erro?: 
   const pool = await getPool();
   const request = pool.request();
 
-  const resultado = await request
-    .input("email", sql.VarChar(255), validacao.data.email.toLowerCase().trim())
-    .query(`
+  const resultado = await request.input(
+    "email",
+    sql.VarChar(255),
+    validacao.data.email.toLowerCase().trim()
+  ).query(`
       SELECT 
         CAST(id AS NVARCHAR(50)) AS id,
         senha_hash
@@ -130,10 +141,10 @@ export async function definirSenhaInicial(formData: FormData): Promise<{ erro?: 
 
   const hash = await bcrypt.hash(validacao.data.novaSenha, 12);
 
-  await pool.request()
+  await pool
+    .request()
     .input("id", sql.UniqueIdentifier, perfil.id)
-    .input("hash", sql.VarChar(255), hash)
-    .query(`
+    .input("hash", sql.VarChar(255), hash).query(`
       UPDATE dados.perfis
       SET senha_hash = @hash, atualizado_em = SYSUTCDATETIME()
       WHERE id = @id

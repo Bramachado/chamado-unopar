@@ -15,10 +15,10 @@ import {
   CartesianGrid,
   ReferenceLine,
 } from "recharts";
-import { 
-  Calendar, 
-  ArrowRight, 
-  Award, 
+import {
+  Calendar,
+  ArrowRight,
+  Award,
   X,
   Search,
   Plus,
@@ -27,9 +27,12 @@ import {
   CheckCircle2,
   AlertTriangle,
   AlertOctagon,
-  Percent
+  Percent,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
+
+import { type Polo } from "@/types/database";
+import { CustomSelect, type CustomSelectOption } from "@/components/ui/custom-select";
 
 interface RankingResponsavelItem {
   id: string;
@@ -82,9 +85,12 @@ interface DashboardData {
 interface PainelDashboardProps {
   dados: DashboardData;
   periodoSelecionado: string;
+  polos?: Polo[];
+  poloSelecionado?: string;
 }
 
-type TipoIndicador = "total" | "aguardando" | "concluidos" | "taxa" | "vencidos" | "vencendo" | null;
+type TipoIndicador =
+  "total" | "aguardando" | "concluidos" | "taxa" | "vencidos" | "vencendo" | null;
 
 const fotosPadrao = [
   "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80",
@@ -97,6 +103,8 @@ const fotosPadrao = [
 export function PainelDashboard({
   dados,
   periodoSelecionado,
+  polos = [],
+  poloSelecionado = "todos",
 }: PainelDashboardProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -104,8 +112,17 @@ export function PainelDashboard({
   const [, startTransition] = useTransition();
 
   const [periodo, setPeriodo] = useState(periodoSelecionado);
+  const [poloId, setPoloId] = useState(poloSelecionado);
   const [indicadorAtivo, setIndicadorAtivo] = useState<TipoIndicador>(null);
   const [buscaModal, setBuscaModal] = useState("");
+
+  const opcoesPolo: CustomSelectOption[] = [
+    { value: "todos", label: "Todos os Polos (Consolidado)" },
+    ...polos.map((p) => ({
+      value: p.id,
+      label: `${p.nome} (${p.cidade})`,
+    })),
+  ];
 
   const mudarPeriodo = (novoPeriodo: string) => {
     setPeriodo(novoPeriodo);
@@ -116,10 +133,22 @@ export function PainelDashboard({
     });
   };
 
+  const mudarPolo = (novoPolo: string) => {
+    setPoloId(novoPolo);
+    const params = new URLSearchParams(searchParams.toString());
+    if (novoPolo !== "todos") {
+      params.set("polo_id", novoPolo);
+    } else {
+      params.delete("polo_id");
+    }
+    startTransition(() => {
+      router.push(`${pathname}?${params.toString()}`);
+    });
+  };
+
   const totalVolume12m = dados.volumeMensal.reduce((acc, curr) => acc + curr.total, 0);
-  const taxaGeralResolucao = dados.totais.total > 0
-    ? Math.round((dados.totais.concluidos / dados.totais.total) * 100)
-    : 0;
+  const taxaGeralResolucao =
+    dados.totais.total > 0 ? Math.round((dados.totais.concluidos / dados.totais.total) * 100) : 0;
 
   // Montagem da Lista de Ranking com Cores de Destaque e Fotos de Perfil
   const listaRankingExibicao = dados.rankingEquipe.map((colab, idx) => ({
@@ -129,16 +158,16 @@ export function PainelDashboard({
       colab.posicao === 1
         ? "border-emerald-500/50 bg-gradient-to-r from-emerald-500/15 via-superficie to-superficie shadow-sm"
         : colab.posicao === 2
-        ? "border-sky-500/50 bg-gradient-to-r from-sky-500/15 via-superficie to-superficie shadow-sm"
-        : colab.posicao === 3
-        ? "border-amber-500/50 bg-gradient-to-r from-amber-500/15 via-superficie to-superficie shadow-sm"
-        : "border-purple-500/40 bg-gradient-to-r from-purple-500/10 via-superficie to-superficie shadow-sm",
+          ? "border-sky-500/50 bg-gradient-to-r from-sky-500/15 via-superficie to-superficie shadow-sm"
+          : colab.posicao === 3
+            ? "border-amber-500/50 bg-gradient-to-r from-amber-500/15 via-superficie to-superficie shadow-sm"
+            : "border-purple-500/40 bg-gradient-to-r from-purple-500/10 via-superficie to-superficie shadow-sm",
     avatarBg:
       idx % 3 === 0
         ? "bg-emerald-600 text-white"
         : idx % 3 === 1
-        ? "bg-sky-600 text-white"
-        : "bg-amber-600 text-white",
+          ? "bg-sky-600 text-white"
+          : "bg-amber-600 text-white",
   }));
 
   // Filtragem dos chamados para exibição no modal
@@ -179,7 +208,9 @@ export function PainelDashboard({
         titulo = "Chamados Vencendo em até 2 Dias";
         subtitulo = `${dados.totais.vencendo_em_2_dias} chamado(s) prioritários vencendo em breve.`;
         linkVerTodos = "/chamados?situacao=aguardando";
-        listaFiltrada = dados.chamadosVencidosOuProximos.filter((c) => c.status === "vencendo_em_2_dias");
+        listaFiltrada = dados.chamadosVencidosOuProximos.filter(
+          (c) => c.status === "vencendo_em_2_dias"
+        );
         break;
       default:
         break;
@@ -213,42 +244,55 @@ export function PainelDashboard({
           </p>
         </div>
 
-        {/* Seletor de Período Padronizado */}
-        <div className="flex items-center gap-1 rounded-xl border border-borda bg-superficie p-1 shadow-xs">
-          <Calendar className="h-3.5 w-3.5 text-texto-suave ml-2 mr-1" />
-          <button
-            type="button"
-            onClick={() => mudarPeriodo("mes_atual")}
-            className={`h-7 rounded-lg px-3 text-xs font-bold transition ${
-              periodo === "mes_atual"
-                ? "bg-[#1D4ED8] text-white shadow-xs"
-                : "text-texto-suave hover:text-texto"
-            }`}
-          >
-            Mês atual
-          </button>
-          <button
-            type="button"
-            onClick={() => mudarPeriodo("semestre_atual")}
-            className={`h-7 rounded-lg px-3 text-xs font-bold transition ${
-              periodo === "semestre_atual"
-                ? "bg-[#1D4ED8] text-white shadow-xs"
-                : "text-texto-suave hover:text-texto"
-            }`}
-          >
-            Semestre letivo
-          </button>
-          <button
-            type="button"
-            onClick={() => mudarPeriodo("ultimos_12_meses")}
-            className={`h-7 rounded-lg px-3 text-xs font-bold transition ${
-              periodo === "ultimos_12_meses"
-                ? "bg-[#1D4ED8] text-white shadow-xs"
-                : "text-texto-suave hover:text-texto"
-            }`}
-          >
-            Últimos 12 meses
-          </button>
+        {/* Seletores de Polo e Período */}
+        <div className="flex flex-wrap items-center gap-3">
+          {polos.length > 0 && (
+            <div className="w-56">
+              <CustomSelect
+                options={opcoesPolo}
+                value={poloId}
+                onChange={(val) => mudarPolo(val)}
+              />
+            </div>
+          )}
+
+          {/* Seletor de Período Padronizado */}
+          <div className="flex items-center gap-1 rounded-xl border border-borda bg-superficie p-1 shadow-xs">
+            <Calendar className="h-3.5 w-3.5 text-texto-suave ml-2 mr-1" />
+            <button
+              type="button"
+              onClick={() => mudarPeriodo("mes_atual")}
+              className={`h-7 rounded-lg px-3 text-xs font-bold transition ${
+                periodo === "mes_atual"
+                  ? "bg-[#1D4ED8] text-white shadow-xs"
+                  : "text-texto-suave hover:text-texto"
+              }`}
+            >
+              Mês atual
+            </button>
+            <button
+              type="button"
+              onClick={() => mudarPeriodo("semestre_atual")}
+              className={`h-7 rounded-lg px-3 text-xs font-bold transition ${
+                periodo === "semestre_atual"
+                  ? "bg-[#1D4ED8] text-white shadow-xs"
+                  : "text-texto-suave hover:text-texto"
+              }`}
+            >
+              Semestre letivo
+            </button>
+            <button
+              type="button"
+              onClick={() => mudarPeriodo("ultimos_12_meses")}
+              className={`h-7 rounded-lg px-3 text-xs font-bold transition ${
+                periodo === "ultimos_12_meses"
+                  ? "bg-[#1D4ED8] text-white shadow-xs"
+                  : "text-texto-suave hover:text-texto"
+              }`}
+            >
+              Últimos 12 meses
+            </button>
+          </div>
         </div>
       </div>
 
@@ -353,11 +397,15 @@ export function PainelDashboard({
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-texto-suave">Vencidos</span>
-            <div className={`h-6 w-6 rounded-md flex items-center justify-center ${dados.totais.vencidos > 0 ? "bg-red-500/20 text-red-600" : "bg-fundo text-texto-suave"}`}>
+            <div
+              className={`h-6 w-6 rounded-md flex items-center justify-center ${dados.totais.vencidos > 0 ? "bg-red-500/20 text-red-600" : "bg-fundo text-texto-suave"}`}
+            >
               <AlertOctagon className="h-3.5 w-3.5" />
             </div>
           </div>
-          <span className={`text-2xl font-black tabular-nums block ${dados.totais.vencidos > 0 ? "text-red-600" : "text-texto"}`}>
+          <span
+            className={`text-2xl font-black tabular-nums block ${dados.totais.vencidos > 0 ? "text-red-600" : "text-texto"}`}
+          >
             {dados.totais.vencidos}
           </span>
           <span className="text-[11px] text-texto-suave block">Prazo expirado</span>
@@ -378,11 +426,15 @@ export function PainelDashboard({
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-texto-suave">Vencem logo</span>
-            <div className={`h-6 w-6 rounded-md flex items-center justify-center ${dados.totais.vencendo_em_2_dias > 0 ? "bg-orange-500/20 text-orange-600" : "bg-fundo text-texto-suave"}`}>
+            <div
+              className={`h-6 w-6 rounded-md flex items-center justify-center ${dados.totais.vencendo_em_2_dias > 0 ? "bg-orange-500/20 text-orange-600" : "bg-fundo text-texto-suave"}`}
+            >
               <AlertTriangle className="h-3.5 w-3.5" />
             </div>
           </div>
-          <span className={`text-2xl font-black tabular-nums block ${dados.totais.vencendo_em_2_dias > 0 ? "text-orange-600" : "text-texto"}`}>
+          <span
+            className={`text-2xl font-black tabular-nums block ${dados.totais.vencendo_em_2_dias > 0 ? "text-orange-600" : "text-texto"}`}
+          >
             {dados.totais.vencendo_em_2_dias}
           </span>
           <span className="text-[11px] text-texto-suave block">Em até 2 dias</span>
@@ -395,12 +447,8 @@ export function PainelDashboard({
           <div className="w-full max-w-2xl rounded-2xl border border-borda bg-superficie p-5 space-y-4 shadow-2xl max-h-[85vh] flex flex-col">
             <div className="flex items-start justify-between border-b border-borda pb-3">
               <div>
-                <h3 className="text-base font-bold text-texto">
-                  {modalInfo.titulo}
-                </h3>
-                <p className="text-xs text-texto-suave mt-0.5">
-                  {modalInfo.subtitulo}
-                </p>
+                <h3 className="text-base font-bold text-texto">{modalInfo.titulo}</h3>
+                <p className="text-xs text-texto-suave mt-0.5">{modalInfo.subtitulo}</p>
               </div>
               <button
                 type="button"
@@ -440,7 +488,8 @@ export function PainelDashboard({
                           <span className="font-medium text-texto">{item.aluno_nome}</span>
                         </div>
                         <span className="text-[11px] text-texto-suave block mt-0.5">
-                          Responsável: {item.atendente} · Prazo: {format(parseISO(item.prazo), "dd/MM/yyyy")}
+                          Responsável: {item.atendente} · Prazo:{" "}
+                          {format(parseISO(item.prazo), "dd/MM/yyyy")}
                         </span>
                       </div>
                       <span
@@ -561,7 +610,9 @@ export function PainelDashboard({
                           className="h-full w-full object-cover"
                         />
                       ) : (
-                        <div className={`h-full w-full flex items-center justify-center text-xs font-black ${colab.avatarBg}`}>
+                        <div
+                          className={`h-full w-full flex items-center justify-center text-xs font-black ${colab.avatarBg}`}
+                        >
                           {colab.avatarTexto}
                         </div>
                       )}
@@ -571,24 +622,31 @@ export function PainelDashboard({
                       <div className="text-sm font-bold text-texto truncate" title={colab.nome}>
                         {colab.nome}
                       </div>
-                      <div className="text-[11px] font-medium text-texto-suave">
-                        {colab.papel}
-                      </div>
+                      <div className="text-[11px] font-medium text-texto-suave">{colab.papel}</div>
                     </div>
 
                     {/* Medalha / Badge de Pódio */}
                     {ehTop1 && (
-                      <div className="ml-auto shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-amber-400 text-amber-950 font-black border-2 border-amber-300 shadow-md" title="1º Lugar">
+                      <div
+                        className="ml-auto shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-amber-400 text-amber-950 font-black border-2 border-amber-300 shadow-md"
+                        title="1º Lugar"
+                      >
                         <span className="text-xs">1º</span>
                       </div>
                     )}
                     {ehTop2 && (
-                      <div className="ml-auto shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-slate-300 text-slate-800 font-black border-2 border-slate-200 shadow-md" title="2º Lugar">
+                      <div
+                        className="ml-auto shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-slate-300 text-slate-800 font-black border-2 border-slate-200 shadow-md"
+                        title="2º Lugar"
+                      >
                         <span className="text-xs">2º</span>
                       </div>
                     )}
                     {ehTop3 && (
-                      <div className="ml-auto shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-amber-700 text-amber-100 font-black border-2 border-amber-600 shadow-md" title="3º Lugar">
+                      <div
+                        className="ml-auto shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-amber-700 text-amber-100 font-black border-2 border-amber-600 shadow-md"
+                        title="3º Lugar"
+                      >
                         <span className="text-xs">3º</span>
                       </div>
                     )}
@@ -627,8 +685,14 @@ export function PainelDashboard({
                     </div>
 
                     <div className="mt-1.5 flex items-center justify-between text-[11px] text-texto-suave px-1">
-                      <span>Total atribuído: <strong className="text-texto font-bold">{colab.total}</strong></span>
-                      <span>Tempo médio: <strong className="text-texto font-bold">{colab.tempoMedioDias}d</strong></span>
+                      <span>
+                        Total atribuído:{" "}
+                        <strong className="text-texto font-bold">{colab.total}</strong>
+                      </span>
+                      <span>
+                        Tempo médio:{" "}
+                        <strong className="text-texto font-bold">{colab.tempoMedioDias}d</strong>
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -643,9 +707,7 @@ export function PainelDashboard({
         {/* Volume de Chamados (12 Meses) */}
         <div className="rounded-2xl border border-borda bg-superficie p-6 shadow-sm space-y-3">
           <div>
-            <h2 className="text-sm font-bold text-texto">
-              Volume de Chamados (Últimos 12 Meses)
-            </h2>
+            <h2 className="text-sm font-bold text-texto">Volume de Chamados (Últimos 12 Meses)</h2>
             <p className="text-xs text-texto-suave">
               Total de {totalVolume12m} chamados distribuídos mês a mês.
             </p>
@@ -653,7 +715,10 @@ export function PainelDashboard({
 
           <div className="h-56 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={dados.volumeMensal} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+              <LineChart
+                data={dados.volumeMensal}
+                margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--borda)" opacity={0.6} />
                 <XAxis dataKey="mes" tick={{ fontSize: 11, fill: "var(--texto-suave)" }} />
                 <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "var(--texto-suave)" }} />
@@ -682,9 +747,7 @@ export function PainelDashboard({
         {/* Motivos Mais Recorrentes */}
         <div className="rounded-2xl border border-borda bg-superficie p-6 shadow-sm space-y-3">
           <div>
-            <h2 className="text-sm font-bold text-texto">
-              Motivos Mais Recorrentes
-            </h2>
+            <h2 className="text-sm font-bold text-texto">Motivos Mais Recorrentes</h2>
             <p className="text-xs text-texto-suave">
               Distribuição por categoria de solicitação acadêmica.
             </p>
@@ -698,14 +761,17 @@ export function PainelDashboard({
                 margin={{ top: 5, right: 20, left: 30, bottom: 0 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--borda)" opacity={0.6} />
-                <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: "var(--texto-suave)" }} />
-                <YAxis dataKey="codigo" type="category" tick={{ fontSize: 11, fill: "var(--texto-suave)" }} />
-                <Tooltip
-                  formatter={(val, _name, item) => [
-                    `${val} chamados`,
-                    item.payload.nome,
-                  ]}
+                <XAxis
+                  type="number"
+                  allowDecimals={false}
+                  tick={{ fontSize: 11, fill: "var(--texto-suave)" }}
                 />
+                <YAxis
+                  dataKey="codigo"
+                  type="category"
+                  tick={{ fontSize: 11, fill: "var(--texto-suave)" }}
+                />
+                <Tooltip formatter={(val, _name, item) => [`${val} chamados`, item.payload.nome]} />
                 <Bar dataKey="total" fill="#1D4ED8" radius={[0, 6, 6, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -718,9 +784,7 @@ export function PainelDashboard({
         {/* Onde os chamados travam? */}
         <div className="rounded-2xl border border-borda bg-superficie p-6 shadow-sm space-y-3">
           <div>
-            <h2 className="text-sm font-bold text-texto">
-              Tempo Médio de Atendimento por Motivo
-            </h2>
+            <h2 className="text-sm font-bold text-texto">Tempo Médio de Atendimento por Motivo</h2>
             <p className="text-xs text-texto-suave">
               Média de dias úteis até a resolução por tipo de protocolo.
             </p>
@@ -756,9 +820,7 @@ export function PainelDashboard({
         {/* Estamos cumprindo os prazos? */}
         <div className="rounded-2xl border border-borda bg-superficie p-6 shadow-sm space-y-3">
           <div>
-            <h2 className="text-sm font-bold text-texto">
-              Cumprimento de Prazos (Meta: 90%)
-            </h2>
+            <h2 className="text-sm font-bold text-texto">Cumprimento de Prazos (Meta: 90%)</h2>
             <p className="text-xs text-texto-suave">
               Taxa mensal de chamados concluídos dentro do prazo de 5 dias úteis.
             </p>
@@ -772,13 +834,12 @@ export function PainelDashboard({
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--borda)" opacity={0.6} />
                 <XAxis dataKey="mes" tick={{ fontSize: 11, fill: "var(--texto-suave)" }} />
-                <YAxis domain={[0, 100]} allowDecimals={false} tick={{ fontSize: 11, fill: "var(--texto-suave)" }} />
-                <Tooltip
-                  formatter={(val) => [
-                    val !== null ? `${val}%` : "—",
-                    "Taxa no prazo",
-                  ]}
+                <YAxis
+                  domain={[0, 100]}
+                  allowDecimals={false}
+                  tick={{ fontSize: 11, fill: "var(--texto-suave)" }}
                 />
+                <Tooltip formatter={(val) => [val !== null ? `${val}%` : "—", "Taxa no prazo"]} />
                 <ReferenceLine
                   y={90}
                   stroke="#10B981"
@@ -804,9 +865,7 @@ export function PainelDashboard({
       <div className="rounded-2xl border border-borda bg-superficie p-6 shadow-sm space-y-3">
         <div className="flex items-center justify-between border-b border-borda pb-2">
           <div>
-            <h2 className="text-sm font-bold text-texto">
-              Chamados que exigem atenção imediata
-            </h2>
+            <h2 className="text-sm font-bold text-texto">Chamados que exigem atenção imediata</h2>
             <p className="text-xs text-texto-suave">
               Lista prioritária de protocolos com prazo próximo para conclusão.
             </p>
@@ -836,7 +895,9 @@ export function PainelDashboard({
                     {c.protocolo}
                   </Link>
                   <span className="text-texto font-bold">{c.aluno_nome}</span>
-                  <span className="text-[11px] text-texto-suave ml-2 font-medium">({c.atendente})</span>
+                  <span className="text-[11px] text-texto-suave ml-2 font-medium">
+                    ({c.atendente})
+                  </span>
                 </div>
                 <span
                   className={`rounded-lg px-2.5 py-1 font-mono text-[11px] font-bold ${
@@ -845,7 +906,8 @@ export function PainelDashboard({
                       : "bg-orange-500/15 text-orange-600 border border-orange-500/40"
                   }`}
                 >
-                  {c.status === "vencido" ? "Vencido" : "Vence em breve"} ({format(parseISO(c.prazo), "dd/MM")})
+                  {c.status === "vencido" ? "Vencido" : "Vence em breve"} (
+                  {format(parseISO(c.prazo), "dd/MM")})
                 </span>
               </div>
             ))

@@ -15,6 +15,8 @@ export interface PayloadSessao {
   email: string;
   nome_completo: string;
   papel: "admin" | "coordenador" | "atendente";
+  polo_id?: string | null;
+  polo_nome?: string | null;
 }
 
 /**

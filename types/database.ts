@@ -2,12 +2,25 @@ export type PapelUsuario = "admin" | "coordenador" | "atendente";
 export type SituacaoChamado = "aguardando" | "concluido" | "encerrado";
 export type PrioridadeChamado = "normal" | "priorizar";
 
+export interface Polo {
+  id: string;
+  nome: string;
+  codigo: string;
+  cidade: string;
+  estado: string;
+  ativo: boolean;
+  criado_em: string;
+}
+
 export interface Usuario {
   id: string;
   nome_completo: string;
   email: string;
   papel: PapelUsuario;
   ativo: boolean;
+  polo_id?: string | null;
+  polo_nome?: string | null;
+  polo_cidade?: string | null;
   criado_em: string;
   atualizado_em: string;
 }
@@ -62,6 +75,7 @@ export interface Chamado {
   protocolo: string;
   aluno_nome: string;
   aluno_ra?: string | null;
+  aluno_cpf?: string | null;
   contato_telefone?: string | null;
   motivo_id: string;
   descricao?: string | null;
@@ -73,6 +87,10 @@ export interface Chamado {
   chamado_vinculado_id?: string | null;
   observacao?: string | null;
   importado: boolean;
+  polo_id?: string | null;
+  polo_nome?: string | null;
+  polo_cidade?: string | null;
+  polo_codigo?: string | null;
   criado_por: string;
   criado_por_nome?: string | null;
   atualizado_por?: string | null;

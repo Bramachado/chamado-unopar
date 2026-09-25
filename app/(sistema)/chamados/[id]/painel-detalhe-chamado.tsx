@@ -5,28 +5,29 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { 
-  type Chamado, 
-  type Motivo, 
-  type Perfil, 
-  type ArquivoChamado, 
-  type LogAuditoria 
+import {
+  type Chamado,
+  type Motivo,
+  type Perfil,
+  type ArquivoChamado,
+  type LogAuditoria,
 } from "@/types/database";
-import { 
-  ArrowLeft, 
-  Edit2, 
-  Trash2, 
-  Paperclip, 
-  FileText, 
-  Download, 
-  Plus, 
-  Link as LinkIcon, 
-  History, 
+import {
+  ArrowLeft,
+  Edit2,
+  Trash2,
+  Paperclip,
+  FileText,
+  Download,
+  Plus,
+  Link as LinkIcon,
+  History,
   AlertCircle,
   Clock,
-  UserCheck
+  UserCheck,
 } from "lucide-react";
 import { anexarArquivoAction, excluirArquivoAction, excluirChamadoAction } from "../actions";
+import { formatarCpf } from "@/lib/utils/cpf";
 
 interface PainelDetalheChamadoProps {
   chamado: Chamado & {
@@ -35,8 +36,22 @@ interface PainelDetalheChamadoProps {
     perfisAtualizador?: Pick<Perfil, "id" | "nome_completo" | "email"> | null;
   };
   arquivos: (ArquivoChamado & { perfis?: Pick<Perfil, "nome_completo"> | null })[];
-  chamadoAnterior?: { id: string; protocolo: string; aluno_nome: string; situacao: string; data_solicitacao: string } | null;
-  chamadosPosteriores?: { id: string; protocolo: string; aluno_nome: string; situacao: string; data_solicitacao: string }[] | null;
+  chamadoAnterior?: {
+    id: string;
+    protocolo: string;
+    aluno_nome: string;
+    situacao: string;
+    data_solicitacao: string;
+  } | null;
+  chamadosPosteriores?:
+    | {
+        id: string;
+        protocolo: string;
+        aluno_nome: string;
+        situacao: string;
+        data_solicitacao: string;
+      }[]
+    | null;
   logs: LogAuditoria[];
   perfilAtual: Perfil;
 }
@@ -176,8 +191,8 @@ export function PainelDetalheChamado({
                   chamado.situacao === "concluido"
                     ? "bg-sucesso/15 text-sucesso border-sucesso/40"
                     : chamado.situacao === "encerrado"
-                    ? "bg-fundo text-texto-suave border-borda"
-                    : "bg-acento/15 text-acento border-acento/40"
+                      ? "bg-fundo text-texto-suave border-borda"
+                      : "bg-acento/15 text-acento border-acento/40"
                 }`}
               >
                 {chamado.situacao}
@@ -203,8 +218,11 @@ export function PainelDetalheChamado({
                 <div className="flex items-center gap-1 rounded bg-fundo px-2 py-0.5 border border-borda/60 text-[11px]">
                   <Clock className="h-3 w-3 text-texto-suave" />
                   <span>
-                    Última alteração por <strong className="text-texto font-semibold">{atualizadorNome}</strong> em{" "}
-                    {format(parseISO(chamado.atualizado_em), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                    Última alteração por{" "}
+                    <strong className="text-texto font-semibold">{atualizadorNome}</strong> em{" "}
+                    {format(parseISO(chamado.atualizado_em), "dd/MM/yyyy 'às' HH:mm", {
+                      locale: ptBR,
+                    })}
                   </span>
                 </div>
               )}
@@ -214,9 +232,27 @@ export function PainelDetalheChamado({
 
         {/* Informações Estruturadas em Grid */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 text-xs">
-          <div className="rounded-md border border-borda/60 bg-fundo p-3">
-            <span className="font-semibold text-texto-suave block text-[11px]">Aluno(a) Solicitante</span>
+          <div className="rounded-md border border-borda/60 bg-fundo p-3 sm:col-span-2">
+            <span className="font-semibold text-texto-suave block text-[11px]">
+              Aluno(a) Solicitante
+            </span>
             <span className="text-texto font-bold text-sm block mt-0.5">{chamado.aluno_nome}</span>
+          </div>
+
+          <div className="rounded-md border border-borda/60 bg-fundo p-3">
+            <span className="font-semibold text-texto-suave block text-[11px]">Polo de Origem</span>
+            <span className="text-texto font-bold block mt-0.5">
+              {chamado.polo_nome
+                ? `${chamado.polo_nome} (${chamado.polo_cidade})`
+                : "Não vinculado"}
+            </span>
+          </div>
+
+          <div className="rounded-md border border-borda/60 bg-fundo p-3">
+            <span className="font-semibold text-texto-suave block text-[11px]">CPF do Aluno</span>
+            <span className="text-texto font-mono font-bold tabular-nums block mt-0.5">
+              {chamado.aluno_cpf ? formatarCpf(chamado.aluno_cpf) : "Não informado"}
+            </span>
           </div>
 
           <div className="rounded-md border border-borda/60 bg-fundo p-3">
@@ -227,23 +263,32 @@ export function PainelDetalheChamado({
           </div>
 
           <div className="rounded-md border border-borda/60 bg-fundo p-3">
-            <span className="font-semibold text-texto-suave block text-[11px]">Telefone de Contato</span>
+            <span className="font-semibold text-texto-suave block text-[11px]">
+              Telefone de Contato
+            </span>
             <span className="text-texto font-mono font-bold tabular-nums block mt-0.5">
               {formatarTelefone(chamado.contato_telefone)}
             </span>
           </div>
 
           <div className="rounded-md border border-borda/60 bg-fundo p-3 sm:col-span-2">
-            <span className="font-semibold text-texto-suave block text-[11px]">Catálogo de Motivo</span>
+            <span className="font-semibold text-texto-suave block text-[11px]">
+              Catálogo de Motivo
+            </span>
             <span className="text-texto font-bold block mt-0.5">
-              {chamado.motivos ? `${chamado.motivos.codigo} — ${chamado.motivos.nome}` : "Não categorizado"}
+              {chamado.motivos
+                ? `${chamado.motivos.codigo} — ${chamado.motivos.nome}`
+                : "Não categorizado"}
             </span>
           </div>
 
           <div className="rounded-md border border-borda/60 bg-fundo p-3">
-            <span className="font-semibold text-texto-suave block text-[11px]">Prazos (Abertura / Limite)</span>
+            <span className="font-semibold text-texto-suave block text-[11px]">
+              Prazos (Abertura / Limite)
+            </span>
             <span className="text-texto font-mono font-bold tabular-nums block mt-0.5">
-              {format(parseISO(chamado.data_solicitacao), "dd/MM/yyyy")} até {format(parseISO(chamado.prazo), "dd/MM/yyyy")}
+              {format(parseISO(chamado.data_solicitacao), "dd/MM/yyyy")} até{" "}
+              {format(parseISO(chamado.prazo), "dd/MM/yyyy")}
             </span>
           </div>
         </div>
@@ -298,7 +343,10 @@ export function PainelDetalheChamado({
               const uploaderNome = arq.perfis?.nome_completo || "Colaboradora";
 
               return (
-                <div key={arq.id} className="flex flex-col gap-2 p-3.5 sm:flex-row sm:items-center sm:justify-between text-xs hover:bg-superficie/60 transition">
+                <div
+                  key={arq.id}
+                  className="flex flex-col gap-2 p-3.5 sm:flex-row sm:items-center sm:justify-between text-xs hover:bg-superficie/60 transition"
+                >
                   <div className="flex items-start gap-3 truncate">
                     <div className="h-9 w-9 rounded-md bg-acento/10 text-acento flex items-center justify-center shrink-0 border border-acento/20">
                       <FileText className="h-4 w-4" />
@@ -306,7 +354,8 @@ export function PainelDetalheChamado({
                     <div className="truncate">
                       <div className="font-bold text-texto truncate">{arq.nome_original}</div>
                       <div className="text-[11px] text-texto-suave">
-                        Anexado por <strong className="text-texto font-medium">{uploaderNome}</strong> em{" "}
+                        Anexado por{" "}
+                        <strong className="text-texto font-medium">{uploaderNome}</strong> em{" "}
                         {format(parseISO(arq.criado_em), "dd/MM/yyyy HH:mm")}
                         {arq.tamanho_bytes ? ` • ${Math.round(arq.tamanho_bytes / 1024)} KB` : ""}
                       </div>
@@ -430,11 +479,13 @@ export function PainelDetalheChamado({
               >
                 <div className="flex items-center justify-between border-b border-borda/40 pb-1.5">
                   <div className="flex items-center gap-2">
-                    <span className={`font-mono text-[11px] font-bold px-2 py-0.5 rounded border ${
-                      log.operacao === "INSERT"
-                        ? "bg-sucesso/15 text-sucesso border-sucesso/30"
-                        : "bg-alerta-fundo text-alerta border-alerta/30"
-                    }`}>
+                    <span
+                      className={`font-mono text-[11px] font-bold px-2 py-0.5 rounded border ${
+                        log.operacao === "INSERT"
+                          ? "bg-sucesso/15 text-sucesso border-sucesso/30"
+                          : "bg-alerta-fundo text-alerta border-alerta/30"
+                      }`}
+                    >
                       {log.operacao === "INSERT" ? "Criação Inicial" : "Edição Registrada"}
                     </span>
                     <span className="text-texto-suave">por</span>
@@ -449,7 +500,9 @@ export function PainelDetalheChamado({
 
                 {log.campos_alterados && log.campos_alterados.length > 0 && (
                   <div className="pt-1 text-[11px]">
-                    <span className="text-texto-suave font-medium">Campos alterados nesta ação: </span>
+                    <span className="text-texto-suave font-medium">
+                      Campos alterados nesta ação:{" "}
+                    </span>
                     <span className="font-mono text-texto font-semibold">
                       {log.campos_alterados.join(", ")}
                     </span>
@@ -540,7 +593,8 @@ export function PainelDetalheChamado({
               <span>Confirmar Exclusão de Chamado</span>
             </h3>
             <p className="text-xs text-texto leading-relaxed">
-              Tem certeza de que deseja excluir o chamado <strong>{chamado.protocolo}</strong>? Esta ação será registrada no histórico de auditoria.
+              Tem certeza de que deseja excluir o chamado <strong>{chamado.protocolo}</strong>? Esta
+              ação será registrada no histórico de auditoria.
             </p>
             <div className="flex items-center justify-end gap-2 pt-3 border-t border-borda">
               <button

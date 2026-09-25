@@ -27,11 +27,11 @@
   --superficie-destaque: #efe9dc;
   --borda: #dcd3c1;
   --borda-suave: #eae3d4;
-  --texto: #25211a;
-  --texto-suave: #574f3f;
-  --acento: #0e6f63;
-  --acento-hover: #095047;
-  --sucesso: #166534;
+  --texto: #1e2229;
+  --texto-suave: #534c3e;
+  --acento: #1d4ed8; /* Azul UNOPAR sobre bege */
+  --acento-hover: #1e40af;
+  --sucesso: #15803d;
   --sucesso-fundo: #d1e7dd;
   --alerta: #9a3412;
   --alerta-fundo: #f5deb3;

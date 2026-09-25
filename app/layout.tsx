@@ -19,6 +19,11 @@ const ibmPlexSans = IBM_Plex_Sans({
 export const metadata: Metadata = {
   title: "Sistema de Registro e Controle de Protocolos — UNOPAR",
   description: "Sistema interno de registro, auditoria e acompanhamento de protocolos de chamados.",
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({

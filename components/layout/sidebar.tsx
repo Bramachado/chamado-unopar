@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type Perfil } from "@/types/database";
@@ -12,11 +12,9 @@ import {
   Settings,
   User,
   Users,
+  Tag,
   FileText,
   LogOut,
-  Sun,
-  Moon,
-  BookOpen,
   ChevronDown,
   ChevronRight,
   X,
@@ -31,8 +29,6 @@ interface SidebarPrincipalProps {
   setRecolhido: (recolhido: boolean) => void;
 }
 
-type Tema = "claro" | "sepia" | "escuro";
-
 export function SidebarPrincipal({
   perfil,
   mobileAberto,
@@ -42,39 +38,27 @@ export function SidebarPrincipal({
 }: SidebarPrincipalProps) {
   const pathname = usePathname();
   const [configAberto, setConfigAberto] = useState(
-    pathname.startsWith("/configuracoes") ||
-      pathname.startsWith("/perfil") ||
-      pathname.startsWith("/usuarios") ||
-      pathname.startsWith("/auditoria")
+    pathname.startsWith("/configuracoes") || pathname.startsWith("/perfil")
   );
-
-  const [temaAtual, setTemaAtual] = useState<Tema>("claro");
-
-  useEffect(() => {
-    const salvo = (localStorage.getItem("unopar-tema") as Tema) || "claro";
-    setTemaAtual(salvo);
-  }, []);
-
-  const alterarTema = (novoTema: Tema) => {
-    setTemaAtual(novoTema);
-    document.documentElement.setAttribute("data-theme", novoTema);
-    localStorage.setItem("unopar-tema", novoTema);
-  };
 
   const ehAdmin = perfil.papel === "admin";
 
-  const rotasPrincipais = [
+  const rotasPrincipais: {
+    href: string;
+    rotulo: string;
+    icone: React.ComponentType<{ className?: string }>;
+    badge?: string;
+  }[] = [
     { href: "/painel", rotulo: "Dashboard", icone: LayoutDashboard },
-    { href: "/chamados", rotulo: "Chamados", icone: Ticket, badge: "8" },
-    { href: "/motivos", rotulo: "Meus atendimentos", icone: Users },
+    { href: "/chamados", rotulo: "Chamados", icone: Ticket },
+    { href: "/motivos", rotulo: "Meus atendimentos", icone: Tag },
     { href: "/desempenho", rotulo: "Desempenho", icone: Trophy },
-    { href: "/auditoria", rotulo: "Relatórios", icone: FileText },
   ];
 
   const subRotasConfig = [
-    { href: "/perfil", rotulo: "Meu Perfil", icone: User },
     ...(ehAdmin
       ? [
+          { href: "/perfil", rotulo: "Meu Perfil", icone: User },
           { href: "/usuarios", rotulo: "Equipe & Cofre", icone: Users },
           { href: "/auditoria", rotulo: "Auditoria", icone: FileText },
         ]
@@ -273,51 +257,6 @@ export function SidebarPrincipal({
                       </li>
                     );
                   })}
-
-                  {/* Seletor de Tema Integrado */}
-                  <li className="pt-3 pr-2">
-                    <div className="grid grid-cols-3 gap-1 rounded-xl border border-[#1E293B] bg-[#0A1128] p-1 text-xs">
-                      <button
-                        type="button"
-                        onClick={() => alterarTema("claro")}
-                        className={`flex flex-col items-center justify-center gap-1 rounded-lg py-1.5 text-[10px] font-bold transition ${
-                          temaAtual === "claro"
-                            ? "bg-[#1D4ED8] text-white shadow-xs"
-                            : "text-slate-400 hover:text-white"
-                        }`}
-                        title="Tema Claro"
-                      >
-                        <Sun className="h-3.5 w-3.5" />
-                        <span>Claro</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => alterarTema("sepia")}
-                        className={`flex flex-col items-center justify-center gap-1 rounded-lg py-1.5 text-[10px] font-bold transition ${
-                          temaAtual === "sepia"
-                            ? "bg-[#1D4ED8] text-white shadow-xs"
-                            : "text-slate-400 hover:text-white"
-                        }`}
-                        title="Tema Sépia"
-                      >
-                        <BookOpen className="h-3.5 w-3.5" />
-                        <span>Sépia</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => alterarTema("escuro")}
-                        className={`flex flex-col items-center justify-center gap-1 rounded-lg py-1.5 text-[10px] font-bold transition ${
-                          temaAtual === "escuro"
-                            ? "bg-[#1D4ED8] text-white shadow-xs"
-                            : "text-slate-400 hover:text-white"
-                        }`}
-                        title="Tema Escuro"
-                      >
-                        <Moon className="h-3.5 w-3.5" />
-                        <span>Escuro</span>
-                      </button>
-                    </div>
-                  </li>
                 </ul>
               )}
             </div>

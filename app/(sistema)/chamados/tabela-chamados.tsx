@@ -3,14 +3,15 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { type Chamado, type Motivo, type Perfil } from "@/types/database";
-import { Eye, Edit, Trash2, Search, Download, Plus, Users, Filter } from "lucide-react";
+import { type Chamado, type Motivo, type Perfil, type Polo } from "@/types/database";
+import { Eye, Edit, Trash2, Search, Download, Plus, Users, User, Filter } from "lucide-react";
 import { format, parseISO, isBefore, startOfDay, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { excluirChamadoAction } from "./actions";
 import { CustomSelect, type CustomSelectOption } from "@/components/ui/custom-select";
 import { CustomCheckbox } from "@/components/ui/custom-checkbox";
 import { CustomDatePicker } from "@/components/ui/custom-date-picker";
+import { formatarCpf } from "@/lib/utils/cpf";
 
 interface TabelaChamadosProps {
   chamados: (Chamado & {
@@ -18,29 +19,42 @@ interface TabelaChamadosProps {
     perfis?: Pick<Perfil, "id" | "nome_completo">;
   })[];
   motivos: Motivo[];
+  polos?: Polo[];
   perfilAtual: Perfil;
   filtros: {
     busca?: string;
     situacao?: string;
     prioridade?: string;
     motivo_id?: string;
+    polo_id?: string;
     data_inicio?: string;
     data_fim?: string;
     reincidentes?: string;
+    escopo?: string;
   };
 }
 
-export function TabelaChamados({ chamados, motivos, perfilAtual, filtros }: TabelaChamadosProps) {
+export function TabelaChamados({
+  chamados,
+  motivos,
+  polos = [],
+  perfilAtual,
+  filtros,
+}: TabelaChamadosProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
+
+  const ehAdmin = perfilAtual.papel === "admin";
+  const [escopo, setEscopo] = useState(filtros.escopo || (ehAdmin ? "todos" : "meus"));
 
   // Estados locais dos filtros
   const [busca, setBusca] = useState(filtros.busca || "");
   const [situacao, setSituacao] = useState(filtros.situacao || "todos");
   const [prioridade, setPrioridade] = useState(filtros.prioridade || "todos");
   const [motivoId, setMotivoId] = useState(filtros.motivo_id || "todos");
+  const [poloId, setPoloId] = useState(filtros.polo_id || "todos");
   const [dataInicio, setDataInicio] = useState(filtros.data_inicio || "");
   const [dataFim, setDataFim] = useState(filtros.data_fim || "");
   const [apenasReincidentes, setApenasReincidentes] = useState(filtros.reincidentes === "true");
@@ -74,6 +88,20 @@ export function TabelaChamados({ chamados, motivos, perfilAtual, filtros }: Tabe
     })),
   ];
 
+  const opcoesPolo: CustomSelectOption[] =
+    !ehAdmin && perfilAtual.polo_id && polos.length <= 1
+      ? polos.map((p) => ({
+          value: p.id,
+          label: `${p.nome} (${p.cidade})`,
+        }))
+      : [
+          { value: "todos", label: "Todos os polos (Geral)" },
+          ...polos.map((p) => ({
+            value: p.id,
+            label: `${p.nome} (${p.cidade})`,
+          })),
+        ];
+
   // Filtro de alunos reincidentes no client-side
   const contagemPorAluno = chamados.reduce<Record<string, number>>((acc, c) => {
     const nomeNorm = c.aluno_nome.trim().toLowerCase();
@@ -85,8 +113,19 @@ export function TabelaChamados({ chamados, motivos, perfilAtual, filtros }: Tabe
     ? chamados.filter((c) => (contagemPorAluno[c.aluno_nome.trim().toLowerCase()] || 0) > 1)
     : chamados;
 
+  const alternarEscopo = (novoEscopo: "meus" | "todos") => {
+    setEscopo(novoEscopo);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("escopo", novoEscopo);
+    startTransition(() => {
+      router.push(`${pathname}?${params.toString()}`);
+    });
+  };
+
   const aplicarFiltros = () => {
     const params = new URLSearchParams(searchParams.toString());
+    params.set("escopo", escopo);
+
     if (busca.trim()) params.set("busca", busca.trim());
     else params.delete("busca");
 
@@ -98,6 +137,9 @@ export function TabelaChamados({ chamados, motivos, perfilAtual, filtros }: Tabe
 
     if (motivoId !== "todos") params.set("motivo_id", motivoId);
     else params.delete("motivo_id");
+
+    if (poloId !== "todos") params.set("polo_id", poloId);
+    else params.delete("polo_id");
 
     if (dataInicio) params.set("data_inicio", dataInicio);
     else params.delete("data_inicio");
@@ -118,11 +160,16 @@ export function TabelaChamados({ chamados, motivos, perfilAtual, filtros }: Tabe
     setSituacao("todos");
     setPrioridade("todos");
     setMotivoId("todos");
+    setPoloId("todos");
     setDataInicio("");
     setDataFim("");
     setApenasReincidentes(false);
+
+    const padraoEscopo = ehAdmin ? "todos" : "meus";
+    setEscopo(padraoEscopo);
+
     startTransition(() => {
-      router.push(pathname);
+      router.push(`${pathname}?escopo=${padraoEscopo}`);
     });
   };
 
@@ -181,13 +228,43 @@ export function TabelaChamados({ chamados, motivos, perfilAtual, filtros }: Tabe
         </div>
       </div>
 
-      {/* 2. Bloco de Filtros */}
+      {/* 2. Alternador de Escopo (Meus Chamados vs Todos os Chamados) */}
+      <div className="flex items-center gap-1.5 rounded-xl border border-borda bg-superficie p-1 max-w-fit shadow-xs">
+        <button
+          type="button"
+          onClick={() => alternarEscopo("meus")}
+          className={`flex items-center gap-2 rounded-lg px-4 py-1.5 text-xs font-semibold transition ${
+            escopo === "meus"
+              ? "bg-acento text-white shadow-xs"
+              : "text-texto-suave hover:text-texto hover:bg-fundo"
+          }`}
+          title="Exibir chamados abertos por você"
+        >
+          <User className="h-3.5 w-3.5" />
+          <span>Meus Chamados</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => alternarEscopo("todos")}
+          className={`flex items-center gap-2 rounded-lg px-4 py-1.5 text-xs font-semibold transition ${
+            escopo === "todos"
+              ? "bg-acento text-white shadow-xs"
+              : "text-texto-suave hover:text-texto hover:bg-fundo"
+          }`}
+          title="Exibir todos os chamados da unidade"
+        >
+          <Users className="h-3.5 w-3.5" />
+          <span>Todos os Chamados</span>
+        </button>
+      </div>
+
+      {/* 3. Bloco de Filtros */}
       <div className="rounded-lg border border-borda bg-superficie p-5 space-y-4">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {/* Busca Textual */}
           <div>
             <label className="block text-xs font-medium text-texto mb-1.5">
-              Buscar (Protocolo ou Aluno)
+              Buscar (Protocolo, Aluno, CPF)
             </label>
             <div className="relative">
               <input
@@ -197,12 +274,20 @@ export function TabelaChamados({ chamados, motivos, perfilAtual, filtros }: Tabe
                 onKeyDown={(e) => {
                   if (e.key === "Enter") aplicarFiltros();
                 }}
-                placeholder="Ex: CS12345678 ou Nome..."
+                placeholder="Protocolo, Nome, CPF ou RA..."
                 className="w-full rounded-lg border border-borda bg-fundo pl-9 pr-3 py-2 text-xs font-medium text-texto placeholder:text-texto-suave focus:border-acento focus:outline-none"
               />
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-texto-suave" />
             </div>
           </div>
+
+          {/* Filtro de Polo */}
+          <CustomSelect
+            label="Polo"
+            options={opcoesPolo}
+            value={poloId}
+            onChange={(val) => setPoloId(val)}
+          />
 
           {/* Filtro Situação Customizado */}
           <CustomSelect
@@ -296,21 +381,22 @@ export function TabelaChamados({ chamados, motivos, perfilAtual, filtros }: Tabe
           <thead>
             <tr>
               <th className="w-32">Protocolo</th>
-              <th>Aluno(a)</th>
-              <th className="w-32">Contato</th>
-              <th className="w-48">Motivo</th>
+              <th>Aluno(a) / Documentos</th>
+              <th className="w-36">Polo</th>
+              <th className="w-28">Contato</th>
+              <th className="w-44">Motivo</th>
               <th className="w-28 text-center">Situação</th>
               <th className="w-24 text-center">Prioridade</th>
-              <th className="w-28 text-right">Abertura</th>
-              <th className="w-28 text-right">Prazo</th>
-              <th className="w-36">Responsável</th>
+              <th className="w-24 text-right">Abertura</th>
+              <th className="w-24 text-right">Prazo</th>
+              <th className="w-32">Responsável</th>
               <th className="w-24 text-right">Ações</th>
             </tr>
           </thead>
           <tbody>
             {chamadosFiltrados.length === 0 ? (
               <tr>
-                <td colSpan={10} className="py-12 text-center text-xs text-texto-suave">
+                <td colSpan={11} className="py-12 text-center text-xs text-texto-suave">
                   Nenhum chamado encontrado para os filtros selecionados.
                 </td>
               </tr>
@@ -348,8 +434,32 @@ export function TabelaChamados({ chamados, motivos, perfilAtual, filtros }: Tabe
                       </Link>
                     </td>
 
-                    {/* Aluno */}
-                    <td className="text-xs font-medium text-texto">{c.aluno_nome}</td>
+                    {/* Aluno e Documentos (CPF e RA) */}
+                    <td className="text-xs">
+                      <div className="font-medium text-texto">{c.aluno_nome}</div>
+                      {(c.aluno_cpf || c.aluno_ra) && (
+                        <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-texto-suave font-mono whitespace-nowrap">
+                          {c.aluno_cpf && <span>CPF: {formatarCpf(c.aluno_cpf)}</span>}
+                          {c.aluno_cpf && c.aluno_ra && <span className="text-borda">·</span>}
+                          {c.aluno_ra && <span>RA: {c.aluno_ra}</span>}
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Polo */}
+                    <td className="text-xs">
+                      {c.polo_nome ? (
+                        <span
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border border-borda bg-fundo text-texto"
+                          title={`${c.polo_nome} - ${c.polo_cidade || ""}`}
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-acento"></span>
+                          <span>{c.polo_cidade || c.polo_nome}</span>
+                        </span>
+                      ) : (
+                        <span className="text-texto-suave text-[11px]">—</span>
+                      )}
+                    </td>
 
                     {/* Contato */}
                     <td className="font-mono text-xs tabular-nums text-texto-suave">
@@ -484,20 +594,36 @@ export function TabelaChamados({ chamados, motivos, perfilAtual, filtros }: Tabe
                   >
                     {c.protocolo}
                   </Link>
-                  <span
-                    className={`rounded border px-2 py-0.5 text-[10px] font-medium ${
-                      c.situacao === "concluido"
-                        ? "bg-sucesso-fundo/40 text-sucesso border-sucesso/30"
-                        : c.situacao === "encerrado"
-                          ? "bg-fundo text-texto-suave border-borda"
-                          : "bg-fundo text-texto border-borda"
-                    }`}
-                  >
-                    {c.situacao}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {c.polo_nome && (
+                      <span className="rounded border border-borda bg-fundo px-1.5 py-0.5 text-[10px] font-medium text-texto">
+                        {c.polo_cidade || c.polo_nome}
+                      </span>
+                    )}
+                    <span
+                      className={`rounded border px-2 py-0.5 text-[10px] font-medium ${
+                        c.situacao === "concluido"
+                          ? "bg-sucesso-fundo/40 text-sucesso border-sucesso/30"
+                          : c.situacao === "encerrado"
+                            ? "bg-fundo text-texto-suave border-borda"
+                            : "bg-fundo text-texto border-borda"
+                      }`}
+                    >
+                      {c.situacao}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="text-xs font-semibold text-texto">{c.aluno_nome}</div>
+                <div className="space-y-0.5">
+                  <div className="text-xs font-semibold text-texto">{c.aluno_nome}</div>
+                  {(c.aluno_cpf || c.aluno_ra) && (
+                    <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-texto-suave font-mono">
+                      {c.aluno_cpf && <span>CPF: {formatarCpf(c.aluno_cpf)}</span>}
+                      {c.aluno_cpf && c.aluno_ra && <span className="text-borda">·</span>}
+                      {c.aluno_ra && <span>RA: {c.aluno_ra}</span>}
+                    </div>
+                  )}
+                </div>
 
                 <div className="text-[11px] text-texto-suave flex items-center justify-between">
                   <span>

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { type Chamado, type Motivo } from "@/types/database";
+import { type Chamado, type Motivo, type Polo } from "@/types/database";
 import { salvarChamado, verificarProtocoloDuplicado, buscarChamadosParaVinculo } from "./actions";
 import {
   AlertCircle,
@@ -17,10 +17,13 @@ import {
 import Link from "next/link";
 import { CustomSelect, type CustomSelectOption } from "@/components/ui/custom-select";
 import { CustomDatePicker } from "@/components/ui/custom-date-picker";
+import { formatarCpf } from "@/lib/utils/cpf";
 
 interface FormularioChamadoProps {
   chamadoInicial?: Chamado | null;
   motivos: Motivo[];
+  polos?: Polo[];
+  poloUsuario?: string | null;
   chamadoVinculadoInicial?: {
     id: string;
     protocolo: string;
@@ -31,6 +34,8 @@ interface FormularioChamadoProps {
 export function FormularioChamado({
   chamadoInicial,
   motivos,
+  polos = [],
+  poloUsuario,
   chamadoVinculadoInicial,
 }: FormularioChamadoProps) {
   const router = useRouter();
@@ -39,6 +44,12 @@ export function FormularioChamado({
   const [protocolo, setProtocolo] = useState(chamadoInicial?.protocolo || "");
   const [alunoNome, setAlunoNome] = useState(chamadoInicial?.aluno_nome || "");
   const [alunoRa, setAlunoRa] = useState(chamadoInicial?.aluno_ra || "");
+  const [alunoCpf, setAlunoCpf] = useState(
+    chamadoInicial?.aluno_cpf ? formatarCpf(chamadoInicial.aluno_cpf) : ""
+  );
+  const [poloId, setPoloId] = useState(
+    chamadoInicial?.polo_id || poloUsuario || polos[0]?.id || ""
+  );
   const [contatoTelefone, setContatoTelefone] = useState(chamadoInicial?.contato_telefone || "");
   const [motivoId, setMotivoId] = useState(chamadoInicial?.motivo_id || motivos[0]?.id || "");
   const [descricao, setDescricao] = useState(chamadoInicial?.descricao || "");
@@ -82,6 +93,11 @@ export function FormularioChamado({
     label: `${m.codigo} — ${m.nome}`,
   }));
 
+  const opcoesPolo: CustomSelectOption[] = polos.map((p) => ({
+    value: p.id,
+    label: `${p.nome} — ${p.cidade} (${p.estado})`,
+  }));
+
   const opcoesSituacao: CustomSelectOption[] = [
     { value: "aguardando", label: "Aguardando (em andamento)" },
     { value: "concluido", label: "Concluído (resolvido)" },
@@ -98,7 +114,7 @@ export function FormularioChamado({
     setProtocolo(limpo);
     setAvisoDuplicado(null);
 
-    if (limpo.length === 10 && limpo.match(/^CS[0-9]{8}$/)) {
+    if (limpo.length >= 6) {
       const duplicado = await verificarProtocoloDuplicado(limpo, chamadoInicial?.id);
       if (duplicado) {
         setAvisoDuplicado(
@@ -141,6 +157,8 @@ export function FormularioChamado({
     formData.set("protocolo", protocolo);
     formData.set("aluno_nome", alunoNome);
     formData.set("aluno_ra", alunoRa || "");
+    formData.set("aluno_cpf", alunoCpf || "");
+    formData.set("polo_id", poloId || "");
     formData.set("contato_telefone", contatoTelefone || "");
     formData.set("motivo_id", motivoId);
     formData.set("descricao", descricao || "");
@@ -162,11 +180,13 @@ export function FormularioChamado({
     startTransition(async () => {
       const resultado = await salvarChamado({}, formData);
 
-      if (resultado.erro) {
-        setMensagemErro(resultado.erro);
-      } else if (resultado.errosCampo) {
+      if (resultado.errosCampo && Object.keys(resultado.errosCampo).length > 0) {
         setErrosCampo(resultado.errosCampo);
-        setMensagemErro("Corrija os erros apontados nos campos destacados.");
+        setMensagemErro(
+          resultado.erro || "Corrija os erros apontados nos campos destacados abaixo."
+        );
+      } else if (resultado.erro) {
+        setMensagemErro(resultado.erro);
       } else if (resultado.sucesso && resultado.chamadoId) {
         router.push(`/chamados/${resultado.chamadoId}`);
       }
@@ -247,16 +267,22 @@ export function FormularioChamado({
           {/* Protocolo */}
           <div>
             <label className="block text-xs font-bold text-texto mb-1.5">
-              Número do Protocolo (PAD) *
+              Número do Protocolo (PAD){" "}
+              <span className="text-texto-suave font-normal text-[11px]">
+                (opcional — gerado automaticamente se vazio)
+              </span>
             </label>
             <input
               type="text"
-              required
               value={protocolo}
               onChange={(e) => handleVerificarProtocolo(e.target.value)}
-              placeholder="Ex: CS12345678"
-              maxLength={10}
-              className="w-full rounded-lg border border-borda bg-fundo px-3.5 py-2 font-mono text-xs font-bold uppercase text-texto placeholder:normal-case placeholder:font-normal placeholder:text-texto-suave focus:border-acento focus:outline-none focus:ring-2 focus:ring-acento/20 shadow-xs"
+              placeholder="Ex: C345235256 ou deixe vazio para gerar"
+              maxLength={25}
+              className={`w-full rounded-lg border bg-fundo px-3.5 py-2 font-mono text-xs font-bold uppercase text-texto placeholder:normal-case placeholder:font-normal placeholder:text-texto-suave focus:outline-none shadow-xs ${
+                errosCampo.protocolo
+                  ? "border-erro ring-1 ring-erro/50 bg-erro-fundo/10"
+                  : "border-borda focus:border-acento focus:ring-2 focus:ring-acento/20"
+              }`}
             />
             {errosCampo.protocolo && (
               <p className="mt-1.5 text-[11px] font-semibold text-erro">{errosCampo.protocolo}</p>
@@ -294,10 +320,47 @@ export function FormularioChamado({
               value={alunoNome}
               onChange={(e) => setAlunoNome(e.target.value)}
               placeholder="Nome do aluno"
-              className="w-full rounded-lg border border-borda bg-fundo px-3.5 py-2 text-xs font-medium text-texto placeholder:text-texto-suave focus:border-acento focus:outline-none focus:ring-2 focus:ring-acento/20 shadow-xs"
+              className={`w-full rounded-lg border bg-fundo px-3.5 py-2 text-xs font-medium text-texto placeholder:text-texto-suave focus:outline-none shadow-xs ${
+                errosCampo.aluno_nome
+                  ? "border-erro ring-1 ring-erro/50 bg-erro-fundo/10"
+                  : "border-borda focus:border-acento focus:ring-2 focus:ring-acento/20"
+              }`}
             />
             {errosCampo.aluno_nome && (
               <p className="mt-1.5 text-[11px] font-semibold text-erro">{errosCampo.aluno_nome}</p>
+            )}
+          </div>
+
+          <div>
+            <CustomSelect
+              label="Polo de Origem *"
+              options={opcoesPolo}
+              value={poloId}
+              onChange={(val) => setPoloId(val)}
+            />
+            {errosCampo.polo_id && (
+              <p className="mt-1.5 text-[11px] font-semibold text-erro">{errosCampo.polo_id}</p>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div>
+            <label className="block text-xs font-bold text-texto mb-1.5">CPF do Aluno</label>
+            <input
+              type="text"
+              value={alunoCpf}
+              onChange={(e) => setAlunoCpf(formatarCpf(e.target.value))}
+              placeholder="000.000.000-00 (opcional)"
+              maxLength={14}
+              className={`w-full rounded-lg border bg-fundo px-3.5 py-2 font-mono text-xs text-texto tabular-nums placeholder:text-texto-suave focus:outline-none shadow-xs ${
+                errosCampo.aluno_cpf
+                  ? "border-erro ring-1 ring-erro/50 bg-erro-fundo/10"
+                  : "border-borda focus:border-acento focus:ring-2 focus:ring-acento/20"
+              }`}
+            />
+            {errosCampo.aluno_cpf && (
+              <p className="mt-1.5 text-[11px] font-semibold text-erro">{errosCampo.aluno_cpf}</p>
             )}
           </div>
 
@@ -313,19 +376,19 @@ export function FormularioChamado({
               className="w-full rounded-lg border border-borda bg-fundo px-3.5 py-2 font-mono text-xs text-texto tabular-nums placeholder:text-texto-suave focus:border-acento focus:outline-none shadow-xs"
             />
           </div>
-        </div>
 
-        <div>
-          <label className="block text-xs font-bold text-texto mb-1.5">
-            Telefone de Contato (com DDD)
-          </label>
-          <input
-            type="text"
-            value={contatoTelefone}
-            onChange={(e) => setContatoTelefone(e.target.value)}
-            placeholder="(94) 99999-9999"
-            className="w-full rounded-lg border border-borda bg-fundo px-3.5 py-2 font-mono text-xs text-texto tabular-nums placeholder:text-texto-suave focus:border-acento focus:outline-none shadow-xs max-w-sm"
-          />
+          <div>
+            <label className="block text-xs font-bold text-texto mb-1.5">
+              Telefone de Contato (com DDD)
+            </label>
+            <input
+              type="text"
+              value={contatoTelefone}
+              onChange={(e) => setContatoTelefone(e.target.value)}
+              placeholder="(94) 99999-9999"
+              className="w-full rounded-lg border border-borda bg-fundo px-3.5 py-2 font-mono text-xs text-texto tabular-nums placeholder:text-texto-suave focus:border-acento focus:outline-none shadow-xs"
+            />
+          </div>
         </div>
       </div>
 

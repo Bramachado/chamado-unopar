@@ -1,18 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { type RankingItem, type Perfil } from "@/types/database";
-import { 
-  ArrowRight,
-  Zap,
-  CheckCheck,
-  Target,
-  Info,
-  Trophy,
-  BarChart3,
-  Clock
-} from "lucide-react";
+import { type RankingItem, type Perfil, type Polo } from "@/types/database";
+import { CustomSelect, type CustomSelectOption } from "@/components/ui/custom-select";
+import { ArrowRight, Zap, CheckCheck, Target, Info, Trophy, BarChart3, Clock } from "lucide-react";
 import {
   ResponsiveContainer,
   LineChart,
@@ -36,6 +29,8 @@ interface PainelDesempenhoProps {
   perfilAtual: Perfil;
   evolucaoPessoal: EvolucaoItem[];
   rotuloSemestre: string;
+  polos?: Polo[];
+  poloSelecionado?: string;
 }
 
 export function PainelDesempenho({
@@ -44,9 +39,38 @@ export function PainelDesempenho({
   perfilAtual,
   evolucaoPessoal,
   rotuloSemestre,
+  polos = [],
+  poloSelecionado = "todos",
 }: PainelDesempenhoProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [, startTransition] = useTransition();
+
   const [recorte, setRecorte] = useState<"mes" | "semestre">("mes");
+  const [poloId, setPoloId] = useState(poloSelecionado);
   const [mostrarModalFormula, setMostrarModalFormula] = useState(false);
+
+  const opcoesPolo: CustomSelectOption[] = [
+    { value: "todos", label: "Todos os Polos (Consolidado)" },
+    ...polos.map((p) => ({
+      value: p.id,
+      label: `${p.nome} (${p.cidade})`,
+    })),
+  ];
+
+  const mudarPolo = (novoPolo: string) => {
+    setPoloId(novoPolo);
+    const params = new URLSearchParams(searchParams.toString());
+    if (novoPolo !== "todos") {
+      params.set("polo_id", novoPolo);
+    } else {
+      params.delete("polo_id");
+    }
+    startTransition(() => {
+      router.push(`${pathname}?${params.toString()}`);
+    });
+  };
 
   const listaBruta = recorte === "mes" ? rankingMes : rankingSemestre;
 
@@ -75,7 +99,10 @@ export function PainelDesempenho({
   if (temClassificacao && minhaPosicao && minhaPosicao > 1) {
     const pessoaAcima = listaBruta.find((r) => r.posicao === minhaPosicao - 1);
     if (pessoaAcima && pessoaAcima.pontos_total > meusPontos) {
-      const diferencaPontos = Math.max(0, Math.round((pessoaAcima.pontos_total - meusPontos) * 10) / 10);
+      const diferencaPontos = Math.max(
+        0,
+        Math.round((pessoaAcima.pontos_total - meusPontos) * 10) / 10
+      );
       const chamadosEstimados = Math.ceil(diferencaPontos / 4);
       textoDistancia = `${diferencaPontos} pts para alcançar o ${minhaPosicao - 1}º lugar (aprox. ${chamadosEstimados} chamado${chamadosEstimados > 1 ? "s" : ""} no prazo)`;
     }
@@ -106,30 +133,43 @@ export function PainelDesempenho({
           </p>
         </div>
 
-        {/* Seletor Mês Atual / Semestre Letivo */}
-        <div className="flex items-center gap-1.5 rounded-xl border border-borda bg-superficie p-1 shadow-xs">
-          <button
-            type="button"
-            onClick={() => setRecorte("mes")}
-            className={`rounded-lg px-4 py-1.5 text-xs font-semibold transition-all ${
-              recorte === "mes"
-                ? "bg-[#1D4ED8] text-white shadow-xs"
-                : "text-texto-suave hover:text-texto"
-            }`}
-          >
-            Mês atual
-          </button>
-          <button
-            type="button"
-            onClick={() => setRecorte("semestre")}
-            className={`rounded-lg px-4 py-1.5 text-xs font-semibold transition-all ${
-              recorte === "semestre"
-                ? "bg-[#1D4ED8] text-white shadow-xs"
-                : "text-texto-suave hover:text-texto"
-            }`}
-          >
-            Semestre letivo ({rotuloSemestre})
-          </button>
+        {/* Seletores de Polo e Período */}
+        <div className="flex flex-wrap items-center gap-3">
+          {polos.length > 0 && (
+            <div className="w-56">
+              <CustomSelect
+                options={opcoesPolo}
+                value={poloId}
+                onChange={(val) => mudarPolo(val)}
+              />
+            </div>
+          )}
+
+          {/* Seletor Mês Atual / Semestre Letivo */}
+          <div className="flex items-center gap-1.5 rounded-xl border border-borda bg-superficie p-1 shadow-xs">
+            <button
+              type="button"
+              onClick={() => setRecorte("mes")}
+              className={`rounded-lg px-4 py-1.5 text-xs font-semibold transition-all ${
+                recorte === "mes"
+                  ? "bg-[#1D4ED8] text-white shadow-xs"
+                  : "text-texto-suave hover:text-texto"
+              }`}
+            >
+              Mês atual
+            </button>
+            <button
+              type="button"
+              onClick={() => setRecorte("semestre")}
+              className={`rounded-lg px-4 py-1.5 text-xs font-semibold transition-all ${
+                recorte === "semestre"
+                  ? "bg-[#1D4ED8] text-white shadow-xs"
+                  : "text-texto-suave hover:text-texto"
+              }`}
+            >
+              Semestre letivo ({rotuloSemestre})
+            </button>
+          </div>
         </div>
       </div>
 
@@ -144,9 +184,7 @@ export function PainelDesempenho({
               <h2 className="text-2xl font-black text-texto tracking-tight">
                 {minhaPosicao}º lugar no ranking
               </h2>
-              <p className="text-xs text-texto-suave mt-0.5">
-                {textoDistancia}
-              </p>
+              <p className="text-xs text-texto-suave mt-0.5">{textoDistancia}</p>
             </div>
           ) : (
             <div>
@@ -183,9 +221,7 @@ export function PainelDesempenho({
           <div className="text-2xl font-black text-texto tabular-nums">
             {meusPontos} <span className="text-xs font-normal text-texto-suave">pts</span>
           </div>
-          <div className="text-[11px] text-texto-suave">
-            Composição: Volume, Prazo e Agilidade
-          </div>
+          <div className="text-[11px] text-texto-suave">Composição: Volume, Prazo e Agilidade</div>
         </div>
 
         {/* Card 2: Chamados Concluídos */}
@@ -196,12 +232,8 @@ export function PainelDesempenho({
               <CheckCheck className="h-4 w-4" />
             </div>
           </div>
-          <div className="text-2xl font-black text-texto tabular-nums">
-            {resolvidos}
-          </div>
-          <div className="text-[11px] text-texto-suave">
-            Demandas com resolução efetiva
-          </div>
+          <div className="text-2xl font-black text-texto tabular-nums">{resolvidos}</div>
+          <div className="text-[11px] text-texto-suave">Demandas com resolução efetiva</div>
         </div>
 
         {/* Card 3: Cumprimento de Prazo */}
@@ -215,9 +247,7 @@ export function PainelDesempenho({
           <div className="text-2xl font-black text-texto tabular-nums">
             {resolvidos > 0 ? `${taxaPrazo}%` : "—"}
           </div>
-          <div className="text-[11px] text-texto-suave">
-            Meta institucional: 90% no prazo
-          </div>
+          <div className="text-[11px] text-texto-suave">Meta institucional: 90% no prazo</div>
         </div>
 
         {/* Card 4: Tempo Médio */}
@@ -231,9 +261,7 @@ export function PainelDesempenho({
           <div className="text-2xl font-black text-texto tabular-nums">
             {tempoMedio > 0 ? `${tempoMedio}d` : "—"}
           </div>
-          <div className="text-[11px] text-texto-suave">
-            Meta de agilidade: até 2 dias úteis
-          </div>
+          <div className="text-[11px] text-texto-suave">Meta de agilidade: até 2 dias úteis</div>
         </div>
       </div>
 
@@ -244,9 +272,7 @@ export function PainelDesempenho({
           <div className="flex items-center justify-between border-b border-borda pb-3">
             <div className="flex items-center gap-2">
               <Trophy className="h-4 w-4 text-amber-500" />
-              <h2 className="text-sm font-bold text-texto">
-                Destaques de Atendimento
-              </h2>
+              <h2 className="text-sm font-bold text-texto">Destaques de Atendimento</h2>
             </div>
             <span className="text-xs font-medium text-texto-suave">
               {recorte === "mes" ? "Mês atual" : `Semestre ${rotuloSemestre}`}
@@ -260,7 +286,8 @@ export function PainelDesempenho({
                 Nenhum chamado foi concluído com pontuação no período.
               </h3>
               <p className="text-xs text-texto-suave max-w-md">
-                Conclua chamados dentro do prazo regulamentar para registrar sua participação no ranking.
+                Conclua chamados dentro do prazo regulamentar para registrar sua participação no
+                ranking.
               </p>
               <div className="pt-2">
                 <Link
@@ -280,14 +307,18 @@ export function PainelDesempenho({
                   <div className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-amber-500 text-white font-black text-xs shadow-xs">
                     1º
                   </div>
-                  <span className="text-xs font-bold text-texto block truncate" title={membrosComPontos[0].nome_completo}>
+                  <span
+                    className="text-xs font-bold text-texto block truncate"
+                    title={membrosComPontos[0].nome_completo}
+                  >
                     {membrosComPontos[0].nome_completo}
                   </span>
                   <span className="text-lg font-black text-amber-600 tabular-nums block">
                     {membrosComPontos[0].pontos_total} pts
                   </span>
                   <span className="text-[11px] text-texto-suave block">
-                    {membrosComPontos[0].resolvidos} concl. · {membrosComPontos[0].taxa_prazo}% prazo
+                    {membrosComPontos[0].resolvidos} concl. · {membrosComPontos[0].taxa_prazo}%
+                    prazo
                   </span>
                 </div>
               )}
@@ -298,14 +329,18 @@ export function PainelDesempenho({
                   <div className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-borda bg-superficie text-texto font-black text-xs shadow-xs">
                     2º
                   </div>
-                  <span className="text-xs font-bold text-texto block truncate" title={membrosComPontos[1].nome_completo}>
+                  <span
+                    className="text-xs font-bold text-texto block truncate"
+                    title={membrosComPontos[1].nome_completo}
+                  >
                     {membrosComPontos[1].nome_completo}
                   </span>
                   <span className="text-lg font-black text-texto tabular-nums block">
                     {membrosComPontos[1].pontos_total} pts
                   </span>
                   <span className="text-[11px] text-texto-suave block">
-                    {membrosComPontos[1].resolvidos} concl. · {membrosComPontos[1].taxa_prazo}% prazo
+                    {membrosComPontos[1].resolvidos} concl. · {membrosComPontos[1].taxa_prazo}%
+                    prazo
                   </span>
                 </div>
               )}
@@ -316,14 +351,18 @@ export function PainelDesempenho({
                   <div className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-borda bg-superficie text-texto font-black text-xs shadow-xs">
                     3º
                   </div>
-                  <span className="text-xs font-bold text-texto block truncate" title={membrosComPontos[2].nome_completo}>
+                  <span
+                    className="text-xs font-bold text-texto block truncate"
+                    title={membrosComPontos[2].nome_completo}
+                  >
                     {membrosComPontos[2].nome_completo}
                   </span>
                   <span className="text-lg font-black text-texto tabular-nums block">
                     {membrosComPontos[2].pontos_total} pts
                   </span>
                   <span className="text-[11px] text-texto-suave block">
-                    {membrosComPontos[2].resolvidos} concl. · {membrosComPontos[2].taxa_prazo}% prazo
+                    {membrosComPontos[2].resolvidos} concl. · {membrosComPontos[2].taxa_prazo}%
+                    prazo
                   </span>
                 </div>
               )}
@@ -334,9 +373,7 @@ export function PainelDesempenho({
         {/* Gauge de Progresso Pessoal */}
         <div className="rounded-2xl border border-borda bg-superficie p-6 shadow-xs flex flex-col justify-between space-y-4">
           <div className="border-b border-borda pb-3">
-            <h2 className="text-sm font-bold text-texto">
-              Progresso no Período
-            </h2>
+            <h2 className="text-sm font-bold text-texto">Progresso no Período</h2>
           </div>
 
           <div className="flex flex-col items-center justify-center py-2 space-y-3">
@@ -373,7 +410,8 @@ export function PainelDesempenho({
             </div>
 
             <div className="text-center text-xs text-texto-suave">
-              <span className="font-semibold text-texto">{meusPontos}</span> de {metaPontos} pontos de referência
+              <span className="font-semibold text-texto">{meusPontos}</span> de {metaPontos} pontos
+              de referência
             </div>
           </div>
 
@@ -392,12 +430,8 @@ export function PainelDesempenho({
       {/* 5. Tabela Geral de Classificação */}
       <div className="rounded-2xl border border-borda bg-superficie shadow-xs overflow-hidden">
         <div className="px-6 py-4 border-b border-borda flex items-center justify-between">
-          <h2 className="text-sm font-bold text-texto">
-            Classificação Geral da Equipe
-          </h2>
-          <span className="text-xs text-texto-suave">
-            {listaOrdenada.length} colaboradores
-          </span>
+          <h2 className="text-sm font-bold text-texto">Classificação Geral da Equipe</h2>
+          <span className="text-xs text-texto-suave">{listaOrdenada.length} colaboradores</span>
         </div>
 
         <div className="overflow-x-auto">
@@ -422,9 +456,7 @@ export function PainelDesempenho({
                   <tr
                     key={item.usuario_id}
                     className={`transition-colors ${
-                      ehUsuarioLogado
-                        ? "bg-blue-500/5 font-semibold"
-                        : "hover:bg-fundo/50"
+                      ehUsuarioLogado ? "bg-blue-500/5 font-semibold" : "hover:bg-fundo/50"
                     }`}
                   >
                     <td className="py-3 px-4 text-center font-bold text-texto-suave">
@@ -476,9 +508,7 @@ export function PainelDesempenho({
           <h2 className="text-sm font-bold text-texto">
             Evolução Pessoal vs. Média da Equipe (Últimos 6 Meses)
           </h2>
-          <span className="text-xs text-texto-suave">
-            Pontuação mensal consolidada
-          </span>
+          <span className="text-xs text-texto-suave">Pontuação mensal consolidada</span>
         </div>
 
         <div className="h-64 w-full">
@@ -530,7 +560,8 @@ export function PainelDesempenho({
 
             <div className="space-y-3 text-xs text-texto-suave leading-relaxed">
               <p>
-                A pontuação do ranking é calculada com base em 3 pilares equilibrados de qualidade operacional:
+                A pontuação do ranking é calculada com base em 3 pilares equilibrados de qualidade
+                operacional:
               </p>
 
               <div className="rounded-xl border border-borda bg-fundo p-3 space-y-2">
@@ -539,7 +570,9 @@ export function PainelDesempenho({
                   <span>Até 40 pontos (40%)</span>
                 </div>
                 <p className="text-[11px]">
-                  Calculado proporcionalmente em relação ao colaborador com maior volume ponderado no período (sem teto fixo). Chamados concluídos têm peso 1.0 e encerrados têm peso 0.5.
+                  Calculado proporcionalmente em relação ao colaborador com maior volume ponderado
+                  no período (sem teto fixo). Chamados concluídos têm peso 1.0 e encerrados têm peso
+                  0.5.
                 </p>
               </div>
 
@@ -549,7 +582,8 @@ export function PainelDesempenho({
                   <span>Até 40 pontos (40%)</span>
                 </div>
                 <p className="text-[11px]">
-                  Percentual de chamados finalizados dentro do prazo regulamentar de 5 dias úteis (proporcional até 40 pontos).
+                  Percentual de chamados finalizados dentro do prazo regulamentar de 5 dias úteis
+                  (proporcional até 40 pontos).
                 </p>
               </div>
 
@@ -559,7 +593,8 @@ export function PainelDesempenho({
                   <span>Até 20 pontos (20%)</span>
                 </div>
                 <p className="text-[11px]">
-                  Tempo médio em dias para resolução: até 1 dia (20 pts), até 2 dias (15 pts), até 3 dias (10 pts), acima de 3 dias (5 pts).
+                  Tempo médio em dias para resolução: até 1 dia (20 pts), até 2 dias (15 pts), até 3
+                  dias (10 pts), acima de 3 dias (5 pts).
                 </p>
               </div>
             </div>

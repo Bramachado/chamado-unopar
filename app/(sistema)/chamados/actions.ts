@@ -6,20 +6,42 @@ import { obterPerfilAtual } from "@/lib/auth/perfil";
 import { comUsuario, comTransacao } from "@/lib/db/comUsuario";
 import { sql } from "@/lib/db/pool";
 import { salvarArquivoLocal } from "@/lib/storage/anexos";
+import { limparCpf, validarCpf } from "@/lib/utils/cpf";
 
 const chamadoSchema = z.object({
   protocolo: z
     .string()
     .trim()
     .regex(
-      /^(CS\d{8}|CS\d{8}-\d{4})$/,
-      "O protocolo deve seguir o padrão CSAAAAMMDD-NNNN (ex: CS20260902-0001) ou o formato histórico de 8 dígitos."
+      /^(CS\d{8}|CS\d{8}-\d{4}|C\d{6,14}|[A-Za-z0-9\-]{5,25})$/,
+      "Protocolo inválido. Informe o código do PAD (ex: C345235256) ou deixe em branco para gerar automaticamente."
     )
     .optional()
     .nullable()
     .or(z.literal("")),
   aluno_nome: z.string().trim().min(3, "Informe o nome completo do aluno."),
   aluno_ra: z.string().trim().optional().nullable(),
+  aluno_cpf: z
+    .string()
+    .trim()
+    .optional()
+    .nullable()
+    .superRefine((val, ctx) => {
+      if (!val) return;
+      const limpo = limparCpf(val);
+      if (limpo.length > 0 && !validarCpf(limpo)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "CPF inválido. Verifique os dígitos informados ou deixe o campo em branco.",
+        });
+      }
+    })
+    .transform((val) => {
+      if (!val) return null;
+      const limpo = limparCpf(val);
+      return limpo.length === 11 ? limpo : null;
+    }),
+  polo_id: z.string().uuid("Selecione um polo válido.").optional().nullable().or(z.literal("")),
   contato_telefone: z
     .string()
     .trim()
@@ -50,31 +72,26 @@ export async function gerarProximoProtocolo(dataSolicitacaoStr?: string): Promis
   const dataRef = dataSolicitacaoStr ? new Date(dataSolicitacaoStr) : new Date();
   const perfil = await obterPerfilAtual();
 
-  return await comUsuario(
-    { usuario_id: perfil.id, papel: perfil.papel },
-    async (req) => {
-      const res = await req
-        .input("data_solicitacao", sql.Date, dataRef)
-        .output("protocolo_gerado", sql.VarChar(20))
-        .execute("dados.gerar_protocolo");
+  return await comUsuario({ usuario_id: perfil.id, papel: perfil.papel }, async (req) => {
+    const res = await req
+      .input("data_solicitacao", sql.Date, dataRef)
+      .output("protocolo_gerado", sql.VarChar(20))
+      .execute("dados.gerar_protocolo");
 
-      return res.output.protocolo_gerado;
-    }
-  );
+    return res.output.protocolo_gerado;
+  });
 }
 
 export async function verificarProtocoloDuplicado(protocolo: string, chamadoAtualId?: string) {
   const limpo = protocolo.trim().toUpperCase();
-  if (!limpo.match(/^(CS\d{8}|CS\d{8}-\d{4})$/)) {
+  if (limpo.length < 5) {
     return null;
   }
 
   const perfil = await obterPerfilAtual();
 
-  return await comUsuario(
-    { usuario_id: perfil.id, papel: perfil.papel },
-    async (req) => {
-      let sqlQuery = `
+  return await comUsuario({ usuario_id: perfil.id, papel: perfil.papel }, async (req) => {
+    let sqlQuery = `
         SELECT 
           CAST(id AS NVARCHAR(50)) AS id,
           protocolo,
@@ -85,26 +102,25 @@ export async function verificarProtocoloDuplicado(protocolo: string, chamadoAtua
         WHERE protocolo = @protocolo AND excluido_em IS NULL
       `;
 
-      req.input("protocolo", sql.VarChar(30), limpo);
+    req.input("protocolo", sql.VarChar(30), limpo);
 
-      if (chamadoAtualId) {
-        req.input("atualId", sql.UniqueIdentifier, chamadoAtualId);
-        sqlQuery += ` AND id != @atualId`;
-      }
-
-      const q = await req.query(sqlQuery);
-      const data = q.recordset[0];
-
-      if (!data) return null;
-
-      return {
-        duplicado: true,
-        protocolo: data.protocolo,
-        criado_em: data.criado_em,
-        criado_por_nome: data.criado_por_nome || "Usuário do sistema",
-      };
+    if (chamadoAtualId) {
+      req.input("atualId", sql.UniqueIdentifier, chamadoAtualId);
+      sqlQuery += ` AND id != @atualId`;
     }
-  );
+
+    const q = await req.query(sqlQuery);
+    const data = q.recordset[0];
+
+    if (!data) return null;
+
+    return {
+      duplicado: true,
+      protocolo: data.protocolo,
+      criado_em: data.criado_em,
+      criado_por_nome: data.criado_por_nome || "Usuário do sistema",
+    };
+  });
 }
 
 export async function buscarChamadosParaVinculo(termo: string) {
@@ -113,28 +129,30 @@ export async function buscarChamadosParaVinculo(termo: string) {
   const perfil = await obterPerfilAtual();
   const busca = termo.trim();
 
-  return await comUsuario(
-    { usuario_id: perfil.id, papel: perfil.papel },
-    async (req) => {
-      req.input("termoBusca", sql.VarChar(255), `%${busca}%`);
-      req.input("termoPrefixo", sql.VarChar(50), `${busca}%`);
+  return await comUsuario({ usuario_id: perfil.id, papel: perfil.papel }, async (req) => {
+    req.input("termoBusca", sql.VarChar(255), `%${busca}%`);
+    req.input("termoPrefixo", sql.VarChar(50), `${busca}%`);
 
-      const q = await req.query(`
+    const q = await req.query(`
         SELECT TOP 10
-          CAST(id AS NVARCHAR(50)) AS id,
-          protocolo,
-          aluno_nome,
-          data_solicitacao,
-          situacao
-        FROM dados.chamados
-        WHERE excluido_em IS NULL
-          AND (protocolo LIKE @termoPrefixo OR aluno_nome LIKE @termoBusca)
-        ORDER BY data_solicitacao DESC
+          CAST(c.id AS NVARCHAR(50)) AS id,
+          c.protocolo,
+          c.aluno_nome,
+          c.aluno_ra,
+          c.aluno_cpf,
+          CAST(c.polo_id AS NVARCHAR(50)) AS polo_id,
+          pol.nome AS polo_nome,
+          c.data_solicitacao,
+          c.situacao
+        FROM dados.chamados c
+        LEFT JOIN dados.polos pol ON pol.id = c.polo_id
+        WHERE c.excluido_em IS NULL
+          AND (c.protocolo LIKE @termoPrefixo OR c.aluno_nome LIKE @termoBusca OR c.aluno_ra LIKE @termoBusca)
+        ORDER BY c.data_solicitacao DESC
       `);
 
-      return q.recordset;
-    }
-  );
+    return q.recordset;
+  });
 }
 
 export async function salvarChamado(
@@ -148,6 +166,8 @@ export async function salvarChamado(
     protocolo: formData.get("protocolo") || null,
     aluno_nome: formData.get("aluno_nome"),
     aluno_ra: formData.get("aluno_ra") || null,
+    aluno_cpf: formData.get("aluno_cpf") || null,
+    polo_id: formData.get("polo_id") || perfil.polo_id || null,
     contato_telefone: formData.get("contato_telefone") || null,
     motivo_id: formData.get("motivo_id"),
     descricao: formData.get("descricao") || null,
@@ -174,6 +194,10 @@ export async function salvarChamado(
   }
 
   const payload = parseResult.data;
+  const poloFinalId =
+    perfil.papel !== "admin" && perfil.polo_id
+      ? perfil.polo_id
+      : payload.polo_id || perfil.polo_id || null;
 
   // Se não foi fornecido protocolo válido, gera atomicamente
   let protocoloFinal = payload.protocolo;
@@ -197,64 +221,66 @@ export async function salvarChamado(
   try {
     if (chamadoId) {
       // Atualização Colaborativa com rastreamento visível
-      const dataConclusao = (payload.situacao === "concluido" || payload.situacao === "encerrado")
-        ? new Date()
-        : null;
+      const dataConclusao =
+        payload.situacao === "concluido" || payload.situacao === "encerrado" ? new Date() : null;
 
-      await comUsuario(
-        { usuario_id: perfil.id, papel: perfil.papel },
-        async (req) => {
-          await req
-            .input("id", sql.UniqueIdentifier, chamadoId)
-            .input("aluno_nome", sql.VarChar(255), payload.aluno_nome)
-            .input("aluno_ra", sql.VarChar(50), payload.aluno_ra || null)
-            .input("contato_telefone", sql.VarChar(50), payload.contato_telefone || null)
-            .input("motivo_id", sql.UniqueIdentifier, payload.motivo_id)
-            .input("descricao", sql.NVarChar(sql.MAX), payload.descricao || null)
-            .input("situacao", sql.VarChar(30), payload.situacao)
-            .input("prioridade", sql.VarChar(20), payload.prioridade)
-            .input("data_solicitacao", sql.DateTimeOffset, new Date(payload.data_solicitacao))
-            .input("prazo", sql.DateTimeOffset, new Date(payload.prazo))
-            .input("data_conclusao", sql.DateTimeOffset, dataConclusao)
-            .input("chamado_vinculado_id", sql.UniqueIdentifier, payload.chamado_vinculado_id || null)
-            .input("observacao", sql.NVarChar(sql.MAX), payload.observacao || null)
-            .input("atualizado_por", sql.UniqueIdentifier, perfil.id)
-            .input("atualizado_por_nome", sql.VarChar(255), perfil.nome_completo)
-            .query(`
-              UPDATE dados.chamados
-              SET 
-                aluno_nome = @aluno_nome,
-                aluno_ra = @aluno_ra,
-                contato_telefone = @contato_telefone,
-                motivo_id = @motivo_id,
-                descricao = @descricao,
-                situacao = @situacao,
-                prioridade = @prioridade,
-                data_solicitacao = @data_solicitacao,
-                prazo = @prazo,
-                data_conclusao = @data_conclusao,
-                chamado_vinculado_id = @chamado_vinculado_id,
-                observacao = @observacao,
-                atualizado_por = @atualizado_por,
-                atualizado_por_nome = @atualizado_por_nome,
-                atualizado_em = SYSUTCDATETIME()
-              WHERE id = @id AND excluido_em IS NULL
-            `);
-        }
-      );
+      await comUsuario({ usuario_id: perfil.id, papel: perfil.papel }, async (req) => {
+        req
+          .input("id", sql.UniqueIdentifier, chamadoId)
+          .input("aluno_nome", sql.VarChar(255), payload.aluno_nome)
+          .input("aluno_ra", sql.VarChar(50), payload.aluno_ra || null)
+          .input("aluno_cpf", sql.VarChar(11), payload.aluno_cpf || null)
+          .input("polo_id", sql.UniqueIdentifier, poloFinalId)
+          .input("contato_telefone", sql.VarChar(50), payload.contato_telefone || null)
+          .input("motivo_id", sql.UniqueIdentifier, payload.motivo_id)
+          .input("descricao", sql.NVarChar(sql.MAX), payload.descricao || null)
+          .input("situacao", sql.VarChar(30), payload.situacao)
+          .input("prioridade", sql.VarChar(20), payload.prioridade)
+          .input("data_solicitacao", sql.DateTimeOffset, new Date(payload.data_solicitacao))
+          .input("prazo", sql.DateTimeOffset, new Date(payload.prazo))
+          .input("data_conclusao", sql.DateTimeOffset, dataConclusao)
+          .input("chamado_vinculado_id", sql.UniqueIdentifier, payload.chamado_vinculado_id || null)
+          .input("observacao", sql.NVarChar(sql.MAX), payload.observacao || null)
+          .input("atualizado_por", sql.UniqueIdentifier, perfil.id)
+          .input("atualizado_por_nome", sql.VarChar(255), perfil.nome_completo);
+
+        await req.query(`
+            UPDATE dados.chamados
+            SET 
+              aluno_nome = @aluno_nome,
+              aluno_ra = @aluno_ra,
+              aluno_cpf = @aluno_cpf,
+              polo_id = @polo_id,
+              contato_telefone = @contato_telefone,
+              motivo_id = @motivo_id,
+              descricao = @descricao,
+              situacao = @situacao,
+              prioridade = @prioridade,
+              data_solicitacao = @data_solicitacao,
+              prazo = @prazo,
+              data_conclusao = @data_conclusao,
+              chamado_vinculado_id = @chamado_vinculado_id,
+              observacao = @observacao,
+              atualizado_por = @atualizado_por,
+              atualizado_por_nome = @atualizado_por_nome,
+              atualizado_em = SYSUTCDATETIME()
+            WHERE id = @id AND excluido_em IS NULL
+          `);
+      });
     } else {
       // Criação inicial
-      const dataConclusao = (payload.situacao === "concluido" || payload.situacao === "encerrado")
-        ? new Date()
-        : null;
+      const dataConclusao =
+        payload.situacao === "concluido" || payload.situacao === "encerrado" ? new Date() : null;
 
       finalChamadoId = await comTransacao(
         { usuario_id: perfil.id, papel: perfil.papel },
         async (req) => {
-          const q = await req
+          req
             .input("protocolo", sql.VarChar(30), protocoloFinal!)
             .input("aluno_nome", sql.VarChar(255), payload.aluno_nome)
             .input("aluno_ra", sql.VarChar(50), payload.aluno_ra || null)
+            .input("aluno_cpf", sql.VarChar(11), payload.aluno_cpf || null)
+            .input("polo_id", sql.UniqueIdentifier, poloFinalId)
             .input("contato_telefone", sql.VarChar(50), payload.contato_telefone || null)
             .input("motivo_id", sql.UniqueIdentifier, payload.motivo_id)
             .input("descricao", sql.NVarChar(sql.MAX), payload.descricao || null)
@@ -263,51 +289,60 @@ export async function salvarChamado(
             .input("data_solicitacao", sql.DateTimeOffset, new Date(payload.data_solicitacao))
             .input("prazo", sql.DateTimeOffset, new Date(payload.prazo))
             .input("data_conclusao", sql.DateTimeOffset, dataConclusao)
-            .input("chamado_vinculado_id", sql.UniqueIdentifier, payload.chamado_vinculado_id || null)
+            .input(
+              "chamado_vinculado_id",
+              sql.UniqueIdentifier,
+              payload.chamado_vinculado_id || null
+            )
             .input("observacao", sql.NVarChar(sql.MAX), payload.observacao || null)
             .input("criado_por", sql.UniqueIdentifier, perfil.id)
-            .input("criado_por_nome", sql.VarChar(255), perfil.nome_completo)
-            .query(`
-              DECLARE @out TABLE (id UNIQUEIDENTIFIER);
+            .input("criado_por_nome", sql.VarChar(255), perfil.nome_completo);
 
-              INSERT INTO dados.chamados (
-                protocolo,
-                aluno_nome,
-                aluno_ra,
-                contato_telefone,
-                motivo_id,
-                descricao,
-                situacao,
-                prioridade,
-                data_solicitacao,
-                prazo,
-                data_conclusao,
-                chamado_vinculado_id,
-                observacao,
-                criado_por,
-                criado_por_nome
-              )
-              OUTPUT inserted.id INTO @out(id)
-              VALUES (
-                @protocolo,
-                @aluno_nome,
-                @aluno_ra,
-                @contato_telefone,
-                @motivo_id,
-                @descricao,
-                @situacao,
-                @prioridade,
-                @data_solicitacao,
-                @prazo,
-                @data_conclusao,
-                @chamado_vinculado_id,
-                @observacao,
-                @criado_por,
-                @criado_por_nome
-              );
+          const q = await req.query(`
+            DECLARE @out TABLE (id UNIQUEIDENTIFIER);
 
-              SELECT CAST(id AS NVARCHAR(50)) AS id FROM @out;
-            `);
+            INSERT INTO dados.chamados (
+              protocolo,
+              aluno_nome,
+              aluno_ra,
+              aluno_cpf,
+              polo_id,
+              contato_telefone,
+              motivo_id,
+              descricao,
+              situacao,
+              prioridade,
+              data_solicitacao,
+              prazo,
+              data_conclusao,
+              chamado_vinculado_id,
+              observacao,
+              criado_por,
+              criado_por_nome
+            )
+            OUTPUT inserted.id INTO @out(id)
+            VALUES (
+              @protocolo,
+              @aluno_nome,
+              @aluno_ra,
+              @aluno_cpf,
+              @polo_id,
+              @contato_telefone,
+              @motivo_id,
+              @descricao,
+              @situacao,
+              @prioridade,
+              @data_solicitacao,
+              @prazo,
+              @data_conclusao,
+              @chamado_vinculado_id,
+              @observacao,
+              @criado_por,
+              @criado_por_nome
+            );
+
+            SELECT CAST(id AS NVARCHAR(50)) AS id FROM @out;
+          `);
 
           return q.recordset[0]?.id;
         }
@@ -331,7 +366,7 @@ export async function salvarChamado(
 
     return { sucesso: true, chamadoId: finalChamadoId };
   } catch (error: unknown) {
-    console.error("[ERRO_SALVAR_CHAMADO]:", error);
+    console.error("[ERRO_SALVAR_CHAMADO]");
     const msg = error instanceof Error ? error.message : "Erro desconhecido ao salvar chamado.";
     return { erro: `Falha ao salvar chamado: ${msg}` };
   }
@@ -355,22 +390,18 @@ export async function anexarArquivoAction(formData: FormData) {
     }
 
     // Atualiza metadados do chamado
-    await comUsuario(
-      { usuario_id: perfil.id, papel: perfil.papel },
-      async (req) => {
-        await req
-          .input("id", sql.UniqueIdentifier, chamadoId)
-          .input("atualizado_por", sql.UniqueIdentifier, perfil.id)
-          .input("atualizado_por_nome", sql.VarChar(255), perfil.nome_completo)
-          .query(`
+    await comUsuario({ usuario_id: perfil.id, papel: perfil.papel }, async (req) => {
+      await req
+        .input("id", sql.UniqueIdentifier, chamadoId)
+        .input("atualizado_por", sql.UniqueIdentifier, perfil.id)
+        .input("atualizado_por_nome", sql.VarChar(255), perfil.nome_completo).query(`
             UPDATE dados.chamados
             SET atualizado_por = @atualizado_por,
                 atualizado_por_nome = @atualizado_por_nome,
                 atualizado_em = SYSUTCDATETIME()
             WHERE id = @id AND excluido_em IS NULL
           `);
-      }
-    );
+    });
 
     revalidatePath(`/chamados/${chamadoId}`);
     return { sucesso: true };
@@ -384,18 +415,14 @@ export async function excluirArquivoAction(arquivoId: string, chamadoId: string)
   const perfil = await obterPerfilAtual();
 
   try {
-    await comUsuario(
-      { usuario_id: perfil.id, papel: perfil.papel },
-      async (req) => {
-        await req
-          .input("id", sql.UniqueIdentifier, arquivoId)
-          .input("chamado_id", sql.UniqueIdentifier, chamadoId)
-          .query(`
+    await comUsuario({ usuario_id: perfil.id, papel: perfil.papel }, async (req) => {
+      await req
+        .input("id", sql.UniqueIdentifier, arquivoId)
+        .input("chamado_id", sql.UniqueIdentifier, chamadoId).query(`
             DELETE FROM dados.arquivos_chamados
             WHERE id = @id AND chamado_id = @chamado_id
           `);
-      }
-    );
+    });
 
     revalidatePath(`/chamados/${chamadoId}`);
     return { sucesso: true };
@@ -410,28 +437,23 @@ export async function excluirChamadoAction(id: string) {
 
   try {
     // Soft delete seguro via comUsuario (RLS e autoridade de admin ou criador)
-    await comUsuario(
-      { usuario_id: perfil.id, papel: perfil.papel },
-      async (req) => {
-        const queryAdmin = perfil.papel === "admin"
-          ? ""
-          : " AND criado_por = @usuario_logado";
+    await comUsuario({ usuario_id: perfil.id, papel: perfil.papel }, async (req) => {
+      const queryAdmin = perfil.papel === "admin" ? "" : " AND criado_por = @usuario_logado";
 
-        req.input("id", sql.UniqueIdentifier, id);
-        req.input("usuario_logado", sql.UniqueIdentifier, perfil.id);
+      req.input("id", sql.UniqueIdentifier, id);
+      req.input("usuario_logado", sql.UniqueIdentifier, perfil.id);
 
-        const res = await req.query(`
+      const res = await req.query(`
           UPDATE dados.chamados
           SET excluido_em = SYSUTCDATETIME(),
               excluido_por = @usuario_logado
           WHERE id = @id AND excluido_em IS NULL ${queryAdmin}
         `);
 
-        if (res.rowsAffected[0] === 0) {
-          throw new Error("Chamado não encontrado ou você não possui permissão para excluí-lo.");
-        }
+      if (res.rowsAffected[0] === 0) {
+        throw new Error("Chamado não encontrado ou você não possui permissão para excluí-lo.");
       }
-    );
+    });
 
     revalidatePath("/chamados");
     return { sucesso: true };

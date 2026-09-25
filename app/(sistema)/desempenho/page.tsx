@@ -4,22 +4,42 @@ import { sql } from "@/lib/db/pool";
 import { PainelDesempenho } from "./painel-desempenho";
 import { startOfMonth, endOfMonth, subMonths, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { type RankingItem, type PapelUsuario } from "@/types/database";
+import { type RankingItem, type PapelUsuario, type Polo } from "@/types/database";
+
+interface PageProps {
+  searchParams: Promise<{
+    polo_id?: string;
+  }>;
+}
 
 async function calcularRanking(
   req: sql.Request,
   dataInicio: string,
-  dataFim: string
+  dataFim: string,
+  poloId: string = "todos"
 ): Promise<RankingItem[]> {
+  let sqlPoloPerfis = "";
+  if (poloId !== "todos") {
+    req.input("poloIdPerfis", sql.UniqueIdentifier, poloId);
+    sqlPoloPerfis = " AND polo_id = @poloIdPerfis";
+  }
+
   const qPerfis = await req.query(`
     SELECT CAST(id AS NVARCHAR(50)) AS id, nome_completo, email, papel
     FROM dados.perfis
     WHERE ativo = 1
+      ${sqlPoloPerfis}
   `);
 
   const reqChamados = new sql.Request(req.transaction || (req as any).parent);
   reqChamados.input("ini", sql.DateTimeOffset, new Date(dataInicio));
   reqChamados.input("fim", sql.DateTimeOffset, new Date(dataFim + "T23:59:59.999Z"));
+
+  let sqlPoloChamados = "";
+  if (poloId !== "todos") {
+    reqChamados.input("poloIdChamados", sql.UniqueIdentifier, poloId);
+    sqlPoloChamados = " AND polo_id = @poloIdChamados";
+  }
 
   const qChamados = await reqChamados.query(`
     SELECT 
@@ -33,6 +53,7 @@ async function calcularRanking(
       AND importado = 0
       AND data_solicitacao >= @ini
       AND data_solicitacao <= @fim
+      ${sqlPoloChamados}
   `);
 
   const perfis = qPerfis.recordset;
@@ -77,18 +98,20 @@ async function calcularRanking(
 
     if (c.situacao === "concluido") {
       statsMap[uid].resolvidos++;
-      if (c.data_conclusao && new Date(c.data_conclusao) <= new Date(c.prazo)) {
-        statsMap[uid].no_prazo++;
+
+      if (c.data_conclusao && c.prazo) {
+        const dConc = new Date(c.data_conclusao);
+        const dPrazo = new Date(c.prazo);
+        if (dConc <= dPrazo) {
+          statsMap[uid].no_prazo++;
+        }
       }
-      if (c.data_conclusao) {
-        const dias = Math.max(
-          0,
-          Math.round(
-            (new Date(c.data_conclusao).getTime() - new Date(c.data_solicitacao).getTime()) /
-              (1000 * 60 * 60 * 24)
-          )
-        );
-        statsMap[uid].dias_totais += dias;
+
+      if (c.data_conclusao && c.data_solicitacao) {
+        const dConc = new Date(c.data_conclusao).getTime();
+        const dSol = new Date(c.data_solicitacao).getTime();
+        const diffDias = Math.max(0, (dConc - dSol) / (1000 * 60 * 60 * 24));
+        statsMap[uid].dias_totais += diffDias;
       }
     } else if (c.situacao === "encerrado") {
       statsMap[uid].encerrados++;
@@ -97,54 +120,37 @@ async function calcularRanking(
     }
   }
 
-  // Cálculo do maior volume ponderado da equipe no período (Opção A: Volume Relativo à Equipe)
-  const volumesPonderados = Object.values(statsMap).map(
-    (item) => item.resolvidos * 1.0 + item.encerrados * 0.5
-  );
-  const maiorVolumeEquipe = Math.max(0, ...volumesPonderados);
+  const ranking: RankingItem[] = Object.values(statsMap).map((s) => {
+    const taxaPrazo = s.resolvidos > 0 ? (s.no_prazo / s.resolvidos) * 100 : 0;
+    const tempoMedio = s.resolvidos > 0 ? Math.round((s.dias_totais / s.resolvidos) * 10) / 10 : 0;
 
-  const listaComPontos = Object.values(statsMap).map((item) => {
-    const volumePonderado = item.resolvidos * 1.0 + item.encerrados * 0.5;
-    const taxaPrazo = item.resolvidos > 0 ? (item.no_prazo / item.resolvidos) * 100 : 0;
-    const tempoMedioDias = item.resolvidos > 0 ? Math.round((item.dias_totais / item.resolvidos) * 10) / 10 : 0;
+    const volumePonderado = s.resolvidos * 2 + s.encerrados * 0.5;
+    const pontosVolume = Math.round(volumePonderado * 4);
+    const pontosPrazo = Math.round((taxaPrazo / 100) * 40);
 
-    // 1. Volume Relativo à Equipe (Peso 40% = máx 40 pts, proporcional ao maior volume do período)
-    const pontosVolume = maiorVolumeEquipe > 0
-      ? Math.round((volumePonderado / maiorVolumeEquipe) * 40 * 10) / 10
-      : 0;
-
-    // 2. Cumprimento de Prazo (Peso 40% = máx 40 pts)
-    const pontosPrazo = item.resolvidos > 0
-      ? Math.round((item.no_prazo / item.resolvidos) * 40 * 10) / 10
-      : 0;
-
-    // 3. Agilidade de Atendimento (Peso 20% = máx 20 pts)
     let pontosAgilidade = 0;
-    if (item.resolvidos > 0) {
-      if (tempoMedioDias <= 1.0) pontosAgilidade = 20;
-      else if (tempoMedioDias <= 2.0) pontosAgilidade = 15;
-      else if (tempoMedioDias <= 3.0) pontosAgilidade = 10;
-      else pontosAgilidade = 5;
+    if (s.resolvidos > 0) {
+      if (tempoMedio <= 2) pontosAgilidade = 20;
+      else if (tempoMedio <= 4) pontosAgilidade = 12;
+      else if (tempoMedio <= 5) pontosAgilidade = 6;
     }
 
-    const pontosTotal = item.resolvidos === 0 && item.encerrados === 0
-      ? 0
-      : Math.round((pontosVolume + pontosPrazo + pontosAgilidade) * 10) / 10;
+    const pontosTotal = pontosVolume + pontosPrazo + pontosAgilidade;
 
     return {
       posicao: 0,
-      usuario_id: item.usuario_id,
-      nome_completo: item.nome_completo,
-      email: item.email,
-      papel: item.papel,
-      volume_total: item.volume_total,
-      resolvidos: item.resolvidos,
-      encerrados: item.encerrados,
-      aguardando: item.aguardando,
+      usuario_id: s.usuario_id,
+      nome_completo: s.nome_completo,
+      email: s.email,
+      papel: s.papel,
+      volume_total: s.volume_total,
+      resolvidos: s.resolvidos,
+      encerrados: s.encerrados,
+      aguardando: s.aguardando,
       volume_ponderado: volumePonderado,
-      no_prazo: item.no_prazo,
-      taxa_prazo: Math.round(taxaPrazo),
-      tempo_medio_dias: tempoMedioDias,
+      no_prazo: s.no_prazo,
+      taxa_prazo: Math.round(taxaPrazo * 10) / 10,
+      tempo_medio_dias: tempoMedio,
       pontos_volume: pontosVolume,
       pontos_prazo: pontosPrazo,
       pontos_agilidade: pontosAgilidade,
@@ -152,21 +158,18 @@ async function calcularRanking(
     };
   });
 
-  // Ordenação por pontuação decrescente
-  listaComPontos.sort((a, b) => {
-    if (b.pontos_total !== a.pontos_total) return b.pontos_total - a.pontos_total;
-    if (b.resolvidos !== a.resolvidos) return b.resolvidos - a.resolvidos;
-    return b.volume_total - a.volume_total;
+  ranking.sort((a, b) => b.pontos_total - a.pontos_total);
+  ranking.forEach((r, idx) => {
+    r.posicao = idx + 1;
   });
 
-  return listaComPontos.map((item, idx) => ({
-    ...item,
-    posicao: idx + 1,
-  }));
+  return ranking;
 }
 
-export default async function PaginaDesempenho() {
+export default async function PaginaDesempenho({ searchParams }: PageProps) {
   const perfilAtual = await obterPerfilAtual();
+  const params = await searchParams;
+  const poloId = params.polo_id || "todos";
 
   const hoje = new Date();
   const inicioMes = format(startOfMonth(hoje), "yyyy-MM-01");
@@ -181,8 +184,15 @@ export default async function PaginaDesempenho() {
   const dados = await comUsuario(
     { usuario_id: perfilAtual.id, papel: perfilAtual.papel },
     async (req) => {
-      const rankingMes = await calcularRanking(req, inicioMes, fimMes);
-      const rankingSemestre = await calcularRanking(req, inicioSemestre, fimSemestre);
+      const qPolos = await req.query(`
+        SELECT CAST(id AS NVARCHAR(50)) AS id, nome, codigo, cidade, estado, ativo, criado_em
+        FROM dados.polos
+        WHERE ativo = 1
+        ORDER BY nome ASC
+      `);
+
+      const rankingMes = await calcularRanking(req, inicioMes, fimMes, poloId);
+      const rankingSemestre = await calcularRanking(req, inicioSemestre, fimSemestre, poloId);
 
       const evolucaoPessoal: { mes: string; minhaPontuacao: number; mediaEquipe: number }[] = [];
 
@@ -192,7 +202,7 @@ export default async function PaginaDesempenho() {
         const fim = format(endOfMonth(d), "yyyy-MM-dd");
         const rotulo = format(d, "MMM/yy", { locale: ptBR });
 
-        const hist = await calcularRanking(req, ini, fim);
+        const hist = await calcularRanking(req, ini, fim, poloId);
         const meuItem = hist.find((r) => r.usuario_id === perfilAtual.id);
         const minhaPontuacao = meuItem?.pontos_total ?? 0;
 
@@ -207,12 +217,23 @@ export default async function PaginaDesempenho() {
       }
 
       return {
+        polos: qPolos.recordset,
         rankingMes,
         rankingSemestre,
         evolucaoPessoal,
       };
     }
   );
+
+  const polosFormatados: Polo[] = dados.polos.map((p: any) => ({
+    id: p.id,
+    nome: p.nome,
+    codigo: p.codigo,
+    cidade: p.cidade,
+    estado: p.estado,
+    ativo: Boolean(p.ativo),
+    criado_em: p.criado_em ? new Date(p.criado_em).toISOString() : new Date().toISOString(),
+  }));
 
   return (
     <PainelDesempenho
@@ -221,6 +242,8 @@ export default async function PaginaDesempenho() {
       perfilAtual={perfilAtual}
       evolucaoPessoal={dados.evolucaoPessoal}
       rotuloSemestre={rotuloSemestre}
+      polos={polosFormatados}
+      poloSelecionado={poloId}
     />
   );
 }

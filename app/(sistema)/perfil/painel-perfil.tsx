@@ -137,125 +137,148 @@ export function PainelPerfil({ perfil, historicoAcessos }: PainelPerfilProps) {
       <div className="rounded-lg border border-borda bg-superficie p-5 space-y-4">
         <div className="flex items-center gap-2 border-b border-borda pb-3">
           <User className="h-4 w-4 text-acento" />
-          <h2 className="text-sm font-semibold text-texto">
-            Identificação Cadastral
-          </h2>
+          <h2 className="text-sm font-semibold text-texto">Identificação Cadastral</h2>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 text-xs">
           <div className="rounded-lg border border-borda bg-fundo p-3.5">
             <span className="font-medium text-texto-suave block text-[11px]">Nome Completo</span>
-            <span className="text-texto font-semibold text-sm block mt-0.5">{perfil.nome_completo}</span>
+            <span className="text-texto font-semibold text-sm block mt-0.5">
+              {perfil.nome_completo}
+            </span>
           </div>
 
           <div className="rounded-lg border border-borda bg-fundo p-3.5">
-            <span className="font-medium text-texto-suave block text-[11px]">E-mail Institucional</span>
+            <span className="font-medium text-texto-suave block text-[11px]">
+              E-mail Institucional
+            </span>
             <span className="text-texto font-mono font-medium block mt-0.5">{perfil.email}</span>
           </div>
 
           <div className="rounded-lg border border-borda bg-fundo p-3.5">
             <span className="font-medium text-texto-suave block text-[11px]">Papel no Sistema</span>
-            <span className="text-acento font-semibold block mt-0.5">{formatarPapel(perfil.papel)}</span>
+            <span className="text-acento font-semibold block mt-0.5">
+              {formatarPapel(perfil.papel)}
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Grid de Senhas */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Troca de Senha do Sistema */}
-        <div className="rounded-lg border border-borda bg-superficie p-5 space-y-4">
+      {/* Seção de Senhas: Apenas Administrador pode alterar diretamente */}
+      {perfil.papel === "admin" ? (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {/* Troca de Senha do Sistema */}
+          <div className="rounded-lg border border-borda bg-superficie p-5 space-y-4">
+            <div className="flex items-center gap-2 border-b border-borda pb-3">
+              <Lock className="h-4 w-4 text-acento" />
+              <h2 className="text-sm font-semibold text-texto">Alterar Senha do Sistema</h2>
+            </div>
+
+            <form onSubmit={handleTrocarSenhaSistema} className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-texto mb-1.5">
+                  Nova Senha (mínimo 8 caracteres)
+                </label>
+                <input
+                  type="password"
+                  required
+                  minLength={8}
+                  value={novaSenhaSistema}
+                  onChange={(e) => setNovaSenhaSistema(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full rounded-lg border border-borda bg-fundo px-3 py-2 text-xs text-texto focus:border-acento focus:outline-none"
+                />
+                {novaSenhaSistema && (
+                  <div className="mt-1.5 flex items-center gap-2 text-[11px]">
+                    <span className="text-texto-suave">Força:</span>
+                    <span className={`font-semibold ${forca.cor}`}>{forca.rotulo}</span>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-texto mb-1.5">
+                  Confirmar Nova Senha
+                </label>
+                <input
+                  type="password"
+                  required
+                  minLength={8}
+                  value={confirmaSenhaSistema}
+                  onChange={(e) => setConfirmaSenhaSistema(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full rounded-lg border border-borda bg-fundo px-3 py-2 text-xs text-texto focus:border-acento focus:outline-none"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isPending}
+                className="h-9 px-4 rounded-lg bg-acento text-xs font-semibold text-white hover:bg-acento-hover disabled:opacity-50 transition"
+              >
+                {isPending ? "Atualizando..." : "Atualizar Senha"}
+              </button>
+            </form>
+          </div>
+
+          {/* Cofre Cifrado da Plataforma Externa */}
+          <div className="rounded-lg border border-borda bg-superficie p-5 space-y-4">
+            <div className="flex items-center gap-2 border-b border-borda pb-3">
+              <Key className="h-4 w-4 text-acento" />
+              <h2 className="text-sm font-semibold text-texto">
+                Senha da Plataforma Externa (Cofre)
+              </h2>
+            </div>
+
+            <p className="text-xs text-texto-suave leading-relaxed">
+              Armazenada com criptografia de ponta a ponta (AES-256-GCM). Permite que
+              administradores tenham acesso de contingência sob auditoria rigorosa.
+            </p>
+
+            <form onSubmit={handleSalvarSenhaExterna} className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-texto mb-1.5">
+                  Atualizar Senha da Plataforma Externa
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={novaSenhaExterna}
+                  onChange={(e) => setNovaSenhaExterna(e.target.value)}
+                  placeholder="Digite a nova senha do PAD/AVA..."
+                  className="w-full rounded-lg border border-borda bg-fundo px-3 py-2 text-xs text-texto focus:border-acento focus:outline-none"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isPending}
+                className="h-9 px-4 rounded-lg border border-borda bg-superficie text-xs font-semibold text-texto hover:bg-fundo disabled:opacity-50 transition"
+              >
+                {isPending ? "Salvando..." : "Salvar no Cofre Cifrado"}
+              </button>
+            </form>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-borda bg-superficie p-5 space-y-3">
           <div className="flex items-center gap-2 border-b border-borda pb-3">
             <Lock className="h-4 w-4 text-acento" />
-            <h2 className="text-sm font-semibold text-texto">
-              Alterar Senha do Sistema
-            </h2>
+            <h2 className="text-sm font-semibold text-texto">Segurança e Credenciais de Acesso</h2>
           </div>
-
-          <form onSubmit={handleTrocarSenhaSistema} className="space-y-4">
-            <div>
-              <label className="block text-xs font-medium text-texto mb-1.5">
-                Nova Senha (mínimo 8 caracteres)
-              </label>
-              <input
-                type="password"
-                required
-                minLength={8}
-                value={novaSenhaSistema}
-                onChange={(e) => setNovaSenhaSistema(e.target.value)}
-                placeholder="••••••••"
-                className="w-full rounded-lg border border-borda bg-fundo px-3 py-2 text-xs text-texto focus:border-acento focus:outline-none"
-              />
-              {novaSenhaSistema && (
-                <div className="mt-1.5 flex items-center gap-2 text-[11px]">
-                  <span className="text-texto-suave">Força:</span>
-                  <span className={`font-semibold ${forca.cor}`}>{forca.rotulo}</span>
-                </div>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-texto mb-1.5">
-                Confirmar Nova Senha
-              </label>
-              <input
-                type="password"
-                required
-                minLength={8}
-                value={confirmaSenhaSistema}
-                onChange={(e) => setConfirmaSenhaSistema(e.target.value)}
-                placeholder="••••••••"
-                className="w-full rounded-lg border border-borda bg-fundo px-3 py-2 text-xs text-texto focus:border-acento focus:outline-none"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={isPending}
-              className="h-9 px-4 rounded-lg bg-acento text-xs font-semibold text-white hover:bg-acento-hover disabled:opacity-50 transition"
-            >
-              {isPending ? "Atualizando..." : "Atualizar Senha"}
-            </button>
-          </form>
-        </div>
-
-        {/* Cofre Cifrado da Plataforma Externa */}
-        <div className="rounded-lg border border-borda bg-superficie p-5 space-y-4">
-          <div className="flex items-center gap-2 border-b border-borda pb-3">
-            <Key className="h-4 w-4 text-acento" />
-            <h2 className="text-sm font-semibold text-texto">
-              Senha da Plataforma Externa (Cofre)
-            </h2>
-          </div>
-
           <p className="text-xs text-texto-suave leading-relaxed">
-            Armazenada com criptografia de ponta a ponta (AES-256-GCM). Permite que administradores tenham acesso de contingência sob auditoria rigorosa.
+            Sua senha de acesso ao sistema interno e à plataforma externa é gerenciada de forma
+            centralizada e segura pela administração.
           </p>
-
-          <form onSubmit={handleSalvarSenhaExterna} className="space-y-4">
-            <div>
-              <label className="block text-xs font-medium text-texto mb-1.5">
-                Atualizar Senha da Plataforma Externa
-              </label>
-              <input
-                type="password"
-                required
-                value={novaSenhaExterna}
-                onChange={(e) => setNovaSenhaExterna(e.target.value)}
-                placeholder="Digite a nova senha do PAD/AVA..."
-                className="w-full rounded-lg border border-borda bg-fundo px-3 py-2 text-xs text-texto focus:border-acento focus:outline-none"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={isPending}
-              className="h-9 px-4 rounded-lg border border-borda bg-superficie text-xs font-semibold text-texto hover:bg-fundo disabled:opacity-50 transition"
-            >
-              {isPending ? "Salvando..." : "Salvar no Cofre Cifrado"}
-            </button>
-          </form>
+          <div className="flex items-center gap-2.5 rounded-lg border border-acento/20 bg-acento/5 p-3.5 text-xs text-texto">
+            <ShieldCheck className="h-4 w-4 text-acento shrink-0" />
+            <span>
+              Por diretriz corporativa, a alteração e redefinição de senhas é realizada
+              exclusivamente pelo <strong>Administrador do Sistema</strong>.
+            </span>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Histórico de Acessos ao seu Cofre */}
       <div className="rounded-lg border border-borda bg-superficie p-5 space-y-4">
@@ -267,7 +290,9 @@ export function PainelPerfil({ perfil, historicoAcessos }: PainelPerfilProps) {
         </div>
 
         {historicoAcessos.length === 0 ? (
-          <p className="text-xs text-texto-suave">Nenhum acesso de administrador foi realizado ao seu cofre.</p>
+          <p className="text-xs text-texto-suave">
+            Nenhum acesso de administrador foi realizado ao seu cofre.
+          </p>
         ) : (
           <div className="overflow-x-auto rounded-lg border border-borda bg-superficie">
             <table className="tabela-densa">

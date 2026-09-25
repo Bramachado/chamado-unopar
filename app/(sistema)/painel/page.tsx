@@ -2,12 +2,21 @@ import { obterPerfilAtual } from "@/lib/auth/perfil";
 import { comUsuario } from "@/lib/db/comUsuario";
 import { sql } from "@/lib/db/pool";
 import { PainelDashboard } from "./painel-dashboard";
-import { startOfMonth, endOfMonth, subMonths, format, isBefore, addDays, startOfDay } from "date-fns";
+import {
+  startOfMonth,
+  endOfMonth,
+  subMonths,
+  format,
+  isBefore,
+  addDays,
+  startOfDay,
+} from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 interface PageProps {
   searchParams: Promise<{
     periodo?: string;
+    polo_id?: string;
   }>;
 }
 
@@ -16,6 +25,7 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
   const params = await searchParams;
 
   const periodo = params.periodo || "mes_atual";
+  const poloId = params.polo_id || "todos";
   const hoje = new Date();
 
   let dataInicioStr = "";
@@ -48,6 +58,20 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
         WHERE ativo = 1
       `);
 
+      // 1.1 Polos ativos do banco
+      const qPolos = await req.query(`
+        SELECT CAST(id AS NVARCHAR(50)) AS id, nome, codigo, cidade, estado, ativo, criado_em
+        FROM dados.polos
+        WHERE ativo = 1
+        ORDER BY nome ASC
+      `);
+
+      let sqlPolo = "";
+      if (poloId !== "todos") {
+        req.input("poloId", sql.UniqueIdentifier, poloId);
+        sqlPolo = " AND c.polo_id = @poloId";
+      }
+
       // 2. Chamados do período
       req.input("dtInicio", sql.DateTimeOffset, new Date(dataInicioStr));
       req.input("dtFim", sql.DateTimeOffset, new Date(dataFimStr + "T23:59:59.999Z"));
@@ -57,6 +81,7 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
           CAST(c.id AS NVARCHAR(50)) AS id,
           c.protocolo,
           c.aluno_nome,
+          c.aluno_cpf,
           c.situacao,
           c.prioridade,
           c.data_solicitacao,
@@ -73,6 +98,7 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
         WHERE c.excluido_em IS NULL
           AND c.data_solicitacao >= @dtInicio
           AND c.data_solicitacao <= @dtFim
+          ${sqlPolo}
       `);
 
       // 3. Chamados dos últimos 12 meses
@@ -88,10 +114,12 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
         FROM dados.chamados c
         WHERE c.excluido_em IS NULL
           AND c.data_solicitacao >= @dtInicio12m
+          ${sqlPolo}
       `);
 
       return {
         perfis: qPerfis.recordset,
+        polos: qPolos.recordset,
         chamadosPeriodo: qChamados.recordset,
         chamados12m: q12m.recordset,
       };
@@ -100,15 +128,31 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
 
   const contagemColaboradores: Record<
     string,
-    { id: string; nome: string; papel: string; resolvidos: number; abertos: number; total: number; diasTotais: number }
+    {
+      id: string;
+      nome: string;
+      papel: string;
+      resolvidos: number;
+      abertos: number;
+      total: number;
+      diasTotais: number;
+    }
   > = {};
-  const contagemMotivos: Record<string, { codigo: string; nome: string; total: number; diasTotais: number; concluidos: number }> = {};
+  const contagemMotivos: Record<
+    string,
+    { codigo: string; nome: string; total: number; diasTotais: number; concluidos: number }
+  > = {};
 
   for (const p of dadosBanco.perfis) {
     contagemColaboradores[p.id] = {
       id: p.id,
       nome: p.nome_completo,
-      papel: p.papel === "admin" ? "Administrador" : p.papel === "coordenador" ? "Coordenador" : "Atendimento",
+      papel:
+        p.papel === "admin"
+          ? "Administrador"
+          : p.papel === "coordenador"
+            ? "Coordenador"
+            : "Atendimento",
       resolvidos: 0,
       abertos: 0,
       total: 0,
@@ -147,7 +191,12 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
     const dataPrazo = startOfDay(new Date(c.prazo));
     const colabId = c.criador_id || "anon";
     const colabNome = c.criador_nome || "Atendente";
-    const colabPapel = c.criador_papel === "admin" ? "Administrador" : c.criador_papel === "coordenador" ? "Coordenador" : "Atendimento";
+    const colabPapel =
+      c.criador_papel === "admin"
+        ? "Administrador"
+        : c.criador_papel === "coordenador"
+          ? "Coordenador"
+          : "Atendimento";
 
     if (!contagemColaboradores[colabId]) {
       contagemColaboradores[colabId] = {
@@ -179,7 +228,10 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
           status: "vencido",
           atendente: colabNome,
         });
-      } else if (isBefore(dataPrazo, limite2Dias) || dataPrazo.getTime() === limite2Dias.getTime()) {
+      } else if (
+        isBefore(dataPrazo, limite2Dias) ||
+        dataPrazo.getTime() === limite2Dias.getTime()
+      ) {
         vencendo_em_2_dias++;
         chamadosCriticos.push({
           id: c.id,
@@ -200,7 +252,13 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
     contagemMotivos[cod].total++;
 
     if (c.situacao === "concluido" && c.data_conclusao) {
-      const dias = Math.max(0, Math.round((new Date(c.data_conclusao).getTime() - new Date(c.data_solicitacao).getTime()) / (1000 * 60 * 60 * 24)));
+      const dias = Math.max(
+        0,
+        Math.round(
+          (new Date(c.data_conclusao).getTime() - new Date(c.data_solicitacao).getTime()) /
+            (1000 * 60 * 60 * 24)
+        )
+      );
       contagemMotivos[cod].diasTotais += dias;
       contagemMotivos[cod].concluidos++;
       contagemColaboradores[colabId].diasTotais += dias;
@@ -217,7 +275,8 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
     .map((c, index) => {
       const pctResolvidos = c.total > 0 ? Math.round((c.resolvidos / c.total) * 100) : 0;
       const pctAbertos = c.total > 0 ? Math.round((c.abertos / c.total) * 100) : 0;
-      const tempoMedioDias = c.resolvidos > 0 ? Math.round((c.diasTotais / c.resolvidos) * 10) / 10 : 0;
+      const tempoMedioDias =
+        c.resolvidos > 0 ? Math.round((c.diasTotais / c.resolvidos) * 10) / 10 : 0;
 
       return {
         id: c.id,
@@ -244,7 +303,8 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
       total: m.total,
     }));
 
-  const mediaGeralDias = totalConcluidosGeral > 0 ? Math.round((somaDiasGeral / totalConcluidosGeral) * 10) / 10 : 0;
+  const mediaGeralDias =
+    totalConcluidosGeral > 0 ? Math.round((somaDiasGeral / totalConcluidosGeral) * 10) / 10 : 0;
 
   const tempoMedioPorMotivo = Object.values(contagemMotivos)
     .filter((m) => m.concluidos >= 3)
@@ -327,10 +387,22 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
     chamadosVencidosOuProximos: chamadosCriticos.slice(0, 10),
   };
 
+  const polosFormatados = dadosBanco.polos.map((p: any) => ({
+    id: p.id,
+    nome: p.nome,
+    codigo: p.codigo,
+    cidade: p.cidade,
+    estado: p.estado,
+    ativo: Boolean(p.ativo),
+    criado_em: p.criado_em ? new Date(p.criado_em).toISOString() : new Date().toISOString(),
+  }));
+
   return (
     <PainelDashboard
       dados={dadosDashboard}
       periodoSelecionado={periodo}
+      polos={polosFormatados}
+      poloSelecionado={poloId}
     />
   );
 }

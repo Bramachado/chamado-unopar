@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
-import { type Perfil, type CredencialAcesso } from "@/types/database";
+import { type Perfil, type CredencialAcesso, type Polo } from "@/types/database";
 import {
   revelarSenhaExternaAction,
   alternarStatusUsuarioAction,
@@ -14,9 +14,11 @@ import {
   UserPlus,
   AlertTriangle,
   Check,
+  Copy,
   Clock,
   History,
   Shield,
+  MapPin,
 } from "lucide-react";
 import { CustomSelect, type CustomSelectOption } from "@/components/ui/custom-select";
 
@@ -26,11 +28,17 @@ interface UsuarioComCredencial extends Perfil {
 
 interface PainelUsuariosProps {
   usuarios: UsuarioComCredencial[];
+  polos?: Polo[];
   acessosRecentes: (CredencialAcesso & { perfil_alvo_nome?: string; admin_nome?: string })[];
   perfilAtualId: string;
 }
 
-export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: PainelUsuariosProps) {
+export function PainelUsuarios({
+  usuarios,
+  polos = [],
+  acessosRecentes,
+  perfilAtualId,
+}: PainelUsuariosProps) {
   const [isPending] = useTransition();
 
   // Estados de revelação temporária (30s)
@@ -38,6 +46,7 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
     null
   );
   const [tempoRestante, setTempoRestante] = useState<number>(0);
+  const [copiado, setCopiado] = useState(false);
 
   // Estados do modal de criação/edição
   const [modalAberto, setModalAberto] = useState(false);
@@ -118,8 +127,7 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
             Gestão de Equipe e Credenciais
           </h1>
           <p className="text-sm text-texto-suave mt-0.5">
-            Controle de acesso, papéis no sistema e cofre de senhas da plataforma externa sob
-            auditoria.
+            Controle de acesso, polos associados e cofre de senhas sob auditoria.
           </p>
         </div>
 
@@ -180,11 +188,27 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
               type="button"
               onClick={() => {
                 navigator.clipboard.writeText(senhaRevelada.senha);
+                setCopiado(true);
+                setTimeout(() => setCopiado(false), 2500);
               }}
-              className="btn-tátil h-9 px-3.5 rounded-lg border border-borda bg-white dark:bg-slate-900 text-xs font-semibold text-texto hover:bg-fundo transition flex items-center gap-1.5 shadow-xs"
+              className={`btn-tátil h-9 px-3.5 rounded-lg border text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm ${
+                copiado
+                  ? "bg-emerald-600 text-white border-emerald-600 ring-2 ring-emerald-500/30"
+                  : "border-borda bg-white dark:bg-slate-900 text-texto hover:bg-fundo"
+              }`}
+              title="Copiar senha para a área de transferência"
             >
-              <Check className="h-3.5 w-3.5 text-emerald-600" />
-              <span>Copiar senha</span>
+              {copiado ? (
+                <>
+                  <Check className="h-3.5 w-3.5 text-white" />
+                  <span>Senha copiada!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="h-3.5 w-3.5 text-texto-suave" />
+                  <span>Copiar senha</span>
+                </>
+              )}
             </button>
             <button
               type="button"
@@ -211,10 +235,11 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
             <tr>
               <th>Nome Completo</th>
               <th>E-mail</th>
-              <th className="w-36 text-center">Papel</th>
-              <th className="w-28 text-center">Status</th>
-              <th className="w-40 text-center">Cofre de Senha</th>
-              <th className="w-36 text-right">Ações</th>
+              <th className="w-40">Polo / Unidade</th>
+              <th className="w-32 text-center">Papel</th>
+              <th className="w-24 text-center">Status</th>
+              <th className="w-36 text-center">Cofre de Senha</th>
+              <th className="w-32 text-right">Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -233,6 +258,16 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
                     )}
                   </td>
                   <td className="text-xs text-texto-suave font-mono">{u.email}</td>
+                  <td className="text-xs">
+                    {u.polo_nome ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border border-borda bg-fundo text-texto">
+                        <MapPin className="h-3 w-3 text-acento" />
+                        <span>{u.polo_cidade || u.polo_nome}</span>
+                      </span>
+                    ) : (
+                      <span className="text-texto-suave text-[11px] italic">Geral / Sem polo</span>
+                    )}
+                  </td>
                   <td className="text-center">
                     <span
                       className={`inline-flex items-center justify-center h-6 px-2.5 rounded-full text-[11px] font-semibold border ${
@@ -370,6 +405,7 @@ export function PainelUsuarios({ usuarios, acessosRecentes, perfilAtualId }: Pai
       {modalAberto && (
         <ModalFormularioUsuario
           usuario={usuarioEditando}
+          polos={polos}
           aoFechar={() => setModalAberto(false)}
           aoSalvar={() => {
             setModalAberto(false);
@@ -430,10 +466,12 @@ const opcoesPapel: CustomSelectOption[] = [
 
 function ModalFormularioUsuario({
   usuario,
+  polos = [],
   aoFechar,
   aoSalvar,
 }: {
   usuario: Perfil | null;
+  polos?: Polo[];
   aoFechar: () => void;
   aoSalvar: () => void;
 }) {
@@ -441,9 +479,17 @@ function ModalFormularioUsuario({
   const [nome, setNome] = useState(usuario?.nome_completo || "");
   const [email, setEmail] = useState(usuario?.email || "");
   const [papel, setPapel] = useState(usuario?.papel || "atendente");
-  const [senhaSistema, setSenhaSistema] = useState("");
-  const [senhaExterna, setSenhaExterna] = useState("");
+  const [poloId, setPoloId] = useState(usuario?.polo_id || polos[0]?.id || "");
+  const [senha, setSenha] = useState("");
   const [erro, setErro] = useState<string | null>(null);
+
+  const opcoesPoloModal: CustomSelectOption[] = [
+    { value: "nenhum", label: "Geral (Sem polo fixo / Central)" },
+    ...polos.map((p) => ({
+      value: p.id,
+      label: `${p.nome} — ${p.cidade} (${p.estado})`,
+    })),
+  ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -454,8 +500,10 @@ function ModalFormularioUsuario({
     formData.set("nome_completo", nome);
     formData.set("email", email);
     formData.set("papel", papel);
-    if (senhaSistema) formData.set("senha_sistema", senhaSistema);
-    if (senhaExterna) formData.set("senha_externa", senhaExterna);
+    formData.set("polo_id", poloId || "");
+    if (senha) {
+      formData.set("senha", senha);
+    }
 
     startTransition(async () => {
       const res = await criarOuEditarUsuarioAction({}, formData);
@@ -516,6 +564,14 @@ function ModalFormularioUsuario({
             />
           </div>
 
+          {/* CustomSelect para Polo */}
+          <CustomSelect
+            label="Polo de Atuação"
+            options={opcoesPoloModal}
+            value={poloId || "nenhum"}
+            onChange={(val) => setPoloId(val)}
+          />
+
           {/* CustomSelect para Papel no Sistema */}
           <CustomSelect
             label="Papel no Sistema *"
@@ -524,37 +580,29 @@ function ModalFormularioUsuario({
             onChange={(val) => setPapel(val as "admin" | "coordenador" | "atendente")}
           />
 
-          <div>
-            <label className="block text-xs font-medium text-texto mb-1.5">
-              {usuario
-                ? "Nova Senha do Sistema (Opcional)"
-                : "Senha de Acesso ao Sistema (mínimo 8 caracteres) *"}
+          <div className="border-t border-borda pt-3">
+            <label className="block text-xs font-medium text-texto mb-1.5 flex items-center gap-1.5">
+              <Key className="h-4 w-4 text-acento" />
+              <span>
+                {usuario
+                  ? "Nova Senha (deixe em branco para manter a atual)"
+                  : "Senha de Acesso (mínimo 6 caracteres) *"}
+              </span>
             </label>
             <input
               type="password"
               required={!usuario}
-              value={senhaSistema}
-              onChange={(e) => setSenhaSistema(e.target.value)}
-              placeholder="••••••••"
-              minLength={8}
+              value={senha}
+              onChange={(e) => setSenha(e.target.value)}
+              placeholder={
+                usuario ? "Nova senha (opcional, mínimo 6 caracteres)" : "Mínimo 6 caracteres"
+              }
+              minLength={6}
               className="w-full rounded-lg border border-borda bg-fundo px-3.5 py-2 text-xs text-texto focus:border-acento focus:outline-none"
             />
-          </div>
-
-          <div className="border-t border-borda pt-3">
-            <label className="block text-xs font-medium text-texto mb-1.5 flex items-center gap-1.5">
-              <Key className="h-4 w-4 text-acento" />
-              <span>Senha da Plataforma Externa (Cofre Cifrado)</span>
-            </label>
-            <input
-              type="password"
-              value={senhaExterna}
-              onChange={(e) => setSenhaExterna(e.target.value)}
-              placeholder="Senha de acesso ao PAD externo..."
-              className="w-full rounded-lg border border-borda bg-fundo px-3.5 py-2 text-xs text-texto focus:border-acento focus:outline-none"
-            />
-            <p className="text-xs text-texto-suave mt-1">
-              Armazenada de forma cifrada com AES-256-GCM.
+            <p className="text-[11px] text-texto-suave mt-1.5 leading-relaxed">
+              Esta senha servirá para o acesso do membro ao sistema e será armazenada de forma
+              segura e cifrada (AES-256-GCM) no cofre para visualização exclusiva do Administrador.
             </p>
           </div>
 

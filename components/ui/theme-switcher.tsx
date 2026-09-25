@@ -20,45 +20,45 @@ export function SeletorTema() {
   };
 
   return (
-    <div className="inline-flex items-center rounded border border-borda bg-superficie p-0.5 text-xs">
+    <div className="inline-flex items-center rounded-xl border border-borda bg-fundo p-0.5 text-xs shadow-xs">
       <button
         type="button"
         onClick={() => alterarTema("claro")}
-        className={`flex items-center gap-1.5 px-2 py-1 rounded transition-colors ${
+        className={`btn-tátil flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-all ${
           temaAtual === "claro"
-            ? "bg-fundo text-texto font-medium shadow-sm"
+            ? "bg-superficie text-texto font-bold shadow-xs border border-borda/80"
             : "text-texto-suave hover:text-texto"
         }`}
         title="Tema Claro"
       >
-        <Sun className="h-3.5 w-3.5" />
-        <span>Claro</span>
+        <Sun className="h-3.5 w-3.5 text-amber-500" />
+        <span className="hidden sm:inline">Claro</span>
       </button>
       <button
         type="button"
         onClick={() => alterarTema("sepia")}
-        className={`flex items-center gap-1.5 px-2 py-1 rounded transition-colors ${
+        className={`btn-tátil flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-all ${
           temaAtual === "sepia"
-            ? "bg-fundo text-texto font-medium shadow-sm"
+            ? "bg-superficie text-texto font-bold shadow-xs border border-borda/80"
             : "text-texto-suave hover:text-texto"
         }`}
-        title="Tema Sépia (Leitura)"
+        title="Tema Sépia (Bege e Azul)"
       >
-        <BookOpen className="h-3.5 w-3.5" />
-        <span>Sépia</span>
+        <BookOpen className="h-3.5 w-3.5 text-blue-600" />
+        <span className="hidden sm:inline">Sépia</span>
       </button>
       <button
         type="button"
         onClick={() => alterarTema("escuro")}
-        className={`flex items-center gap-1.5 px-2 py-1 rounded transition-colors ${
+        className={`btn-tátil flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-all ${
           temaAtual === "escuro"
-            ? "bg-fundo text-texto font-medium shadow-sm"
+            ? "bg-superficie text-texto font-bold shadow-xs border border-borda/80"
             : "text-texto-suave hover:text-texto"
         }`}
         title="Tema Escuro"
       >
-        <Moon className="h-3.5 w-3.5" />
-        <span>Escuro</span>
+        <Moon className="h-3.5 w-3.5 text-indigo-400" />
+        <span className="hidden sm:inline">Escuro</span>
       </button>
     </div>
   );

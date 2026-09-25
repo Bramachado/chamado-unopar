@@ -13,38 +13,44 @@ export async function revelarSenhaExternaAction(
 ): Promise<{ sucesso: true; senhaPlana: string } | { sucesso: false; erro: string }> {
   const perfil = await obterPerfilAtual();
   if (perfil.papel !== "admin") {
-    return { sucesso: false, erro: "Apenas administradores podem visualizar senhas da plataforma externa." };
+    return {
+      sucesso: false,
+      erro: "Apenas administradores podem visualizar senhas da plataforma externa.",
+    };
   }
 
-  // 1. Obter IP e User Agent
+  // 1. Obter IP e User Agent para auditoria
   const headerList = await headers();
-  const ip = headerList.get("x-forwarded-for")?.split(",")[0]?.trim() || headerList.get("x-real-ip") || "127.0.0.1";
+  const ip =
+    headerList.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    headerList.get("x-real-ip") ||
+    "127.0.0.1";
   const userAgent = headerList.get("user-agent") || "Desconhecido";
 
   try {
-    return await comUsuario(
-      { usuario_id: perfil.id, papel: perfil.papel },
-      async (req) => {
-        const res = await req
-          .input("perfil_alvo", sql.UniqueIdentifier, perfilIdAlvo)
-          .input("ip", sql.VarChar(45), ip.slice(0, 45))
-          .input("user_agent", sql.NVarChar(400), userAgent.slice(0, 400))
-          .execute("dados.revelar_credencial");
+    return await comUsuario({ usuario_id: perfil.id, papel: perfil.papel }, async (req) => {
+      const res = await req
+        .input("perfil_alvo", sql.UniqueIdentifier, perfilIdAlvo)
+        .input("ip", sql.VarChar(45), ip.slice(0, 45))
+        .input("user_agent", sql.NVarChar(400), userAgent.slice(0, 400))
+        .execute("dados.revelar_credencial");
 
-        const cred = res.recordset[0];
-        if (!cred) {
-          return { sucesso: false, erro: "Nenhuma credencial externa cadastrada para este usuário." };
-        }
-
-        const senhaPlana = decifrarSenha(
-          Buffer.from(cred.senha_cifrada),
-          Buffer.from(cred.iv),
-          Buffer.from(cred.auth_tag)
-        );
-
-        return { sucesso: true, senhaPlana };
+      const cred = res.recordset[0];
+      if (!cred) {
+        return {
+          sucesso: false,
+          erro: "Nenhuma credencial cadastrada para este usuário no cofre.",
+        };
       }
-    );
+
+      const senhaPlana = decifrarSenha(
+        Buffer.from(cred.senha_cifrada),
+        Buffer.from(cred.iv),
+        Buffer.from(cred.auth_tag)
+      );
+
+      return { sucesso: true, senhaPlana };
+    });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Erro ao decifrar credencial.";
     return { sucesso: false, erro: msg };
@@ -62,18 +68,15 @@ export async function alternarStatusUsuarioAction(idAlvo: string, novoAtivo: boo
   }
 
   try {
-    await comUsuario(
-      { usuario_id: perfil.id, papel: perfil.papel },
-      async (req) => {
-        req.input("id", sql.UniqueIdentifier, idAlvo);
-        req.input("ativo", sql.Bit, novoAtivo ? 1 : 0);
-        await req.query(`
+    await comUsuario({ usuario_id: perfil.id, papel: perfil.papel }, async (req) => {
+      req.input("id", sql.UniqueIdentifier, idAlvo);
+      req.input("ativo", sql.Bit, novoAtivo ? 1 : 0);
+      await req.query(`
           UPDATE dados.perfis
           SET ativo = @ativo, atualizado_em = SYSUTCDATETIME()
           WHERE id = @id
         `);
-      }
-    );
+    });
 
     revalidatePath("/usuarios");
     return { sucesso: true };
@@ -95,16 +98,14 @@ export async function salvarCredencialExternaAction(perfilIdAlvo: string, senhaP
   const { senhaCifrada, iv, authTag } = cifrarSenha(senhaPlana);
 
   try {
-    await comUsuario(
-      { usuario_id: perfil.id, papel: perfil.papel },
-      async (req) => {
-        req.input("perfilId", sql.UniqueIdentifier, perfilIdAlvo);
-        req.input("senhaCifrada", sql.VarBinary(sql.MAX), senhaCifrada);
-        req.input("iv", sql.VarBinary(12), iv);
-        req.input("authTag", sql.VarBinary(16), authTag);
-        req.input("atualizadoPor", sql.UniqueIdentifier, perfil.id);
+    await comUsuario({ usuario_id: perfil.id, papel: perfil.papel }, async (req) => {
+      req.input("perfilId", sql.UniqueIdentifier, perfilIdAlvo);
+      req.input("senhaCifrada", sql.VarBinary(sql.MAX), senhaCifrada);
+      req.input("iv", sql.VarBinary(12), iv);
+      req.input("authTag", sql.VarBinary(16), authTag);
+      req.input("atualizadoPor", sql.UniqueIdentifier, perfil.id);
 
-        await req.query(`
+      await req.query(`
           MERGE dados.credenciais_externas AS target
           USING (SELECT @perfilId AS perfil_id) AS source
           ON target.perfil_id = source.perfil_id
@@ -119,8 +120,7 @@ export async function salvarCredencialExternaAction(perfilIdAlvo: string, senhaP
             INSERT (perfil_id, senha_cifrada, iv, auth_tag, atualizado_em, atualizado_por)
             VALUES (@perfilId, @senhaCifrada, @iv, @authTag, SYSUTCDATETIME(), @atualizadoPor);
         `);
-      }
-    );
+    });
 
     revalidatePath("/usuarios");
     revalidatePath("/perfil");
@@ -141,8 +141,15 @@ export async function criarOuEditarUsuarioAction(_prevState: unknown, formData: 
   const nomeCompleto = formData.get("nome_completo") as string;
   const email = formData.get("email") as string;
   const papel = formData.get("papel") as "admin" | "coordenador" | "atendente";
-  const senhaInicial = formData.get("senha_inicial") as string | null;
-  const senhaExterna = formData.get("senha_externa") as string | null;
+  const poloId = (formData.get("polo_id") as string | null) || null;
+
+  // Aceita senha enviada de qualquer um dos nomes de campo (padronizado em 'senha')
+  const senhaBruta =
+    (formData.get("senha") as string | null) ||
+    (formData.get("senha_sistema") as string | null) ||
+    (formData.get("senha_inicial") as string | null) ||
+    (formData.get("senha_externa") as string | null);
+  const senha = senhaBruta ? senhaBruta.trim() : null;
 
   if (!nomeCompleto || !email || !papel) {
     return { erro: "Todos os campos obrigatórios devem ser preenchidos." };
@@ -151,35 +158,47 @@ export async function criarOuEditarUsuarioAction(_prevState: unknown, formData: 
   try {
     if (id) {
       // Edição de usuário existente
-      await comUsuario(
-        { usuario_id: perfil.id, papel: perfil.papel },
-        async (req) => {
-          req.input("id", sql.UniqueIdentifier, id);
-          req.input("nome", sql.VarChar(255), nomeCompleto.trim());
-          req.input("email", sql.VarChar(255), email.toLowerCase().trim());
-          req.input("papel", sql.VarChar(50), papel);
+      if (senha && senha.length < 6) {
+        return { erro: "A nova senha deve conter no mínimo 6 caracteres." };
+      }
 
-          await req.query(`
+      await comUsuario({ usuario_id: perfil.id, papel: perfil.papel }, async (req) => {
+        req.input("id", sql.UniqueIdentifier, id);
+        req.input("nome", sql.VarChar(255), nomeCompleto.trim());
+        req.input("email", sql.VarChar(255), email.toLowerCase().trim());
+        req.input("papel", sql.VarChar(50), papel);
+        req.input("polo_id", sql.UniqueIdentifier, poloId && poloId !== "nenhum" ? poloId : null);
+
+        let updateSenhaSql = "";
+        if (senha) {
+          const hash = await bcrypt.hash(senha, 12);
+          req.input("senhaHash", sql.VarChar(255), hash);
+          updateSenhaSql = "senha_hash = @senhaHash, ";
+        }
+
+        await req.query(`
             UPDATE dados.perfis
             SET nome_completo = @nome,
                 email = @email,
                 papel = @papel,
+                polo_id = @polo_id,
+                ${updateSenhaSql}
                 atualizado_em = SYSUTCDATETIME()
             WHERE id = @id
           `);
-        }
-      );
+      });
 
-      if (senhaExterna && senhaExterna.trim().length > 0) {
-        await salvarCredencialExternaAction(id, senhaExterna.trim());
+      // Se a senha foi alterada na edição, sincroniza automaticamente no cofre cifrado
+      if (senha) {
+        await salvarCredencialExternaAction(id, senha);
       }
     } else {
-      // Criação de novo usuário
-      if (!senhaInicial || senhaInicial.length < 6) {
+      // Criação de novo usuário: senha é obrigatória (mínimo 6 caracteres)
+      if (!senha || senha.length < 6) {
         return { erro: "A senha inicial deve conter no mínimo 6 caracteres." };
       }
 
-      const hash = await bcrypt.hash(senhaInicial, 12);
+      const hash = await bcrypt.hash(senha, 12);
 
       const novoId = await comUsuario(
         { usuario_id: perfil.id, papel: perfil.papel },
@@ -188,31 +207,40 @@ export async function criarOuEditarUsuarioAction(_prevState: unknown, formData: 
           req.input("email", sql.VarChar(255), email.toLowerCase().trim());
           req.input("papel", sql.VarChar(50), papel);
           req.input("senhaHash", sql.VarChar(255), hash);
+          req.input("polo_id", sql.UniqueIdentifier, poloId && poloId !== "nenhum" ? poloId : null);
 
           const q = await req.query(`
+            DECLARE @out TABLE (id UNIQUEIDENTIFIER);
+
             INSERT INTO dados.perfis (
               nome_completo,
               email,
               papel,
+              polo_id,
               ativo,
               senha_hash
             )
-            OUTPUT CAST(inserted.id AS NVARCHAR(50)) AS id
+            OUTPUT inserted.id INTO @out
             VALUES (
               @nome,
               @email,
               @papel,
+              @polo_id,
               1,
               @senhaHash
-            )
+            );
+
+            SELECT CAST(id AS NVARCHAR(50)) AS id FROM @out;
           `);
 
           return q.recordset[0]?.id;
         }
       );
 
-      if (senhaExterna && senhaExterna.trim().length > 0 && novoId) {
-        await salvarCredencialExternaAction(novoId, senhaExterna.trim());
+      // A senha da plataforma externa É A MESMA do sistema interno,
+      // gravada de forma cifrada com AES-256-GCM no cofre para visualização exclusiva do administrador
+      if (novoId) {
+        await salvarCredencialExternaAction(novoId, senha);
       }
     }
 
