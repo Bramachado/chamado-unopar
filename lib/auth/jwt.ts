@@ -1,5 +1,6 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { cache } from "react";
 
 function getSecret(): Uint8Array {
   return new TextEncoder().encode(
@@ -60,7 +61,7 @@ export async function verificarToken(token?: string | null): Promise<PayloadSess
 /**
  * Verifica o token JWT da sessão atual via cookie store ou token explícito.
  */
-export async function verificarSessao(tokenOpt?: string): Promise<PayloadSessao | null> {
+export const verificarSessao = cache(async (tokenOpt?: string): Promise<PayloadSessao | null> => {
   if (tokenOpt) {
     return verificarToken(tokenOpt);
   }
@@ -72,7 +73,7 @@ export async function verificarSessao(tokenOpt?: string): Promise<PayloadSessao 
   } catch {
     return null;
   }
-}
+});
 
 /**
  * Destrói o cookie de sessão para logout.

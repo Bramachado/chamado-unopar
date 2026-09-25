@@ -85,8 +85,17 @@ export default async function PaginaChamados({ searchParams }: PageProps) {
         sqlFiltros += " AND c.data_solicitacao <= @data_fim";
       }
 
-      const qChamados = await req.query(`
-        SELECT 
+      let sqlPolos =
+        "SELECT CAST(id AS NVARCHAR(50)) AS id, nome, codigo, cidade, estado, ativo, criado_em FROM dados.polos WHERE ativo = 1";
+      if (!ehAdmin && perfilAtual.polo_id) {
+        req.input("meuPoloFiltro", sql.UniqueIdentifier, perfilAtual.polo_id);
+        sqlPolos += " AND id = @meuPoloFiltro";
+      }
+      sqlPolos += " ORDER BY nome ASC";
+
+      const batch = await req.query(`
+        -- 1. Chamados mais recentes com limite de segurança
+        SELECT TOP 300
           CAST(c.id AS NVARCHAR(50)) AS id,
           c.protocolo,
           c.aluno_nome,
@@ -123,10 +132,9 @@ export default async function PaginaChamados({ searchParams }: PageProps) {
         LEFT JOIN dados.motivos m ON m.id = c.motivo_id
         LEFT JOIN dados.perfis p ON p.id = c.criado_por
         ${sqlFiltros}
-        ORDER BY c.data_solicitacao DESC
-      `);
+        ORDER BY c.data_solicitacao DESC;
 
-      const qMotivos = await req.query(`
+        -- 2. Motivos
         SELECT 
           CAST(id AS NVARCHAR(50)) AS id,
           numero,
@@ -136,27 +144,23 @@ export default async function PaginaChamados({ searchParams }: PageProps) {
           ativo,
           criado_em
         FROM dados.motivos
-        ORDER BY numero ASC, codigo ASC
+        ORDER BY numero ASC, codigo ASC;
+
+        -- 3. Polos
+        ${sqlPolos};
       `);
 
-      let sqlPolos =
-        "SELECT CAST(id AS NVARCHAR(50)) AS id, nome, codigo, cidade, estado, ativo, criado_em FROM dados.polos WHERE ativo = 1";
-      if (!ehAdmin && perfilAtual.polo_id) {
-        req.input("meuPoloFiltro", sql.UniqueIdentifier, perfilAtual.polo_id);
-        sqlPolos += " AND id = @meuPoloFiltro";
-      }
-      sqlPolos += " ORDER BY nome ASC";
-      const qPolos = await req.query(sqlPolos);
+      const rsets = batch.recordsets as any[];
 
       return {
-        chamadosBrutos: qChamados.recordset,
-        motivos: qMotivos.recordset,
-        polos: qPolos.recordset,
+        chamadosBrutos: (rsets[0] || []) as any[],
+        motivos: (rsets[1] || []) as any[],
+        polos: (rsets[2] || []) as any[],
       };
     }
   );
 
-  const chamadosFormatados = resultado.chamadosBrutos.map((c) => ({
+  const chamadosFormatados = resultado.chamadosBrutos.map((c: any) => ({
     id: c.id,
     protocolo: c.protocolo,
     aluno_nome: c.aluno_nome,
@@ -193,7 +197,7 @@ export default async function PaginaChamados({ searchParams }: PageProps) {
     perfis: c.autor_id ? { id: c.autor_id, nome_completo: c.autor_nome } : undefined,
   }));
 
-  const motivosFormatados: Motivo[] = resultado.motivos.map((m) => ({
+  const motivosFormatados: Motivo[] = resultado.motivos.map((m: any) => ({
     id: m.id,
     numero: m.numero,
     codigo: m.codigo,

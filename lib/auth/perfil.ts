@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { verificarSessao, destruirSessao } from "./jwt";
 import { getPool, sql } from "@/lib/db/pool";
@@ -5,9 +6,9 @@ import { type Perfil } from "@/types/database";
 
 /**
  * Obtém o perfil atual autenticado diretamente de dados.perfis.
- * Garante que decisões de autorização sempre reconsultam o banco em tempo real.
+ * O cache de requisição do React desduplica chamadas entre layout e página na mesma renderização.
  */
-export async function obterPerfilAtual(): Promise<Perfil> {
+export const obterPerfilAtual = cache(async (): Promise<Perfil> => {
   const sessao = await verificarSessao();
 
   if (!sessao) {
@@ -57,4 +58,4 @@ export async function obterPerfilAtual(): Promise<Perfil> {
       ? new Date(perfil.atualizado_em).toISOString()
       : new Date().toISOString(),
   };
-}
+});

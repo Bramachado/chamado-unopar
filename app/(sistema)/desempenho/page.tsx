@@ -12,52 +12,14 @@ interface PageProps {
   }>;
 }
 
-async function calcularRanking(
-  req: sql.Request,
-  dataInicio: string,
-  dataFim: string,
-  poloId: string = "todos"
-): Promise<RankingItem[]> {
-  let sqlPoloPerfis = "";
-  if (poloId !== "todos") {
-    req.input("poloIdPerfis", sql.UniqueIdentifier, poloId);
-    sqlPoloPerfis = " AND polo_id = @poloIdPerfis";
-  }
-
-  const qPerfis = await req.query(`
-    SELECT CAST(id AS NVARCHAR(50)) AS id, nome_completo, email, papel
-    FROM dados.perfis
-    WHERE ativo = 1
-      ${sqlPoloPerfis}
-  `);
-
-  const reqChamados = new sql.Request(req.transaction || (req as any).parent);
-  reqChamados.input("ini", sql.DateTimeOffset, new Date(dataInicio));
-  reqChamados.input("fim", sql.DateTimeOffset, new Date(dataFim + "T23:59:59.999Z"));
-
-  let sqlPoloChamados = "";
-  if (poloId !== "todos") {
-    reqChamados.input("poloIdChamados", sql.UniqueIdentifier, poloId);
-    sqlPoloChamados = " AND polo_id = @poloIdChamados";
-  }
-
-  const qChamados = await reqChamados.query(`
-    SELECT 
-      CAST(criado_por AS NVARCHAR(50)) AS criado_por,
-      situacao,
-      prazo,
-      data_solicitacao,
-      data_conclusao
-    FROM dados.chamados
-    WHERE excluido_em IS NULL
-      AND importado = 0
-      AND data_solicitacao >= @ini
-      AND data_solicitacao <= @fim
-      ${sqlPoloChamados}
-  `);
-
-  const perfis = qPerfis.recordset;
-  const chamados = qChamados.recordset;
+function calcularRankingEmMemoria(
+  perfis: any[],
+  chamados: any[],
+  dataInicioStr: string,
+  dataFimStr: string
+): RankingItem[] {
+  const dtInicio = new Date(dataInicioStr).getTime();
+  const dtFim = new Date(dataFimStr + "T23:59:59.999Z").getTime();
 
   const statsMap: Record<
     string,
@@ -91,6 +53,9 @@ async function calcularRanking(
   }
 
   for (const c of chamados) {
+    const tSol = new Date(c.data_solicitacao).getTime();
+    if (tSol < dtInicio || tSol > dtFim) continue;
+
     const uid = c.criado_por;
     if (!statsMap[uid]) continue;
 
@@ -100,8 +65,8 @@ async function calcularRanking(
       statsMap[uid].resolvidos++;
 
       if (c.data_conclusao && c.prazo) {
-        const dConc = new Date(c.data_conclusao);
-        const dPrazo = new Date(c.prazo);
+        const dConc = new Date(c.data_conclusao).getTime();
+        const dPrazo = new Date(c.prazo).getTime();
         if (dConc <= dPrazo) {
           statsMap[uid].no_prazo++;
         }
@@ -109,8 +74,7 @@ async function calcularRanking(
 
       if (c.data_conclusao && c.data_solicitacao) {
         const dConc = new Date(c.data_conclusao).getTime();
-        const dSol = new Date(c.data_solicitacao).getTime();
-        const diffDias = Math.max(0, (dConc - dSol) / (1000 * 60 * 60 * 24));
+        const diffDias = Math.max(0, (dConc - tSol) / (1000 * 60 * 60 * 24));
         statsMap[uid].dias_totais += diffDias;
       }
     } else if (c.situacao === "encerrado") {
@@ -181,18 +145,61 @@ export default async function PaginaDesempenho({ searchParams }: PageProps) {
   const inicioSemestre = mes <= 6 ? `${ano}-01-01` : `${ano}-07-01`;
   const fimSemestre = mes <= 6 ? `${ano}-06-30` : `${ano}-12-31`;
 
+  const inicio6Meses = format(startOfMonth(subMonths(hoje, 5)), "yyyy-MM-01");
+  const dataMinimaStr = inicioSemestre < inicio6Meses ? inicioSemestre : inicio6Meses;
+
   const dados = await comUsuario(
     { usuario_id: perfilAtual.id, papel: perfilAtual.papel },
     async (req) => {
-      const qPolos = await req.query(`
+      let sqlPoloPerfis = "";
+      let sqlPoloChamados = "";
+      if (poloId !== "todos") {
+        req.input("poloIdParam", sql.UniqueIdentifier, poloId);
+        sqlPoloPerfis = " AND polo_id = @poloIdParam";
+        sqlPoloChamados = " AND polo_id = @poloIdParam";
+      }
+
+      req.input("dtMinima", sql.DateTimeOffset, new Date(dataMinimaStr));
+
+      const batch = await req.query(`
+        -- 1. Polos ativos
         SELECT CAST(id AS NVARCHAR(50)) AS id, nome, codigo, cidade, estado, ativo, criado_em
         FROM dados.polos
         WHERE ativo = 1
-        ORDER BY nome ASC
+        ORDER BY nome ASC;
+
+        -- 2. Perfis ativos
+        SELECT CAST(id AS NVARCHAR(50)) AS id, nome_completo, email, papel
+        FROM dados.perfis
+        WHERE ativo = 1
+          ${sqlPoloPerfis};
+
+        -- 3. Chamados do período total
+        SELECT 
+          CAST(criado_por AS NVARCHAR(50)) AS criado_por,
+          situacao,
+          prazo,
+          data_solicitacao,
+          data_conclusao
+        FROM dados.chamados
+        WHERE excluido_em IS NULL
+          AND importado = 0
+          AND data_solicitacao >= @dtMinima
+          ${sqlPoloChamados};
       `);
 
-      const rankingMes = await calcularRanking(req, inicioMes, fimMes, poloId);
-      const rankingSemestre = await calcularRanking(req, inicioSemestre, fimSemestre, poloId);
+      const rsets = batch.recordsets as any[];
+      const polos = rsets[0] || [];
+      const perfis = rsets[1] || [];
+      const chamados = rsets[2] || [];
+
+      const rankingMes = calcularRankingEmMemoria(perfis, chamados, inicioMes, fimMes);
+      const rankingSemestre = calcularRankingEmMemoria(
+        perfis,
+        chamados,
+        inicioSemestre,
+        fimSemestre
+      );
 
       const evolucaoPessoal: { mes: string; minhaPontuacao: number; mediaEquipe: number }[] = [];
 
@@ -202,7 +209,7 @@ export default async function PaginaDesempenho({ searchParams }: PageProps) {
         const fim = format(endOfMonth(d), "yyyy-MM-dd");
         const rotulo = format(d, "MMM/yy", { locale: ptBR });
 
-        const hist = await calcularRanking(req, ini, fim, poloId);
+        const hist = calcularRankingEmMemoria(perfis, chamados, ini, fim);
         const meuItem = hist.find((r) => r.usuario_id === perfilAtual.id);
         const minhaPontuacao = meuItem?.pontos_total ?? 0;
 
@@ -217,7 +224,7 @@ export default async function PaginaDesempenho({ searchParams }: PageProps) {
       }
 
       return {
-        polos: qPolos.recordset,
+        polos,
         rankingMes,
         rankingSemestre,
         evolucaoPessoal,

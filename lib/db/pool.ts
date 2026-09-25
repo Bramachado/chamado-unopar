@@ -12,6 +12,8 @@ function getConfig(): sql.config {
     database: limpaVar(process.env.MSSQL_DATABASE) || "ChamadosUnopar",
     server: limpaVar(process.env.MSSQL_HOST) || "localhost",
     port: process.env.MSSQL_PORT ? parseInt(limpaVar(process.env.MSSQL_PORT), 10) : 1433,
+    connectionTimeout: 15000,
+    requestTimeout: 15000,
     options: {
       encrypt: true,
       trustServerCertificate: true,
@@ -19,26 +21,43 @@ function getConfig(): sql.config {
     },
     pool: {
       max: 10,
-      min: 0,
-      idleTimeoutMillis: 30000,
+      min: 1, // Mantém ao menos 1 conexão quente aberta
+      idleTimeoutMillis: 60000,
     },
   };
 }
 
-let globalPool: sql.ConnectionPool | null = null;
+// Singleton global persistente em ambientes Serverless/Node.js
+const globalParaMssql = globalThis as unknown as {
+  _mssqlPool?: sql.ConnectionPool;
+  _mssqlConnecting?: Promise<sql.ConnectionPool>;
+};
 
 export async function getPool(): Promise<sql.ConnectionPool> {
-  if (globalPool && globalPool.connected) {
-    return globalPool;
+  if (globalParaMssql._mssqlPool && globalParaMssql._mssqlPool.connected) {
+    return globalParaMssql._mssqlPool;
   }
-  if (globalPool && globalPool.connecting) {
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    return getPool();
+
+  if (globalParaMssql._mssqlConnecting) {
+    return await globalParaMssql._mssqlConnecting;
   }
+
   const config = getConfig();
-  globalPool = new sql.ConnectionPool(config);
-  await globalPool.connect();
-  return globalPool;
+  const novoPool = new sql.ConnectionPool(config);
+
+  globalParaMssql._mssqlConnecting = novoPool
+    .connect()
+    .then((poolConectado) => {
+      globalParaMssql._mssqlPool = poolConectado;
+      globalParaMssql._mssqlConnecting = undefined;
+      return poolConectado;
+    })
+    .catch((err) => {
+      globalParaMssql._mssqlConnecting = undefined;
+      throw err;
+    });
+
+  return await globalParaMssql._mssqlConnecting;
 }
 
 export { sql };

@@ -176,6 +176,7 @@ export function SidebarPrincipal({
                   <li key={rota.href}>
                     <Link
                       href={rota.href}
+                      prefetch={true}
                       onClick={() => setMobileAberto(false)}
                       title={recolhido ? rota.rotulo : undefined}
                       className={`btn-tátil flex items-center rounded-xl py-3 text-xs font-semibold transition-all ${
@@ -244,6 +245,7 @@ export function SidebarPrincipal({
                       <li key={sub.href}>
                         <Link
                           href={sub.href}
+                          prefetch={true}
                           onClick={() => setMobileAberto(false)}
                           className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition ${
                             ativo

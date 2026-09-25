@@ -51,32 +51,30 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
   const dadosBanco = await comUsuario(
     { usuario_id: perfilAtual.id, papel: perfilAtual.papel },
     async (req) => {
-      // 1. Perfis ativos
-      const qPerfis = await req.query(`
-        SELECT CAST(id AS NVARCHAR(50)) AS id, nome_completo, papel
-        FROM dados.perfis
-        WHERE ativo = 1
-      `);
-
-      // 1.1 Polos ativos do banco
-      const qPolos = await req.query(`
-        SELECT CAST(id AS NVARCHAR(50)) AS id, nome, codigo, cidade, estado, ativo, criado_em
-        FROM dados.polos
-        WHERE ativo = 1
-        ORDER BY nome ASC
-      `);
-
       let sqlPolo = "";
       if (poloId !== "todos") {
         req.input("poloId", sql.UniqueIdentifier, poloId);
         sqlPolo = " AND c.polo_id = @poloId";
       }
 
-      // 2. Chamados do período
       req.input("dtInicio", sql.DateTimeOffset, new Date(dataInicioStr));
       req.input("dtFim", sql.DateTimeOffset, new Date(dataFimStr + "T23:59:59.999Z"));
+      const dtInicio12m = format(subMonths(hoje, 11), "yyyy-MM-01");
+      req.input("dtInicio12m", sql.DateTimeOffset, new Date(dtInicio12m));
 
-      const qChamados = await req.query(`
+      const batch = await req.query(`
+        -- 1. Perfis ativos
+        SELECT CAST(id AS NVARCHAR(50)) AS id, nome_completo, papel
+        FROM dados.perfis
+        WHERE ativo = 1;
+
+        -- 2. Polos ativos
+        SELECT CAST(id AS NVARCHAR(50)) AS id, nome, codigo, cidade, estado, ativo, criado_em
+        FROM dados.polos
+        WHERE ativo = 1
+        ORDER BY nome ASC;
+
+        -- 3. Chamados do período
         SELECT 
           CAST(c.id AS NVARCHAR(50)) AS id,
           c.protocolo,
@@ -98,14 +96,9 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
         WHERE c.excluido_em IS NULL
           AND c.data_solicitacao >= @dtInicio
           AND c.data_solicitacao <= @dtFim
-          ${sqlPolo}
-      `);
+          ${sqlPolo};
 
-      // 3. Chamados dos últimos 12 meses
-      const dtInicio12m = format(subMonths(hoje, 11), "yyyy-MM-01");
-      req.input("dtInicio12m", sql.DateTimeOffset, new Date(dtInicio12m));
-
-      const q12m = await req.query(`
+        -- 4. Chamados dos últimos 12 meses
         SELECT 
           c.data_solicitacao,
           c.situacao,
@@ -114,14 +107,16 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
         FROM dados.chamados c
         WHERE c.excluido_em IS NULL
           AND c.data_solicitacao >= @dtInicio12m
-          ${sqlPolo}
+          ${sqlPolo};
       `);
 
+      const rsets = batch.recordsets as any[];
+
       return {
-        perfis: qPerfis.recordset,
-        polos: qPolos.recordset,
-        chamadosPeriodo: qChamados.recordset,
-        chamados12m: q12m.recordset,
+        perfis: rsets[0] || [],
+        polos: rsets[1] || [],
+        chamadosPeriodo: rsets[2] || [],
+        chamados12m: rsets[3] || [],
       };
     }
   );
