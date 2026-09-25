@@ -26,14 +26,21 @@ export function PainelConfiguracoes({ perfil }: PainelConfiguracoesProps) {
   const [temaAtual, setTemaAtual] = useState<Tema>("claro");
 
   useEffect(() => {
-    const salvo = (localStorage.getItem("unopar-tema") as Tema) || "claro";
-    setTemaAtual(salvo);
+    const salvoCookie = document.cookie
+      .split("; ")
+      .find((row) => row.startsWith("unopar_tema="))
+      ?.split("=")[1] as Tema | undefined;
+    const salvoLocal = localStorage.getItem("unopar-tema") as Tema | null;
+    const temaEfetivo = salvoLocal || salvoCookie || "claro";
+    setTemaAtual(temaEfetivo);
+    document.documentElement.setAttribute("data-theme", temaEfetivo);
   }, []);
 
   const alterarTema = (novoTema: Tema) => {
     setTemaAtual(novoTema);
     document.documentElement.setAttribute("data-theme", novoTema);
     localStorage.setItem("unopar-tema", novoTema);
+    document.cookie = `unopar_tema=${novoTema}; path=/; max-age=31536000; SameSite=Lax`;
   };
 
   const ehAdmin = perfil.papel === "admin";

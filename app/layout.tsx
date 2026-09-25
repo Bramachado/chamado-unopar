@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, IBM_Plex_Sans } from "next/font/google";
+import { cookies } from "next/headers";
 import "./globals.css";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -26,15 +27,19 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const cookieStore = await cookies();
+  const temaCookie = cookieStore.get("unopar_tema")?.value;
+  const temaInicial = temaCookie === "sepia" || temaCookie === "escuro" ? temaCookie : "claro";
+
   return (
     <html
       lang="pt-BR"
-      data-theme="claro"
+      data-theme={temaInicial}
       className={`${plusJakartaSans.variable} ${ibmPlexSans.variable}`}
       suppressHydrationWarning
     >
@@ -44,9 +49,18 @@ export default function RootLayout({
             __html: `
               (function() {
                 try {
-                  var temaSalvo = localStorage.getItem('unopar-tema');
-                  if (temaSalvo) {
-                    document.documentElement.setAttribute('data-theme', temaSalvo);
+                  var cMatch = document.cookie.match(/unopar_tema=([^;]+)/);
+                  var cTema = cMatch ? cMatch[1].trim() : null;
+                  var sTema = localStorage.getItem('unopar-tema');
+                  var temaFinal = sTema || cTema;
+                  if (temaFinal && (temaFinal === 'claro' || temaFinal === 'sepia' || temaFinal === 'escuro')) {
+                    document.documentElement.setAttribute('data-theme', temaFinal);
+                    if (!cTema || cTema !== temaFinal) {
+                      document.cookie = 'unopar_tema=' + temaFinal + '; path=/; max-age=31536000; SameSite=Lax';
+                    }
+                    if (!sTema || sTema !== temaFinal) {
+                      localStorage.setItem('unopar-tema', temaFinal);
+                    }
                   }
                 } catch (e) {}
               })();

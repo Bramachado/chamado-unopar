@@ -45,7 +45,7 @@ export async function getPool(): Promise<sql.ConnectionPool> {
   const config = getConfig();
   const novoPool = new sql.ConnectionPool(config);
 
-  globalParaMssql._mssqlConnecting = novoPool
+  const connectingPromise = novoPool
     .connect()
     .then((poolConectado) => {
       globalParaMssql._mssqlPool = poolConectado;
@@ -54,10 +54,12 @@ export async function getPool(): Promise<sql.ConnectionPool> {
     })
     .catch((err) => {
       globalParaMssql._mssqlConnecting = undefined;
+      globalParaMssql._mssqlPool = undefined;
       throw err;
     });
 
-  return await globalParaMssql._mssqlConnecting;
+  globalParaMssql._mssqlConnecting = connectingPromise;
+  return await connectingPromise;
 }
 
 export { sql };
