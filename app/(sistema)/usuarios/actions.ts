@@ -141,12 +141,7 @@ export async function salvarCredencialExternaAction(perfilIdAlvo: string, senhaP
 }
 
 export async function criarOuEditarUsuarioAction(_prevState: unknown, formData: FormData) {
-  let perfil;
-  try {
-    perfil = await obterPerfilAtual();
-  } catch {
-    return { erro: "Sessão expirada. Faça login novamente." };
-  }
+  const perfil = await obterPerfilAtual();
 
   if (perfil.papel !== "admin") {
     return { erro: "Apenas administradores podem cadastrar ou editar usuários." };

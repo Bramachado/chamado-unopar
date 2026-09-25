@@ -48,8 +48,7 @@ export default async function PaginaUsuarios() {
         ) av
         WHERE p.email NOT LIKE 'excluido_%'
           AND p.email NOT LIKE 'teste.%'
-          AND p.nome_completo NOT LIKE '%[Excluído]%'
-          AND p.nome_completo NOT LIKE '%Teste%'
+          AND p.nome_completo <> 'Conta Teste Desativada'
         ORDER BY p.nome_completo ASC;
 
         -- 2. Polos ativos
