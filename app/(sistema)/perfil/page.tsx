@@ -6,30 +6,35 @@ import { PainelPerfil } from "./painel-perfil";
 export default async function PaginaPerfil() {
   const perfil = await obterPerfilAtual();
 
-  const acessos = await comUsuario(
-    { usuario_id: perfil.id, papel: perfil.papel },
-    async (req) => {
+  let acessosRaw: any[] = [];
+
+  try {
+    const res = await comUsuario({ usuario_id: perfil.id, papel: perfil.papel }, async (req) => {
       req.input("perfilId", sql.UniqueIdentifier, perfil.id);
       const q = await req.query(`
-        SELECT 
-          a.id,
-          CAST(a.perfil_alvo_id AS NVARCHAR(50)) AS perfil_alvo,
-          CAST(a.acessado_por AS NVARCHAR(50)) AS admin_id,
-          a.data_hora,
-          a.ip,
-          a.user_agent,
-          p.nome_completo AS admin_nome
-        FROM auditoria.credencial_acessos a
-        LEFT JOIN dados.perfis p ON p.id = a.acessado_por
-        WHERE a.perfil_alvo_id = @perfilId
-        ORDER BY a.data_hora DESC
-      `).catch(() => ({ recordset: [] }));
+          SELECT 
+            a.id,
+            CAST(a.perfil_alvo AS NVARCHAR(50)) AS perfil_alvo,
+            CAST(a.admin_id AS NVARCHAR(50)) AS admin_id,
+            a.data_hora,
+            a.ip,
+            a.user_agent,
+            p.nome_completo AS admin_nome
+          FROM auditoria.credencial_acessos a
+          LEFT JOIN dados.perfis p ON p.id = a.admin_id
+          WHERE a.perfil_alvo = @perfilId
+          ORDER BY a.data_hora DESC;
+        `);
 
-      return q.recordset;
-    }
-  );
+      return q.recordset || [];
+    });
+    acessosRaw = res || [];
+  } catch (err) {
+    console.error("Erro ao carregar acessos do cofre no perfil:", err);
+    acessosRaw = [];
+  }
 
-  const acessosFormatados = acessos.map((a: any) => ({
+  const acessosFormatados = acessosRaw.map((a: any) => ({
     id: a.id,
     perfil_alvo: a.perfil_alvo,
     admin_id: a.admin_id,
@@ -39,10 +44,5 @@ export default async function PaginaPerfil() {
     admin_nome: a.admin_nome || "Administrador",
   }));
 
-  return (
-    <PainelPerfil
-      perfil={perfil}
-      historicoAcessos={acessosFormatados}
-    />
-  );
+  return <PainelPerfil perfil={perfil} historicoAcessos={acessosFormatados} />;
 }
