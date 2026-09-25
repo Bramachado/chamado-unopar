@@ -86,6 +86,40 @@ export async function alternarStatusUsuarioAction(idAlvo: string, novoAtivo: boo
   }
 }
 
+// Helper interno isolado para gravar no cofre sem disparar revalidações prematuras
+async function gravarCredencialNoCofre(
+  adminId: string,
+  adminPapel: string,
+  perfilIdAlvo: string,
+  senhaPlana: string
+) {
+  const { senhaCifrada, iv, authTag } = cifrarSenha(senhaPlana);
+
+  await comUsuario({ usuario_id: adminId, papel: adminPapel }, async (req) => {
+    req.input("perfilId", sql.UniqueIdentifier, perfilIdAlvo);
+    req.input("senhaCifrada", sql.VarBinary(sql.MAX), senhaCifrada);
+    req.input("iv", sql.VarBinary(12), iv);
+    req.input("authTag", sql.VarBinary(16), authTag);
+    req.input("atualizadoPor", sql.UniqueIdentifier, adminId);
+
+    await req.query(`
+      MERGE dados.credenciais_externas AS target
+      USING (SELECT @perfilId AS perfil_id) AS source
+      ON target.perfil_id = source.perfil_id
+      WHEN MATCHED THEN
+        UPDATE SET 
+          senha_cifrada = @senhaCifrada,
+          iv = @iv,
+          auth_tag = @authTag,
+          atualizado_em = SYSUTCDATETIME(),
+          atualizado_por = @atualizadoPor
+      WHEN NOT MATCHED THEN
+        INSERT (perfil_id, senha_cifrada, iv, auth_tag, atualizado_em, atualizado_por)
+        VALUES (@perfilId, @senhaCifrada, @iv, @authTag, SYSUTCDATETIME(), @atualizadoPor);
+    `);
+  });
+}
+
 export async function salvarCredencialExternaAction(perfilIdAlvo: string, senhaPlana: string) {
   const perfil = await obterPerfilAtual();
   const ehAdmin = perfil.papel === "admin";
@@ -95,33 +129,8 @@ export async function salvarCredencialExternaAction(perfilIdAlvo: string, senhaP
     return { sucesso: false, erro: "Permissão negada para atualizar esta credencial." };
   }
 
-  const { senhaCifrada, iv, authTag } = cifrarSenha(senhaPlana);
-
   try {
-    await comUsuario({ usuario_id: perfil.id, papel: perfil.papel }, async (req) => {
-      req.input("perfilId", sql.UniqueIdentifier, perfilIdAlvo);
-      req.input("senhaCifrada", sql.VarBinary(sql.MAX), senhaCifrada);
-      req.input("iv", sql.VarBinary(12), iv);
-      req.input("authTag", sql.VarBinary(16), authTag);
-      req.input("atualizadoPor", sql.UniqueIdentifier, perfil.id);
-
-      await req.query(`
-          MERGE dados.credenciais_externas AS target
-          USING (SELECT @perfilId AS perfil_id) AS source
-          ON target.perfil_id = source.perfil_id
-          WHEN MATCHED THEN
-            UPDATE SET 
-              senha_cifrada = @senhaCifrada,
-              iv = @iv,
-              auth_tag = @authTag,
-              atualizado_em = SYSUTCDATETIME(),
-              atualizado_por = @atualizadoPor
-          WHEN NOT MATCHED THEN
-            INSERT (perfil_id, senha_cifrada, iv, auth_tag, atualizado_em, atualizado_por)
-            VALUES (@perfilId, @senhaCifrada, @iv, @authTag, SYSUTCDATETIME(), @atualizadoPor);
-        `);
-    });
-
+    await gravarCredencialNoCofre(perfil.id, perfil.papel, perfilIdAlvo, senhaPlana);
     revalidatePath("/usuarios");
     revalidatePath("/perfil");
     return { sucesso: true };
@@ -132,16 +141,26 @@ export async function salvarCredencialExternaAction(perfilIdAlvo: string, senhaP
 }
 
 export async function criarOuEditarUsuarioAction(_prevState: unknown, formData: FormData) {
-  const perfil = await obterPerfilAtual();
+  let perfil;
+  try {
+    perfil = await obterPerfilAtual();
+  } catch {
+    return { erro: "Sessão expirada. Faça login novamente." };
+  }
+
   if (perfil.papel !== "admin") {
     return { erro: "Apenas administradores podem cadastrar ou editar usuários." };
   }
 
   const id = formData.get("id") as string | null;
-  const nomeCompleto = formData.get("nome_completo") as string;
-  const email = formData.get("email") as string;
+  const nomeCompleto = ((formData.get("nome_completo") as string) || "").trim();
+  const email = ((formData.get("email") as string) || "").toLowerCase().trim();
   const papel = formData.get("papel") as "admin" | "coordenador" | "atendente";
-  const poloId = (formData.get("polo_id") as string | null) || null;
+
+  // Sanitização rigorosa de poloId para evitar falhas de conversão de UniqueIdentifier
+  const poloIdRaw = formData.get("polo_id") as string | null;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const poloIdValido = poloIdRaw && uuidRegex.test(poloIdRaw.trim()) ? poloIdRaw.trim() : null;
 
   // Aceita senha enviada de qualquer um dos nomes de campo (padronizado em 'senha')
   const senhaBruta =
@@ -164,14 +183,14 @@ export async function criarOuEditarUsuarioAction(_prevState: unknown, formData: 
 
       await comUsuario({ usuario_id: perfil.id, papel: perfil.papel }, async (req) => {
         req.input("id", sql.UniqueIdentifier, id);
-        req.input("nome", sql.VarChar(255), nomeCompleto.trim());
-        req.input("email", sql.VarChar(255), email.toLowerCase().trim());
+        req.input("nome", sql.VarChar(255), nomeCompleto);
+        req.input("email", sql.VarChar(255), email);
         req.input("papel", sql.VarChar(50), papel);
-        req.input("polo_id", sql.UniqueIdentifier, poloId && poloId !== "nenhum" ? poloId : null);
+        req.input("polo_id", sql.UniqueIdentifier, poloIdValido);
 
         let updateSenhaSql = "";
         if (senha) {
-          const hash = await bcrypt.hash(senha, 12);
+          const hash = await bcrypt.hash(senha, 10);
           req.input("senhaHash", sql.VarChar(255), hash);
           updateSenhaSql = "senha_hash = @senhaHash, ";
         }
@@ -190,7 +209,11 @@ export async function criarOuEditarUsuarioAction(_prevState: unknown, formData: 
 
       // Se a senha foi alterada na edição, sincroniza automaticamente no cofre cifrado
       if (senha) {
-        await salvarCredencialExternaAction(id, senha);
+        try {
+          await gravarCredencialNoCofre(perfil.id, perfil.papel, id, senha);
+        } catch (cofreErr) {
+          console.error("Aviso ao sincronizar credencial no cofre:", cofreErr);
+        }
       }
     } else {
       // Criação de novo usuário: senha é obrigatória (mínimo 6 caracteres)
@@ -198,16 +221,16 @@ export async function criarOuEditarUsuarioAction(_prevState: unknown, formData: 
         return { erro: "A senha inicial deve conter no mínimo 6 caracteres." };
       }
 
-      const hash = await bcrypt.hash(senha, 12);
+      const hash = await bcrypt.hash(senha, 10);
 
       const novoId = await comUsuario(
         { usuario_id: perfil.id, papel: perfil.papel },
         async (req) => {
-          req.input("nome", sql.VarChar(255), nomeCompleto.trim());
-          req.input("email", sql.VarChar(255), email.toLowerCase().trim());
+          req.input("nome", sql.VarChar(255), nomeCompleto);
+          req.input("email", sql.VarChar(255), email);
           req.input("papel", sql.VarChar(50), papel);
           req.input("senhaHash", sql.VarChar(255), hash);
-          req.input("polo_id", sql.UniqueIdentifier, poloId && poloId !== "nenhum" ? poloId : null);
+          req.input("polo_id", sql.UniqueIdentifier, poloIdValido);
 
           const q = await req.query(`
             DECLARE @out TABLE (id UNIQUEIDENTIFIER);
@@ -240,14 +263,33 @@ export async function criarOuEditarUsuarioAction(_prevState: unknown, formData: 
       // A senha da plataforma externa É A MESMA do sistema interno,
       // gravada de forma cifrada com AES-256-GCM no cofre para visualização exclusiva do administrador
       if (novoId) {
-        await salvarCredencialExternaAction(novoId, senha);
+        try {
+          await gravarCredencialNoCofre(perfil.id, perfil.papel, novoId, senha);
+        } catch (cofreErr) {
+          console.error("Aviso ao salvar credencial no cofre:", cofreErr);
+        }
       }
     }
 
-    revalidatePath("/usuarios");
+    try {
+      revalidatePath("/usuarios");
+    } catch (revErr) {
+      console.error("Aviso revalidatePath /usuarios:", revErr);
+    }
+
     return { sucesso: true };
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : "Erro ao processar usuário.";
-    return { erro: msg };
+    const rawMsg = error instanceof Error ? error.message : "Erro ao processar usuário.";
+    let msgAmigavel = rawMsg;
+    if (
+      rawMsg.includes("UNIQUE KEY") ||
+      rawMsg.includes("duplicate key") ||
+      rawMsg.includes("UQ_perfis_email")
+    ) {
+      msgAmigavel = "Já existe um usuário cadastrado com este e-mail.";
+    } else if (rawMsg.includes("Validation failed for parameter")) {
+      msgAmigavel = "Dados inválidos informados no formulário.";
+    }
+    return { erro: msgAmigavel };
   }
 }

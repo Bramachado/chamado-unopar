@@ -483,7 +483,7 @@ function ModalFormularioUsuario({
   const [nome, setNome] = useState(usuario?.nome_completo || "");
   const [email, setEmail] = useState(usuario?.email || "");
   const [papel, setPapel] = useState(usuario?.papel || "atendente");
-  const [poloId, setPoloId] = useState(usuario?.polo_id || polos[0]?.id || "");
+  const [poloId, setPoloId] = useState(usuario?.polo_id || "nenhum");
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState<string | null>(null);
 
@@ -510,11 +510,19 @@ function ModalFormularioUsuario({
     }
 
     startTransition(async () => {
-      const res = await criarOuEditarUsuarioAction({}, formData);
-      if (res.erro) {
-        setErro(res.erro);
-      } else {
-        aoSalvar();
+      try {
+        const res = await criarOuEditarUsuarioAction({}, formData);
+        if (res && "erro" in res && res.erro) {
+          setErro(res.erro);
+        } else {
+          aoSalvar();
+        }
+      } catch (err: unknown) {
+        const msg =
+          err instanceof Error
+            ? err.message
+            : "Ocorreu uma instabilidade na conexão ao salvar o usuário. Tente novamente.";
+        setErro(msg);
       }
     });
   };

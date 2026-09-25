@@ -15,73 +15,85 @@ export default async function PaginaUsuarios() {
     redirect("/painel");
   }
 
-  const dados = await comUsuario({ usuario_id: perfil.id, papel: perfil.papel }, async (req) => {
-    const batch = await req.query(`
-      -- 1. Usuários e seus avatares mais recentes
-      SELECT 
-        CAST(p.id AS NVARCHAR(50)) AS id,
-        p.nome_completo,
-        p.email,
-        p.papel,
-        p.ativo,
-        CAST(p.polo_id AS NVARCHAR(50)) AS polo_id,
-        pol.nome AS polo_nome,
-        pol.cidade AS polo_cidade,
-        CASE WHEN ce.perfil_id IS NOT NULL THEN 1 ELSE 0 END AS tem_credencial_externa,
-        av.dados_depois AS avatar_json,
-        av.operacao AS avatar_operacao,
-        p.criado_em,
-        p.atualizado_em
-      FROM dados.perfis p
-      LEFT JOIN dados.polos pol ON pol.id = p.polo_id
-      LEFT JOIN dados.credenciais_externas ce ON ce.perfil_id = p.id
-      OUTER APPLY (
-        SELECT TOP 1 dados_depois, operacao
-        FROM auditoria.logs
-        WHERE tabela = 'perfis_avatar' AND registro_id = p.id
-        ORDER BY criado_em DESC
-      ) av
-      ORDER BY p.nome_completo ASC;
+  let listaUsuariosDb: any[] = [];
+  let listaPolosDb: any[] = [];
+  let listaAcessosDb: any[] = [];
 
-      -- 2. Polos ativos
-      SELECT 
-        CAST(id AS NVARCHAR(50)) AS id,
-        nome,
-        codigo,
-        cidade,
-        estado,
-        ativo,
-        criado_em
-      FROM dados.polos
-      WHERE ativo = 1
-      ORDER BY nome ASC;
+  try {
+    const dados = await comUsuario({ usuario_id: perfil.id, papel: perfil.papel }, async (req) => {
+      const batch = await req.query(`
+        -- 1. Usuários e seus avatares mais recentes
+        SELECT 
+          CAST(p.id AS NVARCHAR(50)) AS id,
+          p.nome_completo,
+          p.email,
+          p.papel,
+          p.ativo,
+          CAST(p.polo_id AS NVARCHAR(50)) AS polo_id,
+          pol.nome AS polo_nome,
+          pol.cidade AS polo_cidade,
+          CASE WHEN ce.perfil_id IS NOT NULL THEN 1 ELSE 0 END AS tem_credencial_externa,
+          av.dados_depois AS avatar_json,
+          av.operacao AS avatar_operacao,
+          p.criado_em,
+          p.atualizado_em
+        FROM dados.perfis p
+        LEFT JOIN dados.polos pol ON pol.id = p.polo_id
+        LEFT JOIN dados.credenciais_externas ce ON ce.perfil_id = p.id
+        OUTER APPLY (
+          SELECT TOP 1 dados_depois, operacao
+          FROM auditoria.logs
+          WHERE tabela = 'perfis_avatar' AND registro_id = p.id
+          ORDER BY criado_em DESC
+        ) av
+        ORDER BY p.nome_completo ASC;
 
-      -- 3. Acessos recentes do cofre
-      SELECT TOP 10
-        a.id,
-        CAST(a.perfil_alvo AS NVARCHAR(50)) AS perfil_alvo_id,
-        CAST(a.admin_id AS NVARCHAR(50)) AS acessado_por,
-        a.data_hora,
-        a.ip,
-        a.user_agent,
-        pAlvo.nome_completo AS perfil_alvo_nome,
-        pAdmin.nome_completo AS admin_nome
-      FROM auditoria.credencial_acessos a
-      LEFT JOIN dados.perfis pAlvo ON pAlvo.id = a.perfil_alvo
-      LEFT JOIN dados.perfis pAdmin ON pAdmin.id = a.admin_id
-      ORDER BY a.data_hora DESC;
-    `);
+        -- 2. Polos ativos
+        SELECT 
+          CAST(id AS NVARCHAR(50)) AS id,
+          nome,
+          codigo,
+          cidade,
+          estado,
+          ativo,
+          criado_em
+        FROM dados.polos
+        WHERE ativo = 1
+        ORDER BY nome ASC;
 
-    const rsets = batch.recordsets as any[];
+        -- 3. Acessos recentes do cofre
+        SELECT TOP 10
+          a.id,
+          CAST(a.perfil_alvo AS NVARCHAR(50)) AS perfil_alvo_id,
+          CAST(a.admin_id AS NVARCHAR(50)) AS acessado_por,
+          a.data_hora,
+          a.ip,
+          a.user_agent,
+          pAlvo.nome_completo AS perfil_alvo_nome,
+          pAdmin.nome_completo AS admin_nome
+        FROM auditoria.credencial_acessos a
+        LEFT JOIN dados.perfis pAlvo ON pAlvo.id = a.perfil_alvo
+        LEFT JOIN dados.perfis pAdmin ON pAdmin.id = a.admin_id
+        ORDER BY a.data_hora DESC;
+      `);
 
-    return {
-      usuarios: (rsets[0] || []) as any[],
-      polos: (rsets[1] || []) as any[],
-      acessos: (rsets[2] || []) as any[],
-    };
-  });
+      const rsets = (batch.recordsets || []) as any[];
 
-  const usuariosFormatados: UsuarioComCredencial[] = dados.usuarios.map((u: any) => {
+      return {
+        usuarios: (rsets[0] || []) as any[],
+        polos: (rsets[1] || []) as any[],
+        acessos: (rsets[2] || []) as any[],
+      };
+    });
+
+    listaUsuariosDb = dados.usuarios;
+    listaPolosDb = dados.polos;
+    listaAcessosDb = dados.acessos;
+  } catch (err) {
+    console.error("Erro ao carregar dados em /usuarios:", err);
+  }
+
+  const usuariosFormatados: UsuarioComCredencial[] = listaUsuariosDb.map((u: any) => {
     let avatarUrl: string | null = null;
     if (u.avatar_json && u.avatar_operacao !== "DELETE") {
       try {
@@ -92,9 +104,9 @@ export default async function PaginaUsuarios() {
 
     return {
       id: u.id,
-      nome_completo: u.nome_completo,
-      email: u.email,
-      papel: u.papel,
+      nome_completo: u.nome_completo || "Sem nome",
+      email: u.email || "",
+      papel: u.papel || "atendente",
       ativo: Boolean(u.ativo),
       polo_id: u.polo_id || null,
       polo_nome: u.polo_nome || null,
@@ -108,7 +120,7 @@ export default async function PaginaUsuarios() {
     };
   });
 
-  const polosFormatados: Polo[] = dados.polos.map((p: any) => ({
+  const polosFormatados: Polo[] = listaPolosDb.map((p: any) => ({
     id: p.id,
     nome: p.nome,
     codigo: p.codigo,
@@ -118,7 +130,7 @@ export default async function PaginaUsuarios() {
     criado_em: p.criado_em ? new Date(p.criado_em).toISOString() : new Date().toISOString(),
   }));
 
-  const acessosFormatados = dados.acessos.map((a: any) => ({
+  const acessosFormatados = listaAcessosDb.map((a: any) => ({
     id: a.id,
     perfil_alvo: a.perfil_alvo_id,
     admin_id: a.acessado_por,
