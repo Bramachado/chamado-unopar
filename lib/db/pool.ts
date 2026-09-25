@@ -1,15 +1,21 @@
 import sql from "mssql";
 
+function limpaVar(val?: string): string {
+  if (!val) return "";
+  return val.trim().replace(/^["']|["']$/g, "");
+}
+
 function getConfig(): sql.config {
   return {
-    user: process.env.MSSQL_USER || "app_chamados",
-    password: process.env.MSSQL_PASSWORD || "",
-    database: process.env.MSSQL_DATABASE || "ChamadosUnopar",
-    server: process.env.MSSQL_HOST || "localhost",
-    port: process.env.MSSQL_PORT ? parseInt(process.env.MSSQL_PORT, 10) : 1433,
+    user: limpaVar(process.env.MSSQL_USER) || "app_chamados",
+    password: limpaVar(process.env.MSSQL_PASSWORD) || "",
+    database: limpaVar(process.env.MSSQL_DATABASE) || "ChamadosUnopar",
+    server: limpaVar(process.env.MSSQL_HOST) || "localhost",
+    port: process.env.MSSQL_PORT ? parseInt(limpaVar(process.env.MSSQL_PORT), 10) : 1433,
     options: {
       encrypt: true,
       trustServerCertificate: true,
+      enableArithAbort: true,
     },
     pool: {
       max: 10,

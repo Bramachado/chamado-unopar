@@ -38,26 +38,41 @@ export async function autenticarUsuario(
   }
 
   const { email, senha } = validacao.data;
-  const pool = await getPool();
-  const request = pool.request();
+  let perfil: any = null;
 
-  const resultado = await request.input("email", sql.VarChar(255), email.toLowerCase().trim())
-    .query(`
-      SELECT 
-        CAST(p.id AS NVARCHAR(50)) AS id,
-        p.nome_completo,
-        p.email,
-        p.papel,
-        p.ativo,
-        p.senha_hash,
-        CAST(p.polo_id AS NVARCHAR(50)) AS polo_id,
-        pol.nome AS polo_nome
-      FROM dados.perfis p
-      LEFT JOIN dados.polos pol ON pol.id = p.polo_id
-      WHERE p.email = @email
-    `);
+  try {
+    const pool = await getPool();
+    const request = pool.request();
 
-  const perfil = resultado.recordset[0];
+    const resultado = await request.input("email", sql.VarChar(255), email.toLowerCase().trim())
+      .query(`
+        SELECT 
+          CAST(p.id AS NVARCHAR(50)) AS id,
+          p.nome_completo,
+          p.email,
+          p.papel,
+          p.ativo,
+          p.senha_hash,
+          CAST(p.polo_id AS NVARCHAR(50)) AS polo_id,
+          pol.nome AS polo_nome
+        FROM dados.perfis p
+        LEFT JOIN dados.polos pol ON pol.id = p.polo_id
+        WHERE p.email = @email
+      `);
+
+    perfil = resultado.recordset[0];
+  } catch (errDb: any) {
+    console.error("Erro ao conectar ou consultar o banco de dados no login:", errDb);
+    const msg = errDb?.message || "";
+    if (msg.includes("Login failed for user")) {
+      return {
+        erro: "Falha de autenticação com o banco de dados SQL Server (verifique usuário e senha no painel da Vercel).",
+      };
+    }
+    return {
+      erro: "Falha ao conectar com o banco de dados. Verifique a conectividade de rede e as credenciais.",
+    };
+  }
 
   // Mensagem genérica para não revelar existência de e-mail
   const mensagemErroGenerico =
