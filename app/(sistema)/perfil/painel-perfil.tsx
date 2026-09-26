@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { type Perfil, type CredencialAcesso } from "@/types/database";
 import { salvarCredencialExternaAction } from "../usuarios/actions";
 import {
@@ -30,6 +31,7 @@ interface PainelPerfilProps {
 }
 
 export function PainelPerfil({ perfil, historicoAcessos }: PainelPerfilProps) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
   // Estados de formulário
@@ -104,6 +106,7 @@ export function PainelPerfil({ perfil, historicoAcessos }: PainelPerfilProps) {
         setFotoUrl(perfil.avatar_url || null);
       } else {
         setMsgSucesso("Foto de perfil anexada e atualizada com sucesso!");
+        router.refresh();
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Erro ao processar imagem.";
@@ -129,6 +132,7 @@ export function PainelPerfil({ perfil, historicoAcessos }: PainelPerfilProps) {
       } else {
         setFotoUrl(null);
         setMsgSucesso("Foto removida. O sistema agora exibe as iniciais do seu nome.");
+        router.refresh();
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Erro ao remover foto.";
@@ -485,7 +489,10 @@ export function PainelPerfil({ perfil, historicoAcessos }: PainelPerfilProps) {
               <tbody>
                 {historicoAcessos.map((a) => (
                   <tr key={a.id}>
-                    <td className="font-mono text-xs tabular-nums text-texto-suave">
+                    <td
+                      suppressHydrationWarning
+                      className="font-mono text-xs tabular-nums text-texto-suave"
+                    >
                       {format(parseISO(a.data_hora), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                     </td>
                     <td className="text-xs font-medium text-texto">

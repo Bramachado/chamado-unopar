@@ -28,9 +28,12 @@ export async function GET(request: NextRequest, { params }: Params) {
     }
 
     const pool = await getPool();
-    const resPerfil = await pool.request()
-      .input("id", sql.UniqueIdentifier, sessao.id)
-      .query("SELECT CAST(id AS NVARCHAR(50)) AS id, papel, ativo FROM dados.perfis WHERE id = @id");
+    const resPerfil = await pool
+      .request()
+      .input("id", sql.VarChar(50), sessao.id)
+      .query(
+        "SELECT CAST(id AS NVARCHAR(50)) AS id, papel, ativo FROM dados.perfis WHERE id = @id"
+      );
 
     const perfil = resPerfil.recordset[0];
     if (!perfil || !perfil.ativo) {
@@ -43,9 +46,7 @@ export async function GET(request: NextRequest, { params }: Params) {
     const arquivo = await comUsuario(
       { usuario_id: perfil.id, papel: perfil.papel },
       async (req) => {
-        const q = await req
-          .input("id", sql.UniqueIdentifier, id)
-          .query(`
+        const q = await req.input("id", sql.VarChar(50), id).query(`
             SELECT 
               CAST(a.id AS NVARCHAR(50)) AS id,
               CAST(a.chamado_id AS NVARCHAR(50)) AS chamado_id,
@@ -62,13 +63,19 @@ export async function GET(request: NextRequest, { params }: Params) {
     );
 
     if (!arquivo) {
-      return NextResponse.json({ erro: "Arquivo não localizado ou sem permissão de acesso." }, { status: 404 });
+      return NextResponse.json(
+        { erro: "Arquivo não localizado ou sem permissão de acesso." },
+        { status: 404 }
+      );
     }
 
     const caminhoFisico = obterCaminhoAbsolutoSeguro(arquivo.caminho_storage);
 
     if (!fs.existsSync(caminhoFisico)) {
-      return NextResponse.json({ erro: "Arquivo físico não encontrado no servidor." }, { status: 404 });
+      return NextResponse.json(
+        { erro: "Arquivo físico não encontrado no servidor." },
+        { status: 404 }
+      );
     }
 
     const fileStream = fs.createReadStream(caminhoFisico);

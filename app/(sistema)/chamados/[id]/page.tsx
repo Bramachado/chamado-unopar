@@ -19,7 +19,7 @@ export default async function PaginaDetalheChamado({ params }: DetailPageProps) 
     { usuario_id: perfilAtual.id, papel: perfilAtual.papel },
     async (req) => {
       // 1. Carregar chamado principal com motivo e perfis
-      const qChamado = await req.input("id", sql.UniqueIdentifier, id).query(`
+      const qChamado = await req.input("id", sql.VarChar(50), id).query(`
           SELECT 
             CAST(c.id AS NVARCHAR(50)) AS id,
             c.protocolo,
@@ -86,7 +86,7 @@ export default async function PaginaDetalheChamado({ params }: DetailPageProps) 
       // 3. Carregar chamado vinculado anterior (se houver)
       let chamadoAnterior = null;
       if (chamado.chamado_vinculado_id) {
-        req.input("vinculadoId", sql.UniqueIdentifier, chamado.chamado_vinculado_id);
+        req.input("vinculadoId", sql.VarChar(50), chamado.chamado_vinculado_id);
         const qAnt = await req.query(`
           SELECT 
             CAST(id AS NVARCHAR(50)) AS id,

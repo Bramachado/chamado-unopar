@@ -39,11 +39,9 @@ export async function verificarSimilaridade(nome: string): Promise<SimilaridadeR
   const perfil = await obterPerfilAtual();
   const normalizado = normalizarTexto(nome);
 
-  return await comUsuario(
-    { usuario_id: perfil.id, papel: perfil.papel },
-    async (req) => {
-      req.input("termo", sql.VarChar(255), `%${normalizado}%`);
-      const q = await req.query(`
+  return await comUsuario({ usuario_id: perfil.id, papel: perfil.papel }, async (req) => {
+    req.input("termo", sql.VarChar(255), `%${normalizado}%`);
+    const q = await req.query(`
         SELECT TOP 5
           CAST(id AS NVARCHAR(50)) AS id,
           codigo,
@@ -52,9 +50,8 @@ export async function verificarSimilaridade(nome: string): Promise<SimilaridadeR
         FROM dados.motivos
         WHERE nome_normalizado LIKE @termo OR @termo LIKE '%' + nome_normalizado + '%'
       `);
-      return q.recordset;
-    }
-  );
+    return q.recordset;
+  });
 }
 
 export async function salvarMotivoAction(
@@ -108,7 +105,7 @@ export async function salvarMotivoAction(
         req.input("numero", sql.Int, proximoNumero);
         req.input("codigo", sql.VarChar(10), codigoFormatado);
         req.input("nome", sql.VarChar(255), nomeLimpo);
-        req.input("criado_por", sql.UniqueIdentifier, perfil.id);
+        req.input("criado_por", sql.VarChar(50), perfil.id);
 
         const qInsert = await req.query(`
           INSERT INTO dados.motivos (
@@ -147,18 +144,15 @@ export async function alternarStatusMotivoAction(id: string, ativo: boolean) {
   const perfil = await obterPerfilAtual();
 
   try {
-    await comUsuario(
-      { usuario_id: perfil.id, papel: perfil.papel },
-      async (req) => {
-        req.input("id", sql.UniqueIdentifier, id);
-        req.input("ativo", sql.Bit, ativo ? 1 : 0);
-        await req.query(`
+    await comUsuario({ usuario_id: perfil.id, papel: perfil.papel }, async (req) => {
+      req.input("id", sql.VarChar(50), id);
+      req.input("ativo", sql.Bit, ativo ? 1 : 0);
+      await req.query(`
           UPDATE dados.motivos
           SET ativo = @ativo
           WHERE id = @id
         `);
-      }
-    );
+    });
 
     revalidatePath("/motivos");
     return { sucesso: true };

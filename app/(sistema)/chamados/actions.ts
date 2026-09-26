@@ -105,7 +105,7 @@ export async function verificarProtocoloDuplicado(protocolo: string, chamadoAtua
     req.input("protocolo", sql.VarChar(30), limpo);
 
     if (chamadoAtualId) {
-      req.input("atualId", sql.UniqueIdentifier, chamadoAtualId);
+      req.input("atualId", sql.VarChar(50), chamadoAtualId);
       sqlQuery += ` AND id != @atualId`;
     }
 
@@ -226,22 +226,22 @@ export async function salvarChamado(
 
       await comUsuario({ usuario_id: perfil.id, papel: perfil.papel }, async (req) => {
         req
-          .input("id", sql.UniqueIdentifier, chamadoId)
+          .input("id", sql.VarChar(50), chamadoId)
           .input("aluno_nome", sql.VarChar(255), payload.aluno_nome)
           .input("aluno_ra", sql.VarChar(50), payload.aluno_ra || null)
           .input("aluno_cpf", sql.VarChar(11), payload.aluno_cpf || null)
-          .input("polo_id", sql.UniqueIdentifier, poloFinalId)
+          .input("polo_id", sql.VarChar(50), poloFinalId)
           .input("contato_telefone", sql.VarChar(50), payload.contato_telefone || null)
-          .input("motivo_id", sql.UniqueIdentifier, payload.motivo_id)
+          .input("motivo_id", sql.VarChar(50), payload.motivo_id)
           .input("descricao", sql.NVarChar(sql.MAX), payload.descricao || null)
           .input("situacao", sql.VarChar(30), payload.situacao)
           .input("prioridade", sql.VarChar(20), payload.prioridade)
           .input("data_solicitacao", sql.DateTimeOffset, new Date(payload.data_solicitacao))
           .input("prazo", sql.DateTimeOffset, new Date(payload.prazo))
           .input("data_conclusao", sql.DateTimeOffset, dataConclusao)
-          .input("chamado_vinculado_id", sql.UniqueIdentifier, payload.chamado_vinculado_id || null)
+          .input("chamado_vinculado_id", sql.VarChar(50), payload.chamado_vinculado_id || null)
           .input("observacao", sql.NVarChar(sql.MAX), payload.observacao || null)
-          .input("atualizado_por", sql.UniqueIdentifier, perfil.id)
+          .input("atualizado_por", sql.VarChar(50), perfil.id)
           .input("atualizado_por_nome", sql.VarChar(255), perfil.nome_completo);
 
         await req.query(`
@@ -280,22 +280,18 @@ export async function salvarChamado(
             .input("aluno_nome", sql.VarChar(255), payload.aluno_nome)
             .input("aluno_ra", sql.VarChar(50), payload.aluno_ra || null)
             .input("aluno_cpf", sql.VarChar(11), payload.aluno_cpf || null)
-            .input("polo_id", sql.UniqueIdentifier, poloFinalId)
+            .input("polo_id", sql.VarChar(50), poloFinalId)
             .input("contato_telefone", sql.VarChar(50), payload.contato_telefone || null)
-            .input("motivo_id", sql.UniqueIdentifier, payload.motivo_id)
+            .input("motivo_id", sql.VarChar(50), payload.motivo_id)
             .input("descricao", sql.NVarChar(sql.MAX), payload.descricao || null)
             .input("situacao", sql.VarChar(30), payload.situacao)
             .input("prioridade", sql.VarChar(20), payload.prioridade)
             .input("data_solicitacao", sql.DateTimeOffset, new Date(payload.data_solicitacao))
             .input("prazo", sql.DateTimeOffset, new Date(payload.prazo))
             .input("data_conclusao", sql.DateTimeOffset, dataConclusao)
-            .input(
-              "chamado_vinculado_id",
-              sql.UniqueIdentifier,
-              payload.chamado_vinculado_id || null
-            )
+            .input("chamado_vinculado_id", sql.VarChar(50), payload.chamado_vinculado_id || null)
             .input("observacao", sql.NVarChar(sql.MAX), payload.observacao || null)
-            .input("criado_por", sql.UniqueIdentifier, perfil.id)
+            .input("criado_por", sql.VarChar(50), perfil.id)
             .input("criado_por_nome", sql.VarChar(255), perfil.nome_completo);
 
           const q = await req.query(`
@@ -392,8 +388,8 @@ export async function anexarArquivoAction(formData: FormData) {
     // Atualiza metadados do chamado
     await comUsuario({ usuario_id: perfil.id, papel: perfil.papel }, async (req) => {
       await req
-        .input("id", sql.UniqueIdentifier, chamadoId)
-        .input("atualizado_por", sql.UniqueIdentifier, perfil.id)
+        .input("id", sql.VarChar(50), chamadoId)
+        .input("atualizado_por", sql.VarChar(50), perfil.id)
         .input("atualizado_por_nome", sql.VarChar(255), perfil.nome_completo).query(`
             UPDATE dados.chamados
             SET atualizado_por = @atualizado_por,
@@ -417,8 +413,8 @@ export async function excluirArquivoAction(arquivoId: string, chamadoId: string)
   try {
     await comUsuario({ usuario_id: perfil.id, papel: perfil.papel }, async (req) => {
       await req
-        .input("id", sql.UniqueIdentifier, arquivoId)
-        .input("chamado_id", sql.UniqueIdentifier, chamadoId).query(`
+        .input("id", sql.VarChar(50), arquivoId)
+        .input("chamado_id", sql.VarChar(50), chamadoId).query(`
             DELETE FROM dados.arquivos_chamados
             WHERE id = @id AND chamado_id = @chamado_id
           `);
@@ -440,8 +436,8 @@ export async function excluirChamadoAction(id: string) {
     await comUsuario({ usuario_id: perfil.id, papel: perfil.papel }, async (req) => {
       const queryAdmin = perfil.papel === "admin" ? "" : " AND criado_por = @usuario_logado";
 
-      req.input("id", sql.UniqueIdentifier, id);
-      req.input("usuario_logado", sql.UniqueIdentifier, perfil.id);
+      req.input("id", sql.VarChar(50), id);
+      req.input("usuario_logado", sql.VarChar(50), perfil.id);
 
       const res = await req.query(`
           UPDATE dados.chamados

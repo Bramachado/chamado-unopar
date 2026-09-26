@@ -4,7 +4,18 @@ import { obterNotificacoesPrazos } from "@/lib/chamados/notificacoes";
 
 export default async function LayoutSistema({ children }: { children: React.ReactNode }) {
   const perfil = await obterPerfilAtual();
-  const notificacoesIniciais = await obterNotificacoesPrazos(perfil);
+  let notificacoesIniciais;
+  try {
+    notificacoesIniciais = await obterNotificacoesPrazos(perfil);
+  } catch (err) {
+    console.error("Erro ao obter notificações de prazos no layout:", err);
+    notificacoesIniciais = {
+      vencidos: 0,
+      vencendoBreve: 0,
+      totalCriticos: 0,
+      itens: [],
+    };
+  }
 
   return (
     <LayoutCliente perfil={perfil} notificacoesIniciais={notificacoesIniciais}>

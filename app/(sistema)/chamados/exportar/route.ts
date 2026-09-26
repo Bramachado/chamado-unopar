@@ -42,13 +42,13 @@ export async function GET(request: NextRequest) {
 
     const motivoId = searchParams.get("motivo_id");
     if (motivoId && motivoId !== "todos") {
-      req.input("motivo_id", sql.UniqueIdentifier, motivoId);
+      req.input("motivo_id", sql.VarChar(50), motivoId);
       whereClause += " AND c.motivo_id = @motivo_id";
     }
 
     const poloId = searchParams.get("polo_id");
     if (poloId && poloId !== "todos") {
-      req.input("polo_id", sql.UniqueIdentifier, poloId);
+      req.input("polo_id", sql.VarChar(50), poloId);
       whereClause += " AND c.polo_id = @polo_id";
     }
 

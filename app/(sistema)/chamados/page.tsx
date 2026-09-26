@@ -31,13 +31,13 @@ export default async function PaginaChamados({ searchParams }: PageProps) {
 
       // 1. Escopo de visualização: por padrão, colaboradora vê os que ela abriu (escopo === "meus")
       if (escopo === "meus") {
-        req.input("meuUsuarioId", sql.UniqueIdentifier, perfilAtual.id);
+        req.input("meuUsuarioId", sql.VarChar(50), perfilAtual.id);
         sqlFiltros += " AND c.criado_por = @meuUsuarioId";
       }
 
       // 2. Restrição de Polo: colaboradora associada a um polo só acessa o seu polo
       if (!ehAdmin && perfilAtual.polo_id) {
-        req.input("poloUsuarioFixo", sql.UniqueIdentifier, perfilAtual.polo_id);
+        req.input("poloUsuarioFixo", sql.VarChar(50), perfilAtual.polo_id);
         sqlFiltros += " AND c.polo_id = @poloUsuarioFixo";
       }
 
@@ -66,12 +66,12 @@ export default async function PaginaChamados({ searchParams }: PageProps) {
       }
 
       if (params.motivo_id && params.motivo_id !== "todos") {
-        req.input("motivo_id", sql.UniqueIdentifier, params.motivo_id);
+        req.input("motivo_id", sql.VarChar(50), params.motivo_id);
         sqlFiltros += " AND c.motivo_id = @motivo_id";
       }
 
       if (params.polo_id && params.polo_id !== "todos") {
-        req.input("polo_id", sql.UniqueIdentifier, params.polo_id);
+        req.input("polo_id", sql.VarChar(50), params.polo_id);
         sqlFiltros += " AND c.polo_id = @polo_id";
       }
 
@@ -88,7 +88,7 @@ export default async function PaginaChamados({ searchParams }: PageProps) {
       let sqlPolos =
         "SELECT CAST(id AS NVARCHAR(50)) AS id, nome, codigo, cidade, estado, ativo, criado_em FROM dados.polos WHERE ativo = 1";
       if (!ehAdmin && perfilAtual.polo_id) {
-        req.input("meuPoloFiltro", sql.UniqueIdentifier, perfilAtual.polo_id);
+        req.input("meuPoloFiltro", sql.VarChar(50), perfilAtual.polo_id);
         sqlPolos += " AND id = @meuPoloFiltro";
       }
       sqlPolos += " ORDER BY nome ASC";

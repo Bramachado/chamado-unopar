@@ -14,7 +14,7 @@ export const obterAvatarUsuario = cache(async (usuarioId: string): Promise<strin
         SELECT TOP 1 dados_depois, operacao
         FROM auditoria.logs
         WHERE tabela = 'perfis_avatar' AND registro_id = @regId
-        ORDER BY criado_em DESC
+        ORDER BY id DESC
       `);
 
     if (resultado.recordset.length === 0) {

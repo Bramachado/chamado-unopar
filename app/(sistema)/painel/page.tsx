@@ -53,7 +53,7 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
     async (req) => {
       let sqlPolo = "";
       if (poloId !== "todos") {
-        req.input("poloId", sql.UniqueIdentifier, poloId);
+        req.input("poloId", sql.VarChar(50), poloId);
         sqlPolo = " AND c.polo_id = @poloId";
       }
 

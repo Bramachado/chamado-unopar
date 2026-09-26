@@ -32,7 +32,11 @@ export async function salvarArquivoLocal(
   }
 
   // Sanitização de nome e geração de caminho seguro
-  const extensao = path.extname(arquivo.name).toLowerCase().replace(/[^a-z0-9.]/g, "") || ".dat";
+  const extensao =
+    path
+      .extname(arquivo.name)
+      .toLowerCase()
+      .replace(/[^a-z0-9.]/g, "") || ".dat";
   const nomeSeguro = `${crypto.randomUUID()}${extensao}`;
   const pastaChamado = path.join(DIRETORIO_ANEXOS, chamadoId.replace(/[^a-zA-Z0-9-]/g, ""));
 
@@ -49,15 +53,14 @@ export async function salvarArquivoLocal(
     { usuario_id: perfil.id, papel: perfil.papel },
     async (req) => {
       const q = await req
-        .input("chamado_id", sql.UniqueIdentifier, chamadoId)
+        .input("chamado_id", sql.VarChar(50), chamadoId)
         .input("nome_original", sql.VarChar(255), arquivo.name.slice(0, 255))
         .input("caminho_storage", sql.VarChar(500), caminhoRelativo)
         .input("tamanho_bytes", sql.BigInt, arquivo.size)
         .input("tipo_mime", sql.VarChar(100), arquivo.type)
         .input("descricao", sql.VarChar(255), descricao ? descricao.slice(0, 255) : null)
-        .input("criado_por", sql.UniqueIdentifier, perfil.id)
-        .input("criado_por_nome", sql.VarChar(255), perfil.nome_completo)
-        .query(`
+        .input("criado_por", sql.VarChar(50), perfil.id)
+        .input("criado_por_nome", sql.VarChar(255), perfil.nome_completo).query(`
           DECLARE @out TABLE (
             id UNIQUEIDENTIFIER,
             chamado_id UNIQUEIDENTIFIER,

@@ -16,7 +16,7 @@ export default async function PaginaEditarChamado({ params }: EditPageProps) {
   const perfil = await obterPerfilAtual();
 
   const dados = await comUsuario({ usuario_id: perfil.id, papel: perfil.papel }, async (req) => {
-    req.input("id", sql.UniqueIdentifier, id);
+    req.input("id", sql.VarChar(50), id);
 
     const qChamado = await req.query(`
         SELECT 
@@ -67,7 +67,7 @@ export default async function PaginaEditarChamado({ params }: EditPageProps) {
     let sqlPolos =
       "SELECT CAST(id AS NVARCHAR(50)) AS id, nome, codigo, cidade, estado, ativo, criado_em FROM dados.polos WHERE ativo = 1";
     if (perfil.papel !== "admin" && perfil.polo_id) {
-      req.input("meuPoloId", sql.UniqueIdentifier, perfil.polo_id);
+      req.input("meuPoloId", sql.VarChar(50), perfil.polo_id);
       sqlPolos += " AND id = @meuPoloId";
     }
     sqlPolos += " ORDER BY nome ASC";
@@ -75,7 +75,7 @@ export default async function PaginaEditarChamado({ params }: EditPageProps) {
 
     let chamadoVinculado = null;
     if (chamado.chamado_vinculado_id) {
-      req.input("vincId", sql.UniqueIdentifier, chamado.chamado_vinculado_id);
+      req.input("vincId", sql.VarChar(50), chamado.chamado_vinculado_id);
       const qVinc = await req.query(`
           SELECT 
             CAST(id AS NVARCHAR(50)) AS id,

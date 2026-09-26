@@ -25,7 +25,7 @@ export default async function PaginaNovoChamado() {
     let sqlPolos =
       "SELECT CAST(id AS NVARCHAR(50)) AS id, nome, codigo, cidade, estado, ativo, criado_em FROM dados.polos WHERE ativo = 1";
     if (perfil.papel !== "admin" && perfil.polo_id) {
-      req.input("meuPoloId", sql.UniqueIdentifier, perfil.polo_id);
+      req.input("meuPoloId", sql.VarChar(50), perfil.polo_id);
       sqlPolos += " AND id = @meuPoloId";
     }
     sqlPolos += " ORDER BY nome ASC";

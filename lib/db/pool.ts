@@ -1,9 +1,5 @@
 import sql from "mssql";
 
-// Normaliza UniqueIdentifier para VarChar(50) para evitar o bug de serialização do Next.js
-// "Validation failed for parameter 'id'. c.type.validate is not a function"
-(sql as any).UniqueIdentifier = sql.VarChar(50);
-
 function limpaVar(val?: string): string {
   if (!val) return "";
   return val.trim().replace(/^["']|["']$/g, "");

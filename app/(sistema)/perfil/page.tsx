@@ -10,7 +10,7 @@ export default async function PaginaPerfil() {
 
   try {
     const res = await comUsuario({ usuario_id: perfil.id, papel: perfil.papel }, async (req) => {
-      req.input("perfilId", sql.UniqueIdentifier, perfil.id);
+      req.input("perfilId", sql.VarChar(50), perfil.id);
       const q = await req.query(`
           SELECT 
             a.id,

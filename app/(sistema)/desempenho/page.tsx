@@ -154,7 +154,7 @@ export default async function PaginaDesempenho({ searchParams }: PageProps) {
       let sqlPoloPerfis = "";
       let sqlPoloChamados = "";
       if (poloId !== "todos") {
-        req.input("poloIdParam", sql.UniqueIdentifier, poloId);
+        req.input("poloIdParam", sql.VarChar(50), poloId);
         sqlPoloPerfis = " AND polo_id = @poloIdParam";
         sqlPoloChamados = " AND polo_id = @poloIdParam";
       }
