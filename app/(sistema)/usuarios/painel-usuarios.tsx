@@ -387,8 +387,11 @@ export function PainelUsuarios({
               <tbody>
                 {acessosRecentes.map((a) => (
                   <tr key={a.id}>
-                    <td className="font-mono text-xs tabular-nums text-texto-suave">
-                      {new Date(a.data_hora).toLocaleString("pt-BR")}
+                    <td
+                      suppressHydrationWarning
+                      className="font-mono text-xs tabular-nums text-texto-suave"
+                    >
+                      {a.data_hora ? new Date(a.data_hora).toLocaleString("pt-BR") : "—"}
                     </td>
                     <td className="text-xs font-medium text-texto">
                       {a.admin_nome || "Administrador"}

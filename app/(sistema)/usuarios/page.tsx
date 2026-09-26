@@ -44,7 +44,7 @@ export default async function PaginaUsuarios() {
           SELECT TOP 1 dados_depois, operacao
           FROM auditoria.logs
           WHERE tabela = 'perfis_avatar' AND registro_id = p.id
-          ORDER BY criado_em DESC
+          ORDER BY id DESC
         ) av
         WHERE p.email NOT LIKE 'excluido_%'
           AND p.email NOT LIKE 'teste.%'
