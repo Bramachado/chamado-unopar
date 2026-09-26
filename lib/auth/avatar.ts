@@ -10,7 +10,7 @@ export const obterAvatarUsuario = cache(async (usuarioId: string): Promise<strin
 
   try {
     const pool = await getPool();
-    const resultado = await pool.request().input("regId", sql.UniqueIdentifier, usuarioId).query(`
+    const resultado = await pool.request().input("regId", sql.VarChar(50), usuarioId).query(`
         SELECT TOP 1 dados_depois, operacao
         FROM auditoria.logs
         WHERE tabela = 'perfis_avatar' AND registro_id = @regId
@@ -53,10 +53,10 @@ export async function salvarAvatarUsuario(
     await pool
       .request()
       .input("tabela", sql.VarChar(100), "perfis_avatar")
-      .input("regId", sql.UniqueIdentifier, usuarioId)
+      .input("regId", sql.VarChar(50), usuarioId)
       .input("operacao", sql.VarChar(10), "UPDATE")
       .input("dadosDepois", sql.NVarChar(sql.MAX), payloadJson)
-      .input("uid", sql.UniqueIdentifier, usuarioId)
+      .input("uid", sql.VarChar(50), usuarioId)
       .input("usuarioNome", sql.NVarChar(200), nomeUsuario || "Usuário")
       .input("origem", sql.VarChar(30), "avatar_upload").query(`
         INSERT INTO auditoria.logs (
@@ -87,10 +87,10 @@ export async function removerAvatarUsuario(
     await pool
       .request()
       .input("tabela", sql.VarChar(100), "perfis_avatar")
-      .input("regId", sql.UniqueIdentifier, usuarioId)
+      .input("regId", sql.VarChar(50), usuarioId)
       .input("operacao", sql.VarChar(10), "DELETE")
       .input("dadosDepois", sql.NVarChar(sql.MAX), payloadJson)
-      .input("uid", sql.UniqueIdentifier, usuarioId)
+      .input("uid", sql.VarChar(50), usuarioId)
       .input("usuarioNome", sql.NVarChar(200), nomeUsuario || "Usuário")
       .input("origem", sql.VarChar(30), "avatar_delete").query(`
         INSERT INTO auditoria.logs (

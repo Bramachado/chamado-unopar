@@ -30,7 +30,7 @@ export async function revelarSenhaExternaAction(
   try {
     return await comUsuario({ usuario_id: perfil.id, papel: perfil.papel }, async (req) => {
       const res = await req
-        .input("perfil_alvo", sql.UniqueIdentifier, perfilIdAlvo)
+        .input("perfil_alvo", sql.VarChar(50), perfilIdAlvo)
         .input("ip", sql.VarChar(45), ip.slice(0, 45))
         .input("user_agent", sql.NVarChar(400), userAgent.slice(0, 400))
         .execute("dados.revelar_credencial");
@@ -69,7 +69,7 @@ export async function alternarStatusUsuarioAction(idAlvo: string, novoAtivo: boo
 
   try {
     await comUsuario({ usuario_id: perfil.id, papel: perfil.papel }, async (req) => {
-      req.input("id", sql.UniqueIdentifier, idAlvo);
+      req.input("id", sql.VarChar(50), idAlvo);
       req.input("ativo", sql.Bit, novoAtivo ? 1 : 0);
       await req.query(`
           UPDATE dados.perfis
@@ -96,11 +96,11 @@ async function gravarCredencialNoCofre(
   const { senhaCifrada, iv, authTag } = cifrarSenha(senhaPlana);
 
   await comUsuario({ usuario_id: adminId, papel: adminPapel }, async (req) => {
-    req.input("perfilId", sql.UniqueIdentifier, perfilIdAlvo);
+    req.input("perfilId", sql.VarChar(50), perfilIdAlvo);
     req.input("senhaCifrada", sql.VarBinary(sql.MAX), senhaCifrada);
     req.input("iv", sql.VarBinary(12), iv);
     req.input("authTag", sql.VarBinary(16), authTag);
-    req.input("atualizadoPor", sql.UniqueIdentifier, adminId);
+    req.input("atualizadoPor", sql.VarChar(50), adminId);
 
     await req.query(`
       MERGE dados.credenciais_externas AS target
@@ -177,11 +177,11 @@ export async function criarOuEditarUsuarioAction(_prevState: unknown, formData: 
       }
 
       await comUsuario({ usuario_id: perfil.id, papel: perfil.papel }, async (req) => {
-        req.input("id", sql.UniqueIdentifier, id);
+        req.input("id", sql.VarChar(50), id);
         req.input("nome", sql.VarChar(255), nomeCompleto);
         req.input("email", sql.VarChar(255), email);
         req.input("papel", sql.VarChar(50), papel);
-        req.input("polo_id", sql.UniqueIdentifier, poloIdValido);
+        req.input("polo_id", sql.VarChar(50), poloIdValido);
 
         let updateSenhaSql = "";
         if (senha) {
@@ -225,7 +225,7 @@ export async function criarOuEditarUsuarioAction(_prevState: unknown, formData: 
           req.input("email", sql.VarChar(255), email);
           req.input("papel", sql.VarChar(50), papel);
           req.input("senhaHash", sql.VarChar(255), hash);
-          req.input("polo_id", sql.UniqueIdentifier, poloIdValido);
+          req.input("polo_id", sql.VarChar(50), poloIdValido);
 
           const q = await req.query(`
             DECLARE @out TABLE (id UNIQUEIDENTIFIER);

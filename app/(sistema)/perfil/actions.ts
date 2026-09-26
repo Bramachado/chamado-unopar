@@ -22,7 +22,7 @@ export async function alterarMinhaSenhaAction(novaSenha: string) {
     const hash = await bcrypt.hash(novaSenha, 10);
 
     await comUsuario({ usuario_id: perfil.id, papel: perfil.papel }, async (req) => {
-      req.input("id", sql.UniqueIdentifier, perfil.id);
+      req.input("id", sql.VarChar(50), perfil.id);
       req.input("hash", sql.VarChar(255), hash);
 
       await req.query(`

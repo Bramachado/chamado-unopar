@@ -156,10 +156,8 @@ export async function definirSenhaInicial(
 
   const hash = await bcrypt.hash(validacao.data.novaSenha, 12);
 
-  await pool
-    .request()
-    .input("id", sql.UniqueIdentifier, perfil.id)
-    .input("hash", sql.VarChar(255), hash).query(`
+  await pool.request().input("id", sql.VarChar(50), perfil.id).input("hash", sql.VarChar(255), hash)
+    .query(`
       UPDATE dados.perfis
       SET senha_hash = @hash, atualizado_em = SYSUTCDATETIME()
       WHERE id = @id

@@ -19,7 +19,7 @@ export const obterPerfilAtual = cache(async (): Promise<Perfil> => {
   const pool = await getPool();
   const request = pool.request();
 
-  const resultado = await request.input("id", sql.UniqueIdentifier, sessao.id).query(`
+  const resultado = await request.input("id", sql.VarChar(50), sessao.id).query(`
       SELECT 
         CAST(p.id AS NVARCHAR(50)) AS id,
         p.nome_completo,

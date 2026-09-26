@@ -39,10 +39,10 @@ export const obterNotificacoesPrazos = cache(
 
         // Se não for admin e tiver polo associado, restringe aos chamados do polo
         if (!ehAdmin && perfil.polo_id) {
-          req.input("poloId", sql.UniqueIdentifier, perfil.polo_id);
+          req.input("poloId", sql.VarChar(50), perfil.polo_id);
           sqlFiltros += " AND c.polo_id = @poloId";
         } else if (!ehAdmin) {
-          req.input("usuarioId", sql.UniqueIdentifier, perfil.id);
+          req.input("usuarioId", sql.VarChar(50), perfil.id);
           sqlFiltros += " AND c.criado_por = @usuarioId";
         }
 

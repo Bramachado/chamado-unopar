@@ -19,7 +19,7 @@ export async function comUsuario<T>(
 
   // Define o contexto NA MESMA conexão, no início, sempre:
   await request
-    .input("usuario_id", sql.UniqueIdentifier, sessao.usuario_id)
+    .input("usuario_id", sql.VarChar(50), sessao.usuario_id)
     .input("papel", sql.VarChar(20), sessao.papel)
     .execute("seg.definir_contexto");
 
@@ -43,7 +43,7 @@ export async function comTransacao<T>(
   try {
     const request = new sql.Request(transaction);
     await request
-      .input("usuario_id", sql.UniqueIdentifier, sessao.usuario_id)
+      .input("usuario_id", sql.VarChar(50), sessao.usuario_id)
       .input("papel", sql.VarChar(20), sessao.papel)
       .execute("seg.definir_contexto");
 
