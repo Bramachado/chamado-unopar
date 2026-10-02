@@ -31,10 +31,32 @@ function getConfig(): sql.config {
 const globalParaMssql = globalThis as unknown as {
   _mssqlPool?: sql.ConnectionPool;
   _mssqlConnecting?: Promise<sql.ConnectionPool>;
+  _lastUsedAt?: number;
 };
 
-export async function getPool(): Promise<sql.ConnectionPool> {
+export function resetPool(): void {
+  try {
+    if (globalParaMssql._mssqlPool) {
+      globalParaMssql._mssqlPool.close().catch(() => {});
+    }
+  } catch {}
+  globalParaMssql._mssqlPool = undefined;
+  globalParaMssql._mssqlConnecting = undefined;
+  globalParaMssql._lastUsedAt = undefined;
+}
+
+export async function getPool(tentativa = 1): Promise<sql.ConnectionPool> {
+  // Se o pool já tem mais de 25 segundos sem uso (típico congelamento serverless), descarta para evitar socket zumbi
+  if (
+    globalParaMssql._lastUsedAt &&
+    Date.now() - globalParaMssql._lastUsedAt > 25000 &&
+    globalParaMssql._mssqlPool
+  ) {
+    resetPool();
+  }
+
   if (globalParaMssql._mssqlPool && globalParaMssql._mssqlPool.connected) {
+    globalParaMssql._lastUsedAt = Date.now();
     return globalParaMssql._mssqlPool;
   }
 
@@ -47,8 +69,7 @@ export async function getPool(): Promise<sql.ConnectionPool> {
 
   novoPool.on("error", (err) => {
     console.error("[DB Pool Error]", err);
-    globalParaMssql._mssqlPool = undefined;
-    globalParaMssql._mssqlConnecting = undefined;
+    resetPool();
   });
 
   const connectingPromise = novoPool
@@ -56,11 +77,16 @@ export async function getPool(): Promise<sql.ConnectionPool> {
     .then((poolConectado) => {
       globalParaMssql._mssqlPool = poolConectado;
       globalParaMssql._mssqlConnecting = undefined;
+      globalParaMssql._lastUsedAt = Date.now();
       return poolConectado;
     })
-    .catch((err) => {
-      globalParaMssql._mssqlConnecting = undefined;
-      globalParaMssql._mssqlPool = undefined;
+    .catch(async (err) => {
+      resetPool();
+      if (tentativa < 2) {
+        console.warn("[DB Pool] Tentando reconectar após erro inicial...", err.message);
+        await new Promise((r) => setTimeout(r, 600));
+        return getPool(tentativa + 1);
+      }
       throw err;
     });
 

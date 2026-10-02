@@ -3,7 +3,7 @@
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
-import { getPool, sql } from "@/lib/db/pool";
+import { getPool, resetPool, sql } from "@/lib/db/pool";
 import { criarSessao, destruirSessao } from "@/lib/auth/jwt";
 
 const loginSchema = z.object({
@@ -62,16 +62,42 @@ export async function autenticarUsuario(
 
     perfil = resultado.recordset[0];
   } catch (errDb: any) {
-    console.error("Erro ao conectar ou consultar o banco de dados no login:", errDb);
-    const msg = errDb?.message || "";
-    if (msg.includes("Login failed for user")) {
+    resetPool();
+    console.error("Erro ao consultar banco no login (tentativa 1):", errDb);
+
+    // Tenta uma segunda vez com pool recém-criado
+    try {
+      const pool2 = await getPool();
+      const request2 = pool2.request();
+      const resultado2 = await request2.input("email", sql.VarChar(255), email.toLowerCase().trim())
+        .query(`
+          SELECT 
+            CAST(p.id AS NVARCHAR(50)) AS id,
+            p.nome_completo,
+            p.email,
+            p.papel,
+            p.ativo,
+            p.senha_hash,
+            CAST(p.polo_id AS NVARCHAR(50)) AS polo_id,
+            pol.nome AS polo_nome
+          FROM dados.perfis p
+          LEFT JOIN dados.polos pol ON pol.id = p.polo_id
+          WHERE p.email = @email
+        `);
+      perfil = resultado2.recordset[0];
+    } catch (errDb2: any) {
+      resetPool();
+      console.error("Erro ao consultar banco no login (tentativa 2):", errDb2);
+      const msg = errDb2?.message || errDb?.message || "";
+      if (msg.includes("Login failed for user")) {
+        return {
+          erro: "Falha de autenticação com o banco de dados SQL Server (verifique usuário e senha no painel da Vercel).",
+        };
+      }
       return {
-        erro: "Falha de autenticação com o banco de dados SQL Server (verifique usuário e senha no painel da Vercel).",
+        erro: `Falha ao conectar com o banco de dados (${msg || "tempo esgotado"}). Verifique a conectividade de rede e as credenciais.`,
       };
     }
-    return {
-      erro: "Falha ao conectar com o banco de dados. Verifique a conectividade de rede e as credenciais.",
-    };
   }
 
   // Mensagem genérica para não revelar existência de e-mail

@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { verificarSessao, destruirSessao } from "./jwt";
-import { getPool, sql } from "@/lib/db/pool";
+import { getPool, resetPool, sql } from "@/lib/db/pool";
 import { obterAvatarUsuario } from "./avatar";
 import { type Perfil } from "@/types/database";
 
@@ -16,27 +16,57 @@ export const obterPerfilAtual = cache(async (): Promise<Perfil> => {
     redirect("/login");
   }
 
-  const pool = await getPool();
-  const request = pool.request();
+  let perfil: any = null;
 
-  const resultado = await request.input("id", sql.VarChar(50), sessao.id).query(`
-      SELECT 
-        CAST(p.id AS NVARCHAR(50)) AS id,
-        p.nome_completo,
-        p.email,
-        p.papel,
-        p.ativo,
-        CAST(p.polo_id AS NVARCHAR(50)) AS polo_id,
-        pol.nome AS polo_nome,
-        pol.cidade AS polo_cidade,
-        p.criado_em,
-        p.atualizado_em
-      FROM dados.perfis p
-      LEFT JOIN dados.polos pol ON pol.id = p.polo_id
-      WHERE p.id = @id
-    `);
-
-  const perfil = resultado.recordset[0];
+  try {
+    const pool = await getPool();
+    const request = pool.request();
+    const resultado = await request.input("id", sql.VarChar(50), sessao.id).query(`
+        SELECT 
+          CAST(p.id AS NVARCHAR(50)) AS id,
+          p.nome_completo,
+          p.email,
+          p.papel,
+          p.ativo,
+          CAST(p.polo_id AS NVARCHAR(50)) AS polo_id,
+          pol.nome AS polo_nome,
+          pol.cidade AS polo_cidade,
+          p.criado_em,
+          p.atualizado_em
+        FROM dados.perfis p
+        LEFT JOIN dados.polos pol ON pol.id = p.polo_id
+        WHERE p.id = @id
+      `);
+    perfil = resultado.recordset[0];
+  } catch (err: any) {
+    resetPool();
+    console.warn("Reconectando banco em obterPerfilAtual...", err?.message);
+    try {
+      const pool2 = await getPool();
+      const request2 = pool2.request();
+      const resultado2 = await request2.input("id", sql.VarChar(50), sessao.id).query(`
+          SELECT 
+            CAST(p.id AS NVARCHAR(50)) AS id,
+            p.nome_completo,
+            p.email,
+            p.papel,
+            p.ativo,
+            CAST(p.polo_id AS NVARCHAR(50)) AS polo_id,
+            pol.nome AS polo_nome,
+            pol.cidade AS polo_cidade,
+            p.criado_em,
+            p.atualizado_em
+          FROM dados.perfis p
+          LEFT JOIN dados.polos pol ON pol.id = p.polo_id
+          WHERE p.id = @id
+        `);
+      perfil = resultado2.recordset[0];
+    } catch (err2: any) {
+      resetPool();
+      console.error("Falha definitiva ao obter perfil atual no banco:", err2);
+      throw err2;
+    }
+  }
 
   if (!perfil || !perfil.ativo) {
     await destruirSessao();
