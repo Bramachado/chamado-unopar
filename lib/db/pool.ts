@@ -21,8 +21,8 @@ function getConfig(): sql.config {
     },
     pool: {
       max: 10,
-      min: 1, // Mantém ao menos 1 conexão quente aberta
-      idleTimeoutMillis: 60000,
+      min: 0, // Serverless: nunca manter conexões zumbis abertas durante o congelamento de contêiner
+      idleTimeoutMillis: 30000,
     },
   };
 }
@@ -44,6 +44,12 @@ export async function getPool(): Promise<sql.ConnectionPool> {
 
   const config = getConfig();
   const novoPool = new sql.ConnectionPool(config);
+
+  novoPool.on("error", (err) => {
+    console.error("[DB Pool Error]", err);
+    globalParaMssql._mssqlPool = undefined;
+    globalParaMssql._mssqlConnecting = undefined;
+  });
 
   const connectingPromise = novoPool
     .connect()

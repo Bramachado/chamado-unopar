@@ -9,7 +9,16 @@ interface UsuarioComCredencial extends Perfil {
 }
 
 export default async function PaginaUsuarios() {
-  const perfil = await obterPerfilAtual();
+  let perfil;
+  try {
+    perfil = await obterPerfilAtual();
+  } catch (err: any) {
+    if (err?.digest?.startsWith("NEXT_REDIRECT")) {
+      throw err;
+    }
+    console.error("Erro ao obter perfil em /usuarios:", err);
+    redirect("/login");
+  }
 
   if (perfil.papel !== "admin") {
     redirect("/painel");
@@ -66,7 +75,7 @@ export default async function PaginaUsuarios() {
 
         -- 3. Acessos recentes do cofre
         SELECT TOP 10
-          a.id,
+          CAST(a.id AS NVARCHAR(50)) AS id,
           CAST(a.perfil_alvo AS NVARCHAR(50)) AS perfil_alvo_id,
           CAST(a.admin_id AS NVARCHAR(50)) AS acessado_por,
           a.data_hora,
@@ -105,44 +114,66 @@ export default async function PaginaUsuarios() {
       } catch {}
     }
 
+    let criadoEmIso = new Date().toISOString();
+    try {
+      if (u.criado_em) criadoEmIso = new Date(u.criado_em).toISOString();
+    } catch {}
+
+    let atualizadoEmIso = new Date().toISOString();
+    try {
+      if (u.atualizado_em) atualizadoEmIso = new Date(u.atualizado_em).toISOString();
+    } catch {}
+
     return {
-      id: u.id,
+      id: String(u.id),
       nome_completo: u.nome_completo || "Sem nome",
       email: u.email || "",
       papel: u.papel || "atendente",
       ativo: Boolean(u.ativo),
-      polo_id: u.polo_id || null,
+      polo_id: u.polo_id ? String(u.polo_id) : null,
       polo_nome: u.polo_nome || null,
       polo_cidade: u.polo_cidade || null,
       avatar_url: avatarUrl,
       tem_credencial_externa: Boolean(u.tem_credencial_externa),
-      criado_em: u.criado_em ? new Date(u.criado_em).toISOString() : new Date().toISOString(),
-      atualizado_em: u.atualizado_em
-        ? new Date(u.atualizado_em).toISOString()
-        : new Date().toISOString(),
+      criado_em: criadoEmIso,
+      atualizado_em: atualizadoEmIso,
     };
   });
 
-  const polosFormatados: Polo[] = listaPolosDb.map((p: any) => ({
-    id: p.id,
-    nome: p.nome,
-    codigo: p.codigo,
-    cidade: p.cidade,
-    estado: p.estado,
-    ativo: Boolean(p.ativo),
-    criado_em: p.criado_em ? new Date(p.criado_em).toISOString() : new Date().toISOString(),
-  }));
+  const polosFormatados: Polo[] = listaPolosDb.map((p: any) => {
+    let criadoEmIso = new Date().toISOString();
+    try {
+      if (p.criado_em) criadoEmIso = new Date(p.criado_em).toISOString();
+    } catch {}
 
-  const acessosFormatados = listaAcessosDb.map((a: any) => ({
-    id: a.id,
-    perfil_alvo: a.perfil_alvo_id,
-    admin_id: a.acessado_por,
-    data_hora: a.data_hora ? new Date(a.data_hora).toISOString() : new Date().toISOString(),
-    ip: a.ip,
-    user_agent: a.user_agent,
-    perfil_alvo_nome: a.perfil_alvo_nome,
-    admin_nome: a.admin_nome,
-  }));
+    return {
+      id: String(p.id),
+      nome: p.nome || "",
+      codigo: p.codigo || "",
+      cidade: p.cidade || "",
+      estado: p.estado || "",
+      ativo: Boolean(p.ativo),
+      criado_em: criadoEmIso,
+    };
+  });
+
+  const acessosFormatados = listaAcessosDb.map((a: any) => {
+    let dataHoraIso = new Date().toISOString();
+    try {
+      if (a.data_hora) dataHoraIso = new Date(a.data_hora).toISOString();
+    } catch {}
+
+    return {
+      id: String(a.id || Math.random()),
+      perfil_alvo: String(a.perfil_alvo_id || ""),
+      admin_id: String(a.acessado_por || ""),
+      data_hora: dataHoraIso,
+      ip: a.ip || "127.0.0.1",
+      user_agent: a.user_agent || "Desconhecido",
+      perfil_alvo_nome: a.perfil_alvo_nome || "—",
+      admin_nome: a.admin_nome || "Administrador",
+    };
+  });
 
   return (
     <PainelUsuarios
