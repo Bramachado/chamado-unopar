@@ -76,9 +76,17 @@ export const verificarSessao = cache(async (tokenOpt?: string): Promise<PayloadS
 });
 
 /**
- * Destrói o cookie de sessão para logout.
+ * Destrói o cookie de sessão para logout com garantia de expiração no path raiz.
  */
 export async function destruirSessao(): Promise<void> {
   const cookieStore = await cookies();
+  cookieStore.set(NOME_COOKIE_SESSAO, "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+    expires: new Date(0),
+  });
   cookieStore.delete(NOME_COOKIE_SESSAO);
 }
