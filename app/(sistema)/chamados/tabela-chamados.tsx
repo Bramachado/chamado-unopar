@@ -4,14 +4,111 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { type Chamado, type Motivo, type Perfil, type Polo } from "@/types/database";
-import { Eye, Edit, Trash2, Search, Download, Plus, Users, User, Filter } from "lucide-react";
-import { format, parseISO, isBefore, startOfDay, addDays } from "date-fns";
+import {
+  Eye,
+  Edit,
+  Trash2,
+  Search,
+  Download,
+  Plus,
+  Users,
+  User,
+  Filter,
+  AlertOctagon,
+  Clock,
+  CalendarClock,
+  Inbox,
+  X,
+} from "lucide-react";
+import { format, parseISO, startOfDay, differenceInCalendarDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { excluirChamadoAction } from "./actions";
 import { CustomSelect, type CustomSelectOption } from "@/components/ui/custom-select";
 import { CustomCheckbox } from "@/components/ui/custom-checkbox";
 import { CustomDatePicker } from "@/components/ui/custom-date-picker";
 import { formatarCpf } from "@/lib/utils/cpf";
+
+export type TipoFiltroPrazo = "todos" | "vencidos" | "vence_hoje" | "vence_2dias" | "pendentes";
+
+export interface InfoPrazo {
+  tipo: "vencido" | "vence_hoje" | "vence_2dias" | "no_prazo" | "finalizado";
+  dias: number | null;
+  textoBadge: string;
+  subtexto: string;
+  badgeClasse: string;
+  bordaTabela: string;
+  bgLinha: string;
+}
+
+export function obterInfoPrazo(prazoIso: string, situacao: string): InfoPrazo {
+  if (situacao === "concluido" || situacao === "encerrado") {
+    return {
+      tipo: "finalizado",
+      dias: null,
+      textoBadge: "Finalizado",
+      subtexto: "",
+      badgeClasse:
+        "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
+      bordaTabela: "",
+      bgLinha: "",
+    };
+  }
+
+  const hoje = startOfDay(new Date());
+  const dataPrazo = startOfDay(parseISO(prazoIso));
+  const diff = differenceInCalendarDays(dataPrazo, hoje);
+
+  if (diff < 0) {
+    const diasAtras = Math.abs(diff);
+    return {
+      tipo: "vencido",
+      dias: diff,
+      textoBadge: diasAtras === 1 ? "Vencido ontem" : `Vencido há ${diasAtras}d`,
+      subtexto: "Prazo expirado",
+      badgeClasse:
+        "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/60 dark:text-rose-200 dark:border-rose-800 animate-pulse",
+      bordaTabela: "border-l-4 border-l-rose-600",
+      bgLinha: "bg-rose-50/30 hover:bg-rose-50/50 dark:bg-rose-950/20",
+    };
+  }
+
+  if (diff === 0) {
+    return {
+      tipo: "vence_hoje",
+      dias: 0,
+      textoBadge: "Vence hoje!",
+      subtexto: "Atenção máxima",
+      badgeClasse:
+        "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/60 dark:text-rose-200 dark:border-rose-800 font-bold",
+      bordaTabela: "border-l-4 border-l-rose-500",
+      bgLinha: "bg-rose-50/20 hover:bg-rose-50/40 dark:bg-rose-950/15",
+    };
+  }
+
+  if (diff === 1 || diff === 2) {
+    return {
+      tipo: "vence_2dias",
+      dias: diff,
+      textoBadge: diff === 1 ? "Vence amanhã (1d)" : "Faltam 2 dias",
+      subtexto: "Prazo próximo",
+      badgeClasse:
+        "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/60 dark:text-amber-200 dark:border-amber-800",
+      bordaTabela: "border-l-4 border-l-amber-500",
+      bgLinha: "bg-amber-50/20 hover:bg-amber-50/40 dark:bg-amber-950/15",
+    };
+  }
+
+  return {
+    tipo: "no_prazo",
+    dias: diff,
+    textoBadge: `Em ${diff} dias`,
+    subtexto: "No prazo",
+    badgeClasse:
+      "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800",
+    bordaTabela: "",
+    bgLinha: "",
+  };
+}
 
 interface TabelaChamadosProps {
   chamados: (Chamado & {
@@ -31,6 +128,7 @@ interface TabelaChamadosProps {
     data_fim?: string;
     reincidentes?: string;
     escopo?: string;
+    filtro_prazo?: string;
   };
 }
 
@@ -58,13 +156,36 @@ export function TabelaChamados({
   const [dataInicio, setDataInicio] = useState(filtros.data_inicio || "");
   const [dataFim, setDataFim] = useState(filtros.data_fim || "");
   const [apenasReincidentes, setApenasReincidentes] = useState(filtros.reincidentes === "true");
+  const [filtroPrazo, setFiltroPrazo] = useState<TipoFiltroPrazo>(
+    (filtros.filtro_prazo as TipoFiltroPrazo) || "todos"
+  );
 
   // Estado do modal de confirmação de exclusão
   const [chamadoExcluir, setChamadoExcluir] = useState<Chamado | null>(null);
   const [mensagemErro, setMensagemErro] = useState<string | null>(null);
 
   const hoje = startOfDay(new Date());
-  const emDoisDias = addDays(hoje, 2);
+
+  // Contagens para o Painel Operacional de Prazos (baseado no conjunto atual carregado)
+  const totalVencidos = chamados.filter(
+    (c) =>
+      c.situacao === "aguardando" &&
+      differenceInCalendarDays(startOfDay(parseISO(c.prazo)), hoje) < 0
+  ).length;
+
+  const totalVenceHoje = chamados.filter(
+    (c) =>
+      c.situacao === "aguardando" &&
+      differenceInCalendarDays(startOfDay(parseISO(c.prazo)), hoje) === 0
+  ).length;
+
+  const totalVence2Dias = chamados.filter((c) => {
+    if (c.situacao !== "aguardando") return false;
+    const diff = differenceInCalendarDays(startOfDay(parseISO(c.prazo)), hoje);
+    return diff === 1 || diff === 2;
+  }).length;
+
+  const totalPendentes = chamados.filter((c) => c.situacao === "aguardando").length;
 
   // Opções formatadas para os CustomSelects
   const opcoesSituacao: CustomSelectOption[] = [
@@ -109,14 +230,39 @@ export function TabelaChamados({
     return acc;
   }, {});
 
-  const chamadosFiltrados = apenasReincidentes
+  const chamadosComReincidencia = apenasReincidentes
     ? chamados.filter((c) => (contagemPorAluno[c.aluno_nome.trim().toLowerCase()] || 0) > 1)
     : chamados;
+
+  // Aplicação do filtro de prazos rápidos selecionados no painel
+  const chamadosFiltrados = chamadosComReincidencia.filter((c) => {
+    if (filtroPrazo === "todos") return true;
+    const info = obterInfoPrazo(c.prazo, c.situacao);
+    if (filtroPrazo === "vencidos") return info.tipo === "vencido";
+    if (filtroPrazo === "vence_hoje") return info.tipo === "vence_hoje";
+    if (filtroPrazo === "vence_2dias") return info.tipo === "vence_2dias";
+    if (filtroPrazo === "pendentes") return c.situacao === "aguardando";
+    return true;
+  });
 
   const alternarEscopo = (novoEscopo: "meus" | "todos") => {
     setEscopo(novoEscopo);
     const params = new URLSearchParams(searchParams.toString());
     params.set("escopo", novoEscopo);
+    startTransition(() => {
+      router.push(`${pathname}?${params.toString()}`);
+    });
+  };
+
+  const alternarFiltroPrazo = (novoFiltro: TipoFiltroPrazo) => {
+    const proximo = filtroPrazo === novoFiltro ? "todos" : novoFiltro;
+    setFiltroPrazo(proximo);
+    const params = new URLSearchParams(searchParams.toString());
+    if (proximo !== "todos") {
+      params.set("filtro_prazo", proximo);
+    } else {
+      params.delete("filtro_prazo");
+    }
     startTransition(() => {
       router.push(`${pathname}?${params.toString()}`);
     });
@@ -150,6 +296,9 @@ export function TabelaChamados({
     if (apenasReincidentes) params.set("reincidentes", "true");
     else params.delete("reincidentes");
 
+    if (filtroPrazo !== "todos") params.set("filtro_prazo", filtroPrazo);
+    else params.delete("filtro_prazo");
+
     startTransition(() => {
       router.push(`${pathname}?${params.toString()}`);
     });
@@ -164,6 +313,7 @@ export function TabelaChamados({
     setDataInicio("");
     setDataFim("");
     setApenasReincidentes(false);
+    setFiltroPrazo("todos");
 
     const padraoEscopo = ehAdmin ? "todos" : "meus";
     setEscopo(padraoEscopo);
@@ -256,6 +406,198 @@ export function TabelaChamados({
           <Users className="h-3.5 w-3.5" />
           <span>Todos os Chamados</span>
         </button>
+      </div>
+
+      {/* 2.1. Painel de Visão Geral de Prazos e Chamados Críticos */}
+      <div className="space-y-2.5">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5">
+          <div className="flex items-center gap-2">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-texto-suave">
+              Painel Operacional de Prazos
+            </h2>
+            {filtroPrazo !== "todos" && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-acento/10 text-acento border border-acento/20">
+                Filtro rápido ativo
+              </span>
+            )}
+          </div>
+          {filtroPrazo !== "todos" && (
+            <button
+              type="button"
+              onClick={() => alternarFiltroPrazo("todos")}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-acento hover:underline cursor-pointer"
+            >
+              <X className="h-3.5 w-3.5" />
+              <span>Limpar filtro de prazo (ver todos)</span>
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Card 1: Prazos Vencidos */}
+          <button
+            type="button"
+            onClick={() => alternarFiltroPrazo("vencidos")}
+            className={`group relative flex flex-col justify-between rounded-xl border p-4 text-left transition-all cursor-pointer ${
+              filtroPrazo === "vencidos"
+                ? "border-rose-500 bg-rose-50 dark:bg-rose-950/40 ring-2 ring-rose-500 shadow-sm"
+                : "border-rose-200/80 bg-rose-50/30 hover:bg-rose-50/70 hover:border-rose-300 dark:border-rose-900/40 dark:bg-rose-950/15 dark:hover:bg-rose-950/30"
+            }`}
+            title="Clique para filtrar apenas chamados com prazo estourado"
+          >
+            <div className="flex items-center justify-between w-full">
+              <span className="text-xs font-semibold text-rose-800 dark:text-rose-300 flex items-center gap-1.5">
+                <AlertOctagon className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                <span>Prazos Vencidos</span>
+              </span>
+              <span
+                className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                  totalVencidos > 0
+                    ? "bg-rose-200 text-rose-900 dark:bg-rose-900 dark:text-rose-100 animate-pulse"
+                    : "bg-rose-100/60 text-rose-700 dark:bg-rose-950 dark:text-rose-400"
+                }`}
+              >
+                Crítico
+              </span>
+            </div>
+
+            <div className="mt-3 flex items-baseline justify-between w-full">
+              <span className="font-mono text-3xl font-extrabold tracking-tight text-rose-700 dark:text-rose-300">
+                {totalVencidos}
+              </span>
+              <span className="text-[11px] font-medium text-rose-600/90 dark:text-rose-400/90">
+                {totalVencidos === 1 ? "chamado expirado" : "chamados expirados"}
+              </span>
+            </div>
+
+            <div className="mt-2.5 pt-2 border-t border-rose-200/70 dark:border-rose-900/40 flex items-center justify-between text-[11px] text-rose-700 dark:text-rose-300">
+              <span className="font-medium">
+                {filtroPrazo === "vencidos" ? "✓ Filtro aplicado" : "Isolar chamados"}
+              </span>
+              <span className="font-bold group-hover:translate-x-0.5 transition-transform">→</span>
+            </div>
+          </button>
+
+          {/* Card 2: Vencem Hoje */}
+          <button
+            type="button"
+            onClick={() => alternarFiltroPrazo("vence_hoje")}
+            className={`group relative flex flex-col justify-between rounded-xl border p-4 text-left transition-all cursor-pointer ${
+              filtroPrazo === "vence_hoje"
+                ? "border-orange-500 bg-orange-50 dark:bg-orange-950/40 ring-2 ring-orange-500 shadow-sm"
+                : "border-orange-200/80 bg-orange-50/30 hover:bg-orange-50/70 hover:border-orange-300 dark:border-orange-900/40 dark:bg-orange-950/15 dark:hover:bg-orange-950/30"
+            }`}
+            title="Clique para filtrar apenas chamados que vencem hoje"
+          >
+            <div className="flex items-center justify-between w-full">
+              <span className="text-xs font-semibold text-orange-800 dark:text-orange-300 flex items-center gap-1.5">
+                <Clock className="h-4 w-4 text-orange-600 dark:text-orange-400 shrink-0" />
+                <span>Vencem Hoje</span>
+              </span>
+              <span
+                className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                  totalVenceHoje > 0
+                    ? "bg-orange-200 text-orange-900 dark:bg-orange-900 dark:text-orange-100"
+                    : "bg-orange-100/60 text-orange-700 dark:bg-orange-950 dark:text-orange-400"
+                }`}
+              >
+                Urgente
+              </span>
+            </div>
+
+            <div className="mt-3 flex items-baseline justify-between w-full">
+              <span className="font-mono text-3xl font-extrabold tracking-tight text-orange-700 dark:text-orange-300">
+                {totalVenceHoje}
+              </span>
+              <span className="text-[11px] font-medium text-orange-600/90 dark:text-orange-400/90">
+                expiram até 23:59
+              </span>
+            </div>
+
+            <div className="mt-2.5 pt-2 border-t border-orange-200/70 dark:border-orange-900/40 flex items-center justify-between text-[11px] text-orange-700 dark:text-orange-300">
+              <span className="font-medium">
+                {filtroPrazo === "vence_hoje" ? "✓ Filtro aplicado" : "Isolar chamados"}
+              </span>
+              <span className="font-bold group-hover:translate-x-0.5 transition-transform">→</span>
+            </div>
+          </button>
+
+          {/* Card 3: Faltam 1 a 2 Dias */}
+          <button
+            type="button"
+            onClick={() => alternarFiltroPrazo("vence_2dias")}
+            className={`group relative flex flex-col justify-between rounded-xl border p-4 text-left transition-all cursor-pointer ${
+              filtroPrazo === "vence_2dias"
+                ? "border-amber-500 bg-amber-50 dark:bg-amber-950/40 ring-2 ring-amber-500 shadow-sm"
+                : "border-amber-200/80 bg-amber-50/30 hover:bg-amber-50/70 hover:border-amber-300 dark:border-amber-900/40 dark:bg-amber-950/15 dark:hover:bg-amber-950/30"
+            }`}
+            title="Clique para filtrar chamados com prazo em até 2 dias"
+          >
+            <div className="flex items-center justify-between w-full">
+              <span className="text-xs font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                <CalendarClock className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                <span>Próximos (Até 2 Dias)</span>
+              </span>
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-400">
+                Atenção
+              </span>
+            </div>
+
+            <div className="mt-3 flex items-baseline justify-between w-full">
+              <span className="font-mono text-3xl font-extrabold tracking-tight text-amber-700 dark:text-amber-300">
+                {totalVence2Dias}
+              </span>
+              <span className="text-[11px] font-medium text-amber-600/90 dark:text-amber-400/90">
+                faltam 1 ou 2 dias
+              </span>
+            </div>
+
+            <div className="mt-2.5 pt-2 border-t border-amber-200/70 dark:border-amber-900/40 flex items-center justify-between text-[11px] text-amber-700 dark:text-amber-300">
+              <span className="font-medium">
+                {filtroPrazo === "vence_2dias" ? "✓ Filtro aplicado" : "Isolar chamados"}
+              </span>
+              <span className="font-bold group-hover:translate-x-0.5 transition-transform">→</span>
+            </div>
+          </button>
+
+          {/* Card 4: Total Pendentes */}
+          <button
+            type="button"
+            onClick={() => alternarFiltroPrazo("pendentes")}
+            className={`group relative flex flex-col justify-between rounded-xl border p-4 text-left transition-all cursor-pointer ${
+              filtroPrazo === "pendentes"
+                ? "border-sky-500 bg-sky-50 dark:bg-sky-950/40 ring-2 ring-sky-500 shadow-sm"
+                : "border-sky-200/80 bg-sky-50/30 hover:bg-sky-50/70 hover:border-sky-300 dark:border-sky-900/40 dark:bg-sky-950/15 dark:hover:bg-sky-950/30"
+            }`}
+            title="Clique para filtrar todos os chamados em aberto"
+          >
+            <div className="flex items-center justify-between w-full">
+              <span className="text-xs font-semibold text-sky-800 dark:text-sky-300 flex items-center gap-1.5">
+                <Inbox className="h-4 w-4 text-sky-600 dark:text-sky-400 shrink-0" />
+                <span>Total em Aberto</span>
+              </span>
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-400">
+                Geral
+              </span>
+            </div>
+
+            <div className="mt-3 flex items-baseline justify-between w-full">
+              <span className="font-mono text-3xl font-extrabold tracking-tight text-sky-700 dark:text-sky-300">
+                {totalPendentes}
+              </span>
+              <span className="text-[11px] font-medium text-sky-600/90 dark:text-sky-400/90">
+                aguardando resolução
+              </span>
+            </div>
+
+            <div className="mt-2.5 pt-2 border-t border-sky-200/70 dark:border-sky-900/40 flex items-center justify-between text-[11px] text-sky-700 dark:text-sky-300">
+              <span className="font-medium">
+                {filtroPrazo === "pendentes" ? "✓ Filtro aplicado" : "Isolar chamados"}
+              </span>
+              <span className="font-bold group-hover:translate-x-0.5 transition-transform">→</span>
+            </div>
+          </button>
+        </div>
       </div>
 
       {/* 3. Bloco de Filtros */}
@@ -388,7 +730,7 @@ export function TabelaChamados({
               <th className="w-28 text-center">Situação</th>
               <th className="w-24 text-center">Prioridade</th>
               <th className="w-24 text-right">Abertura</th>
-              <th className="w-24 text-right">Prazo</th>
+              <th className="w-40 text-right">Prazo / SLA</th>
               <th className="w-32">Responsável</th>
               <th className="w-24 text-right">Ações</th>
             </tr>
@@ -402,13 +744,7 @@ export function TabelaChamados({
               </tr>
             ) : (
               chamadosFiltrados.map((c) => {
-                const dataPrazo = startOfDay(parseISO(c.prazo));
-                const estaVencido = c.situacao === "aguardando" && isBefore(dataPrazo, hoje);
-                const estaProximoVencimento =
-                  c.situacao === "aguardando" &&
-                  !estaVencido &&
-                  (isBefore(dataPrazo, emDoisDias) || dataPrazo.getTime() === emDoisDias.getTime());
-
+                const infoPrazo = obterInfoPrazo(c.prazo, c.situacao);
                 const ehAutor = c.criado_por === perfilAtual.id;
                 const ehAdmin = perfilAtual.papel === "admin";
                 const podeEditar = true;
@@ -417,11 +753,12 @@ export function TabelaChamados({
                 return (
                   <tr
                     key={c.id}
-                    className={
-                      c.prioridade === "priorizar" && c.situacao === "aguardando"
+                    className={`transition-colors ${infoPrazo.bordaTabela} ${
+                      infoPrazo.bgLinha ||
+                      (c.prioridade === "priorizar" && c.situacao === "aguardando"
                         ? "bg-alerta-fundo/10"
-                        : ""
-                    }
+                        : "")
+                    }`}
                   >
                     {/* Protocolo */}
                     <td className="font-mono text-xs font-semibold">
@@ -509,19 +846,37 @@ export function TabelaChamados({
                       {format(parseISO(c.data_solicitacao), "dd/MM/yyyy", { locale: ptBR })}
                     </td>
 
-                    {/* Prazo */}
-                    <td className="font-mono text-xs tabular-nums text-right">
-                      <span
-                        className={`rounded px-1.5 py-0.5 font-semibold ${
-                          estaVencido
-                            ? "bg-rose-100 text-rose-800 border border-rose-200 dark:bg-rose-950 dark:text-rose-300"
-                            : estaProximoVencimento
-                              ? "bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-950 dark:text-amber-300"
-                              : "text-texto"
-                        }`}
-                      >
-                        {format(parseISO(c.prazo), "dd/MM/yyyy", { locale: ptBR })}
-                      </span>
+                    {/* Prazo com Identificador Vermelho / Urgência */}
+                    <td className="text-right whitespace-nowrap">
+                      {c.situacao === "aguardando" ? (
+                        <div className="inline-flex flex-col items-end gap-1">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold border ${infoPrazo.badgeClasse}`}
+                            title={infoPrazo.subtexto}
+                          >
+                            {infoPrazo.tipo === "vencido" && (
+                              <AlertOctagon className="h-3 w-3 shrink-0 text-rose-600 dark:text-rose-300" />
+                            )}
+                            {infoPrazo.tipo === "vence_hoje" && (
+                              <Clock className="h-3 w-3 shrink-0 text-rose-600 dark:text-rose-300" />
+                            )}
+                            {infoPrazo.tipo === "vence_2dias" && (
+                              <CalendarClock className="h-3 w-3 shrink-0 text-amber-600 dark:text-amber-300" />
+                            )}
+                            {infoPrazo.tipo === "no_prazo" && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                            )}
+                            <span>{infoPrazo.textoBadge}</span>
+                          </span>
+                          <span className="font-mono text-[11px] tabular-nums text-texto-suave">
+                            {format(parseISO(c.prazo), "dd/MM/yyyy", { locale: ptBR })}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="font-mono text-xs tabular-nums text-texto-suave">
+                          {format(parseISO(c.prazo), "dd/MM/yyyy", { locale: ptBR })}
+                        </div>
+                      )}
                     </td>
 
                     {/* Responsável */}
@@ -578,6 +933,7 @@ export function TabelaChamados({
           </div>
         ) : (
           chamadosFiltrados.map((c) => {
+            const infoPrazo = obterInfoPrazo(c.prazo, c.situacao);
             const ehAutor = c.criado_por === perfilAtual.id;
             const ehAdmin = perfilAtual.papel === "admin";
             const podeExcluir = ehAdmin || ehAutor;
@@ -585,7 +941,7 @@ export function TabelaChamados({
             return (
               <div
                 key={c.id}
-                className="rounded-lg border border-borda bg-superficie p-4 space-y-2.5"
+                className={`rounded-lg border border-borda bg-superficie p-4 space-y-2.5 transition-colors ${infoPrazo.bordaTabela} ${infoPrazo.bgLinha}`}
               >
                 <div className="flex items-center justify-between">
                   <Link
@@ -626,12 +982,32 @@ export function TabelaChamados({
                 </div>
 
                 <div className="text-[11px] text-texto-suave flex items-center justify-between">
-                  <span>
+                  <span className="truncate max-w-[50%]">
                     {c.motivos?.codigo} {c.motivos?.nome}
                   </span>
-                  <span className="font-mono text-texto">
-                    Prazo: {format(parseISO(c.prazo), "dd/MM/yyyy")}
-                  </span>
+                  {c.situacao === "aguardando" ? (
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold border ${infoPrazo.badgeClasse}`}
+                    >
+                      {infoPrazo.tipo === "vencido" && (
+                        <AlertOctagon className="h-2.5 w-2.5 shrink-0" />
+                      )}
+                      {infoPrazo.tipo === "vence_hoje" && (
+                        <Clock className="h-2.5 w-2.5 shrink-0" />
+                      )}
+                      {infoPrazo.tipo === "vence_2dias" && (
+                        <CalendarClock className="h-2.5 w-2.5 shrink-0" />
+                      )}
+                      <span>{infoPrazo.textoBadge}</span>
+                      <span className="font-mono text-texto-suave font-normal ml-0.5">
+                        ({format(parseISO(c.prazo), "dd/MM")})
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="font-mono text-texto">
+                      Prazo: {format(parseISO(c.prazo), "dd/MM/yyyy")}
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between border-t border-borda pt-2 text-xs">

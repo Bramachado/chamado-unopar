@@ -15,6 +15,7 @@ interface PageProps {
     data_fim?: string;
     reincidentes?: string;
     escopo?: string;
+    filtro_prazo?: string;
   }>;
 }
 

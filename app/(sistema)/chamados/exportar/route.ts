@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { format } from "date-fns";
+import { format, startOfDay, parseISO, differenceInCalendarDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { obterPerfilAtual } from "@/lib/auth/perfil";
 import { comUsuario } from "@/lib/db/comUsuario";
@@ -120,7 +120,21 @@ export async function GET(request: NextRequest) {
     return `"${str}"`;
   };
 
-  const linhas = chamados.map((c: any) => [
+  const filtroPrazo = searchParams.get("filtro_prazo");
+  const hoje = startOfDay(new Date());
+
+  const chamadosFiltrados = chamados.filter((c: any) => {
+    if (!filtroPrazo || filtroPrazo === "todos") return true;
+    if (filtroPrazo === "pendentes") return c.situacao === "aguardando";
+    if (c.situacao !== "aguardando") return false;
+    const diff = differenceInCalendarDays(startOfDay(parseISO(c.prazo)), hoje);
+    if (filtroPrazo === "vencidos") return diff < 0;
+    if (filtroPrazo === "vence_hoje") return diff === 0;
+    if (filtroPrazo === "vence_2dias") return diff === 1 || diff === 2;
+    return true;
+  });
+
+  const linhas = chamadosFiltrados.map((c: any) => [
     escapeCSV(c.protocolo),
     escapeCSV(c.aluno_nome),
     escapeCSV(c.aluno_cpf ? formatarCpf(c.aluno_cpf) : ""),
