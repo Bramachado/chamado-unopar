@@ -21,11 +21,13 @@ import { obterNotificacoesPrazosAction } from "./actions";
 interface MenuNotificacoesProps {
   notificacoesIniciais: DadosNotificacoesPrazos;
   aoAbrirOutroMenu?: () => void;
+  posicao?: "header" | "sidebar";
 }
 
 export function MenuNotificacoes({
   notificacoesIniciais,
   aoAbrirOutroMenu,
+  posicao = "header",
 }: MenuNotificacoesProps) {
   const router = useRouter();
   const [aberto, setAberto] = useState(false);
@@ -98,10 +100,14 @@ export function MenuNotificacoes({
       <button
         type="button"
         onClick={alternarMenu}
-        className={`btn-tátil relative rounded-xl border p-2 text-texto-suave hover:text-texto transition shadow-xs ${
-          aberto
-            ? "border-acento bg-superficie text-texto ring-2 ring-acento/20"
-            : "border-borda bg-fundo hover:bg-superficie"
+        className={`btn-tátil relative rounded-xl border p-2 transition shadow-xs ${
+          posicao === "sidebar"
+            ? aberto
+              ? "border-sky-500 bg-sky-950/60 text-white ring-2 ring-sky-500/30"
+              : "border-[#1E293B] bg-[#0A1128] text-slate-300 hover:text-white hover:border-slate-600 hover:bg-white/5"
+            : aberto
+              ? "border-acento bg-superficie text-texto ring-2 ring-acento/20"
+              : "border-borda bg-fundo text-texto-suave hover:text-texto hover:bg-superficie"
         }`}
         title="Notificações de prazos e SLA"
         aria-label="Notificações de prazos e SLA"
@@ -112,9 +118,9 @@ export function MenuNotificacoes({
         {/* Badge Numérico Dinâmico */}
         {dados.totalCriticos > 0 ? (
           <span
-            className={`absolute -top-1.5 -right-1.5 flex h-4 min-w-4 px-1 items-center justify-center rounded-full text-[9px] font-black text-white shadow-xs ring-2 ring-superficie ${
-              dados.vencidos > 0 ? "bg-rose-600 animate-pulse" : "bg-amber-600"
-            }`}
+            className={`absolute -top-1.5 -right-1.5 flex h-4 min-w-4 px-1 items-center justify-center rounded-full text-[9px] font-black text-white shadow-xs ring-2 ${
+              posicao === "sidebar" ? "ring-[#070D1E]" : "ring-superficie"
+            } ${dados.vencidos > 0 ? "bg-rose-600 animate-pulse" : "bg-amber-600"}`}
           >
             {dados.totalCriticos > 9 ? "9+" : dados.totalCriticos}
           </span>
@@ -123,7 +129,11 @@ export function MenuNotificacoes({
 
       {/* Dropdown de Notificações */}
       {aberto && (
-        <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 rounded-2xl border border-borda bg-superficie p-0 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150 overflow-hidden">
+        <div
+          className={`absolute w-80 sm:w-96 rounded-2xl border border-borda bg-superficie p-0 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150 overflow-hidden ${
+            posicao === "sidebar" ? "left-full top-0 ml-3" : "right-0 top-full mt-2"
+          }`}
+        >
           {/* Topo do Menu */}
           <div className="flex items-center justify-between border-b border-borda px-4 py-3 bg-fundo/40">
             <div>

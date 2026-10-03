@@ -21,9 +21,12 @@ import {
   X,
   PanelLeftClose,
 } from "lucide-react";
+import { MenuNotificacoes } from "./menu-notificacoes";
+import { type DadosNotificacoesPrazos } from "@/lib/chamados/notificacoes";
 
 interface SidebarPrincipalProps {
   perfil: Perfil;
+  notificacoesIniciais?: DadosNotificacoesPrazos;
   mobileAberto: boolean;
   setMobileAberto: (aberto: boolean) => void;
   recolhido: boolean;
@@ -32,6 +35,7 @@ interface SidebarPrincipalProps {
 
 export function SidebarPrincipal({
   perfil,
+  notificacoesIniciais,
   mobileAberto,
   setMobileAberto,
   recolhido,
@@ -104,29 +108,31 @@ export function SidebarPrincipal({
       >
         {/* Cabeçalho da Sidebar / Logo & Botão de Abrir/Fechar Lateral */}
         <div
-          className={`flex h-24 items-center border-b border-[#1E293B]/60 transition-all ${
-            recolhido ? "justify-center px-2" : "justify-between px-5"
+          className={`flex h-16 items-center border-b border-[#1E293B]/60 transition-all ${
+            recolhido ? "justify-center px-2" : "justify-between px-4"
           }`}
         >
           {recolhido ? (
-            /* Modo Recolhido: Apenas a Logo Centralizada que ao clicar expande */
-            <button
-              type="button"
-              onClick={() => setRecolhido(false)}
-              className="group relative h-12 w-12 rounded-xl flex items-center justify-center p-1 hover:bg-white/10 transition"
-              title="Expandir barra lateral"
-            >
-              <img
-                src="/logo.png"
-                alt="Gestão de Chamados Logo"
-                className="h-full w-full object-contain filter drop-shadow-md group-hover:scale-105 transition-transform"
-              />
-            </button>
+            /* Modo Recolhido: Logo Centralizada que ao clicar expande */
+            <div className="flex flex-col items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setRecolhido(false)}
+                className="group relative h-10 w-10 rounded-xl flex items-center justify-center p-1 hover:bg-white/10 transition"
+                title="Expandir barra lateral"
+              >
+                <img
+                  src="/logo.png"
+                  alt="Gestão de Chamados Logo"
+                  className="h-full w-full object-contain filter drop-shadow-md group-hover:scale-105 transition-transform"
+                />
+              </button>
+            </div>
           ) : (
-            /* Modo Expandido: Logo + Título à Esquerda e Botão de Recolher à Direita */
+            /* Modo Expandido: Logo + Título à Esquerda e Ações (Notificações + Recolher) à Direita */
             <>
-              <div className="flex items-center gap-3 truncate">
-                <div className="h-12 w-12 shrink-0 flex items-center justify-center p-0.5">
+              <div className="flex items-center gap-2.5 truncate">
+                <div className="h-9 w-9 shrink-0 flex items-center justify-center p-0.5">
                   <img
                     src="/logo.png"
                     alt="Gestão de Chamados Logo"
@@ -134,21 +140,26 @@ export function SidebarPrincipal({
                   />
                 </div>
                 <div className="truncate">
-                  <span className="text-[15px] font-black tracking-tight bg-gradient-to-r from-white via-slate-100 to-sky-300 bg-clip-text text-transparent block leading-tight truncate">
+                  <span className="text-[14px] font-black tracking-tight bg-gradient-to-r from-white via-slate-100 to-sky-300 bg-clip-text text-transparent block leading-tight truncate">
                     Gestão de Chamados
                   </span>
                 </div>
               </div>
 
-              {/* Botão de Recolher no Desktop */}
-              <button
-                type="button"
-                onClick={() => setRecolhido(true)}
-                className="hidden lg:flex rounded-xl p-2 text-slate-400 hover:bg-white/10 hover:text-white transition"
-                title="Recolher barra lateral"
-              >
-                <PanelLeftClose className="h-5 w-5" />
-              </button>
+              {/* Controles de Topo da Sidebar: Notificações + Recolher */}
+              <div className="hidden lg:flex items-center gap-1.5">
+                {notificacoesIniciais && (
+                  <MenuNotificacoes notificacoesIniciais={notificacoesIniciais} posicao="sidebar" />
+                )}
+                <button
+                  type="button"
+                  onClick={() => setRecolhido(true)}
+                  className="rounded-xl p-2 text-slate-400 hover:bg-white/10 hover:text-white transition"
+                  title="Recolher barra lateral"
+                >
+                  <PanelLeftClose className="h-4 w-4" />
+                </button>
+              </div>
             </>
           )}
 
