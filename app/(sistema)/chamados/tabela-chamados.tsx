@@ -346,66 +346,67 @@ export function TabelaChamados({
   };
 
   return (
-    <div className="space-y-8">
-      {/* 1. Cabeçalho Padronizado da Página */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-6">
+      {/* 1. Cabeçalho Padronizado da Página e Ações de Topo */}
+      <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3 pb-3 border-b border-borda/40">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-texto">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-texto">
             Gerenciamento de Chamados
           </h1>
-          <p className="text-sm text-texto-suave mt-0.5">
+          <p className="text-xs text-texto-suave mt-0.5">
             Controle de protocolos, solicitações acadêmicas e prazos de resolução.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        {/* Barra de Ações e Alternador de Escopo perfeitamente alinhados */}
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          {/* Alternador de Escopo (Meus Chamados vs Todos os Chamados) */}
+          <div className="inline-flex h-9 items-center rounded-lg border border-borda bg-fundo p-1 shadow-2xs shrink-0">
+            <button
+              type="button"
+              onClick={() => alternarEscopo("meus")}
+              className={`inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-xs font-semibold transition-all ${
+                escopo === "meus"
+                  ? "bg-acento text-white shadow-xs"
+                  : "text-texto-suave hover:text-texto hover:bg-superficie/60"
+              }`}
+              title="Exibir chamados abertos por você"
+            >
+              <User className="h-3.5 w-3.5" />
+              <span>Meus Chamados</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => alternarEscopo("todos")}
+              className={`inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-xs font-semibold transition-all ${
+                escopo === "todos"
+                  ? "bg-acento text-white shadow-xs"
+                  : "text-texto-suave hover:text-texto hover:bg-superficie/60"
+              }`}
+              title="Exibir todos os chamados da unidade"
+            >
+              <Users className="h-3.5 w-3.5" />
+              <span>Todos os Chamados</span>
+            </button>
+          </div>
+
           <Link
             href={`/chamados/exportar?${searchParams.toString()}`}
-            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg border border-borda bg-superficie text-xs font-semibold text-texto hover:bg-fundo transition"
+            className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg border border-borda bg-superficie text-xs font-semibold text-texto hover:bg-fundo transition shadow-2xs shrink-0"
             title="Exportar dados filtrados em CSV"
           >
-            <Download className="h-4 w-4 text-texto-suave" />
+            <Download className="h-3.5 w-3.5 text-texto-suave" />
             <span className="hidden sm:inline">Exportar CSV</span>
           </Link>
 
           <Link
             href="/chamados/novo"
-            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-acento text-xs font-semibold text-white hover:bg-acento-hover transition"
+            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-acento text-xs font-semibold text-white hover:bg-acento-hover transition shadow-2xs shrink-0"
           >
             <Plus className="h-4 w-4" />
             <span>Novo Chamado</span>
           </Link>
         </div>
-      </div>
-
-      {/* 2. Alternador de Escopo (Meus Chamados vs Todos os Chamados) */}
-      <div className="flex items-center gap-1.5 rounded-xl border border-borda bg-superficie p-1 max-w-fit shadow-xs">
-        <button
-          type="button"
-          onClick={() => alternarEscopo("meus")}
-          className={`flex items-center gap-2 rounded-lg px-4 py-1.5 text-xs font-semibold transition ${
-            escopo === "meus"
-              ? "bg-acento text-white shadow-xs"
-              : "text-texto-suave hover:text-texto hover:bg-fundo"
-          }`}
-          title="Exibir chamados abertos por você"
-        >
-          <User className="h-3.5 w-3.5" />
-          <span>Meus Chamados</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => alternarEscopo("todos")}
-          className={`flex items-center gap-2 rounded-lg px-4 py-1.5 text-xs font-semibold transition ${
-            escopo === "todos"
-              ? "bg-acento text-white shadow-xs"
-              : "text-texto-suave hover:text-texto hover:bg-fundo"
-          }`}
-          title="Exibir todos os chamados da unidade"
-        >
-          <Users className="h-3.5 w-3.5" />
-          <span>Todos os Chamados</span>
-        </button>
       </div>
 
       {/* 2.1. Painel de Visão Geral de Prazos e Chamados Críticos */}
