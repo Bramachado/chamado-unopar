@@ -63,10 +63,21 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
       req.input("dtInicio12m", sql.DateTimeOffset, new Date(dtInicio12m));
 
       const batch = await req.query(`
-        -- 1. Perfis ativos
-        SELECT CAST(id AS NVARCHAR(50)) AS id, nome_completo, papel
-        FROM dados.perfis
-        WHERE ativo = 1;
+        -- 1. Perfis ativos e avatares
+        SELECT 
+          CAST(p.id AS NVARCHAR(50)) AS id, 
+          p.nome_completo, 
+          p.papel,
+          av.dados_depois AS avatar_json,
+          av.operacao AS avatar_operacao
+        FROM dados.perfis p
+        OUTER APPLY (
+          SELECT TOP 1 dados_depois, operacao
+          FROM auditoria.logs
+          WHERE tabela = 'perfis_avatar' AND registro_id = p.id
+          ORDER BY id DESC
+        ) av
+        WHERE p.ativo = 1;
 
         -- 2. Polos ativos
         SELECT CAST(id AS NVARCHAR(50)) AS id, nome, codigo, cidade, estado, ativo, criado_em
@@ -127,6 +138,7 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
       id: string;
       nome: string;
       papel: string;
+      fotoUrl?: string;
       resolvidos: number;
       abertos: number;
       total: number;
@@ -138,7 +150,17 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
     { codigo: string; nome: string; total: number; diasTotais: number; concluidos: number }
   > = {};
 
+  const mapaPerfisFotos = new Map<string, string | null>();
   for (const p of dadosBanco.perfis) {
+    let avatarUrl: string | null = null;
+    if (p.avatar_json && p.avatar_operacao !== "DELETE") {
+      try {
+        const parsed = JSON.parse(p.avatar_json);
+        avatarUrl = parsed.avatar || null;
+      } catch {}
+    }
+    mapaPerfisFotos.set(p.id, avatarUrl);
+
     // Administradores não participam do ranking da equipe
     if (p.papel === "admin") continue;
 
@@ -146,6 +168,7 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
       id: p.id,
       nome: p.nome_completo,
       papel: p.papel === "coordenador" ? "Coordenador" : "Atendimento",
+      fotoUrl: avatarUrl || undefined,
       resolvidos: 0,
       abertos: 0,
       total: 0,
@@ -198,6 +221,7 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
           id: colabId,
           nome: colabNome,
           papel: colabPapel,
+          fotoUrl: mapaPerfisFotos.get(colabId) || undefined,
           resolvidos: 0,
           abertos: 0,
           total: 0,
@@ -281,6 +305,7 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
         posicao: index + 1,
         nome: c.nome,
         papel: c.papel,
+        fotoUrl: c.fotoUrl,
         avatarBg: "",
         avatarTexto: c.nome.substring(0, 2).toUpperCase(),
         resolvidos: c.resolvidos,
@@ -401,6 +426,7 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
       periodoSelecionado={periodo}
       polos={polosFormatados}
       poloSelecionado={poloId}
+      perfilAtual={perfilAtual}
     />
   );
 }

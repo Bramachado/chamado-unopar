@@ -59,7 +59,7 @@ export default async function PaginaDetalheChamado({ params }: DetailPageProps) 
           LEFT JOIN dados.motivos m ON m.id = c.motivo_id
           LEFT JOIN dados.perfis pCriador ON pCriador.id = c.criado_por
           LEFT JOIN dados.perfis pAtualizador ON pAtualizador.id = c.atualizado_por
-          WHERE c.id = @id AND c.excluido_em IS NULL
+          WHERE (c.id = TRY_CAST(@id AS UNIQUEIDENTIFIER) OR CAST(c.id AS NVARCHAR(50)) = @id) AND c.excluido_em IS NULL
         `);
 
       const chamado = qChamado.recordset[0];

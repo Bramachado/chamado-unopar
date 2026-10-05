@@ -30,8 +30,9 @@ import {
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
-import { type Polo } from "@/types/database";
+import { type Polo, type Perfil } from "@/types/database";
 import { CustomSelect, type CustomSelectOption } from "@/components/ui/custom-select";
+import { AvatarUsuario } from "@/components/ui/avatar-usuario";
 
 interface RankingResponsavelItem {
   id: string;
@@ -86,24 +87,18 @@ interface PainelDashboardProps {
   periodoSelecionado: string;
   polos?: Polo[];
   poloSelecionado?: string;
+  perfilAtual?: Perfil;
 }
 
 type TipoIndicador =
   "total" | "aguardando" | "concluidos" | "taxa" | "vencidos" | "vencendo" | null;
-
-const fotosPadrao = [
-  "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80",
-  "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150&auto=format&fit=crop&q=80",
-  "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80",
-  "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-  "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
-];
 
 export function PainelDashboard({
   dados,
   periodoSelecionado,
   polos = [],
   poloSelecionado = "todos",
+  perfilAtual,
 }: PainelDashboardProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -149,10 +144,10 @@ export function PainelDashboard({
   const taxaGeralResolucao =
     dados.totais.total > 0 ? Math.round((dados.totais.concluidos / dados.totais.total) * 100) : 0;
 
-  // Montagem da Lista de Ranking com Cores de Destaque e Fotos de Perfil
+  // Montagem da Lista de Ranking com Cores de Destaque
   const listaRankingExibicao = dados.rankingEquipe.map((colab, idx) => ({
     ...colab,
-    fotoUrl: colab.fotoUrl || fotosPadrao[idx % fotosPadrao.length],
+    fotoUrl: colab.fotoUrl || undefined,
     corCard:
       colab.posicao === 1
         ? "border-emerald-500/50 bg-gradient-to-r from-emerald-500/15 via-superficie to-superficie shadow-sm"
@@ -293,6 +288,71 @@ export function PainelDashboard({
           </div>
         </div>
       </div>
+
+      {/* Perfil do Usuário Conectado */}
+      {perfilAtual && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl border border-borda/80 bg-gradient-to-r from-superficie via-superficie to-azul-primario/5 shadow-2xs">
+          <div className="flex items-center gap-3.5">
+            <AvatarUsuario
+              nome={perfilAtual.nome_completo}
+              fotoUrl={perfilAtual.avatar_url}
+              tamanho="xl"
+              indicadorStatus
+              statusOnline
+            />
+            <div className="space-y-0.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-base font-bold text-texto tracking-tight">
+                  {perfilAtual.nome_completo}
+                </span>
+                <span
+                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold tracking-wide uppercase ${
+                    perfilAtual.papel === "admin"
+                      ? "bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800"
+                      : perfilAtual.papel === "coordenador"
+                        ? "bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
+                        : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
+                  }`}
+                >
+                  {perfilAtual.papel === "admin"
+                    ? "Administrador"
+                    : perfilAtual.papel === "coordenador"
+                      ? "Coordenador"
+                      : "Atendimento"}
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-x-3 text-xs text-texto-suave">
+                <span>{perfilAtual.email}</span>
+                {perfilAtual.polo_nome && (
+                  <>
+                    <span className="opacity-40">•</span>
+                    <span>
+                      {perfilAtual.polo_nome}
+                      {perfilAtual.polo_cidade ? ` (${perfilAtual.polo_cidade})` : ""}
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <Link
+              href="/perfil"
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-borda bg-superficie hover:bg-fundo text-xs font-semibold text-texto transition shadow-2xs"
+            >
+              Meu Perfil
+            </Link>
+            <Link
+              href="/chamados/novo"
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-acento hover:bg-acento/90 text-xs font-semibold text-white transition shadow-xs"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Novo Chamado
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* 2. Cartões de Indicadores Principais Alinhados e Compactos */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
@@ -647,22 +707,13 @@ export function PainelDashboard({
                       #{colab.posicao}
                     </span>
 
-                    {/* Foto de Perfil Real em Alta Resolução com Fallback */}
-                    <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border-2 border-white shadow-md bg-superficie">
-                      {colab.fotoUrl ? (
-                        <img
-                          src={colab.fotoUrl}
-                          alt={colab.nome}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div
-                          className={`h-full w-full flex items-center justify-center text-xs font-black ${colab.avatarBg}`}
-                        >
-                          {colab.avatarTexto}
-                        </div>
-                      )}
-                    </div>
+                    {/* Avatar do Colaborador com Sincronização Real e Fallback */}
+                    <AvatarUsuario
+                      nome={colab.nome}
+                      fotoUrl={colab.fotoUrl}
+                      tamanho="lg"
+                      className="border-2 border-white shadow-md"
+                    />
 
                     <div className="truncate">
                       <div className="text-sm font-bold text-texto truncate" title={colab.nome}>

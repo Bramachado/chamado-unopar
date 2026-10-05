@@ -188,8 +188,9 @@ export function FormularioChamado({
         );
       } else if (resultado.erro) {
         setMensagemErro(resultado.erro);
-      } else if (resultado.sucesso && resultado.chamadoId) {
-        router.push(`/chamados/${resultado.chamadoId}`);
+      } else if (resultado.sucesso) {
+        router.push("/chamados");
+        router.refresh();
       }
     });
   };
