@@ -7,7 +7,9 @@ import { comUsuario, comTransacao } from "@/lib/db/comUsuario";
 import { sql } from "@/lib/db/pool";
 
 const motivoSchema = z.object({
+  id: z.string().optional(),
   nome: z.string().trim().min(3, "O nome do motivo deve conter pelo menos 3 caracteres."),
+  filtro: z.string().trim().optional().nullable(),
 });
 
 export type SimilaridadeResultado = {
@@ -59,19 +61,23 @@ export async function salvarMotivoAction(
   formData: FormData
 ): Promise<EstadoSalvarMotivo> {
   const perfil = await obterPerfilAtual();
+  const id = formData.get("id") ? String(formData.get("id")) : undefined;
   const nome = String(formData.get("nome") || "");
+  const filtroBruto = formData.get("filtro");
+  const filtro = filtroBruto ? String(filtroBruto).trim() : null;
   const confirmacaoForcada = formData.get("confirmacao_forcada") === "true";
 
-  const parseResult = motivoSchema.safeParse({ nome });
+  const parseResult = motivoSchema.safeParse({ id, nome, filtro });
   if (!parseResult.success) {
     return { erro: parseResult.error.issues[0]?.message || "Nome inválido." };
   }
 
   const nomeLimpo = parseResult.data.nome;
   const nomeNormalizado = normalizarTexto(nomeLimpo);
+  const filtroLimpo = parseResult.data.filtro || null;
 
-  // Se não foi confirmação forçada, verifica similaridade
-  if (!confirmacaoForcada) {
+  // Se não for edição e não foi confirmação forçada, verifica similaridade
+  if (!id && !confirmacaoForcada) {
     const similares = await verificarSimilaridade(nomeLimpo);
     if (similares.length > 0) {
       return {
@@ -86,7 +92,50 @@ export async function salvarMotivoAction(
     const motivoId = await comTransacao(
       { usuario_id: perfil.id, papel: perfil.papel },
       async (req) => {
-        // Verifica duplicata exata
+        // Verifica se a coluna filtro existe na tabela dados.motivos
+        const checkCol = await req.query(`
+          SELECT 1 FROM sys.columns 
+          WHERE object_id = OBJECT_ID('dados.motivos') AND name = 'filtro'
+        `);
+        const temColunaFiltro = checkCol.recordset.length > 0;
+
+        // Se for edição de um motivo existente
+        if (id) {
+          req.input("id", sql.VarChar(50), id);
+          req.input("nomeNormalizado", sql.VarChar(255), nomeNormalizado);
+
+          // Verifica duplicata em outro motivo
+          const dup = await req.query(`
+            SELECT id FROM dados.motivos 
+            WHERE nome_normalizado = @nomeNormalizado AND id <> @id
+          `);
+          if (dup.recordset.length > 0) {
+            throw new Error("Já existe outro motivo com este mesmo nome no catálogo.");
+          }
+
+          req.input("nome", sql.NVarChar(255), nomeLimpo);
+          if (temColunaFiltro) {
+            req.input("filtro", sql.NVarChar(500), filtroLimpo);
+            await req.query(`
+              UPDATE dados.motivos
+              SET nome = @nome,
+                  nome_normalizado = @nomeNormalizado,
+                  filtro = @filtro
+              WHERE id = @id
+            `);
+          } else {
+            await req.query(`
+              UPDATE dados.motivos
+              SET nome = @nome,
+                  nome_normalizado = @nomeNormalizado
+              WHERE id = @id
+            `);
+          }
+
+          return id;
+        }
+
+        // Se for novo cadastro: Verifica duplicata exata
         req.input("nomeNormalizado", sql.VarChar(255), nomeNormalizado);
         const dup = await req.query(`
           SELECT id FROM dados.motivos WHERE nome_normalizado = @nomeNormalizado
@@ -104,38 +153,64 @@ export async function salvarMotivoAction(
 
         req.input("numero", sql.Int, proximoNumero);
         req.input("codigo", sql.VarChar(10), codigoFormatado);
-        req.input("nome", sql.VarChar(255), nomeLimpo);
+        req.input("nome", sql.NVarChar(255), nomeLimpo);
         req.input("criado_por", sql.VarChar(50), perfil.id);
 
-        const qInsert = await req.query(`
-          INSERT INTO dados.motivos (
-            numero,
-            codigo,
-            nome,
-            nome_normalizado,
-            ativo,
-            criado_por
-          )
-          OUTPUT CAST(inserted.id AS NVARCHAR(50)) AS id
-          VALUES (
-            @numero,
-            @codigo,
-            @nome,
-            @nomeNormalizado,
-            1,
-            @criado_por
-          )
-        `);
-
-        return qInsert.recordset[0]?.id;
+        if (temColunaFiltro) {
+          req.input("filtro", sql.NVarChar(500), filtroLimpo);
+          const qInsert = await req.query(`
+            INSERT INTO dados.motivos (
+              numero,
+              codigo,
+              nome,
+              nome_normalizado,
+              filtro,
+              ativo,
+              criado_por
+            )
+            OUTPUT CAST(inserted.id AS NVARCHAR(50)) AS id
+            VALUES (
+              @numero,
+              @codigo,
+              @nome,
+              @nomeNormalizado,
+              @filtro,
+              1,
+              @criado_por
+            )
+          `);
+          return qInsert.recordset[0]?.id;
+        } else {
+          const qInsert = await req.query(`
+            INSERT INTO dados.motivos (
+              numero,
+              codigo,
+              nome,
+              nome_normalizado,
+              ativo,
+              criado_por
+            )
+            OUTPUT CAST(inserted.id AS NVARCHAR(50)) AS id
+            VALUES (
+              @numero,
+              @codigo,
+              @nome,
+              @nomeNormalizado,
+              1,
+              @criado_por
+            )
+          `);
+          return qInsert.recordset[0]?.id;
+        }
       }
     );
 
     revalidatePath("/motivos");
+    revalidatePath("/chamados");
     revalidatePath("/chamados/novo");
     return { sucesso: true, motivoId };
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : "Erro ao cadastrar motivo.";
+    const msg = error instanceof Error ? error.message : "Erro ao salvar motivo.";
     return { erro: msg };
   }
 }

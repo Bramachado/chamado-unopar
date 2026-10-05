@@ -56,7 +56,7 @@ export function SidebarPrincipal({
   }[] = [
     { href: "/painel", rotulo: "Dashboard", icone: LayoutDashboard },
     { href: "/chamados", rotulo: "Chamados", icone: Ticket },
-    { href: "/motivos", rotulo: "Meus atendimentos", icone: Tag },
+    { href: "/motivos", rotulo: "Motivos", icone: Tag },
     { href: "/desempenho", rotulo: "Desempenho", icone: Trophy },
   ];
 

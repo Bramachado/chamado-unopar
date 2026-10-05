@@ -8,6 +8,13 @@ export default async function PaginaNovoChamado() {
   const perfil = await obterPerfilAtual();
 
   const dados = await comUsuario({ usuario_id: perfil.id, papel: perfil.papel }, async (req) => {
+    const checkCol = await req.query(`
+      SELECT 1 FROM sys.columns 
+      WHERE object_id = OBJECT_ID('dados.motivos') AND name = 'filtro'
+    `);
+    const temColunaFiltro = checkCol.recordset.length > 0;
+    const colunaFiltroSql = temColunaFiltro ? "filtro," : "CAST(NULL AS NVARCHAR(500)) AS filtro,";
+
     const qMotivos = await req.query(`
         SELECT 
           CAST(id AS NVARCHAR(50)) AS id,
@@ -15,6 +22,7 @@ export default async function PaginaNovoChamado() {
           codigo,
           nome,
           nome_normalizado,
+          ${colunaFiltroSql}
           ativo,
           criado_em
         FROM dados.motivos
@@ -43,6 +51,7 @@ export default async function PaginaNovoChamado() {
     codigo: m.codigo,
     nome: m.nome,
     nome_normalizado: m.nome_normalizado,
+    filtro: m.filtro || null,
     ativo: Boolean(m.ativo),
     criado_em: m.criado_em ? new Date(m.criado_em).toISOString() : new Date().toISOString(),
   }));

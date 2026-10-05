@@ -91,6 +91,7 @@ export function FormularioChamado({
   const opcoesMotivo: CustomSelectOption[] = motivos.map((m) => ({
     value: m.id,
     label: `${m.codigo} — ${m.nome}`,
+    sublabel: m.filtro ? `Caminho: ${m.filtro}` : undefined,
   }));
 
   const opcoesPolo: CustomSelectOption[] = polos.map((p) => ({

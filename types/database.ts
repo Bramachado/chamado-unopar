@@ -53,9 +53,11 @@ export interface Motivo {
   codigo: string;
   nome: string;
   nome_normalizado: string;
+  filtro?: string | null;
   ativo: boolean;
   criado_por?: string | null;
   criado_em: string;
+  total_chamados?: number;
 }
 
 export interface ArquivoChamado {
