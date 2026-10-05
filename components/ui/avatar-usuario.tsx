@@ -16,8 +16,8 @@ const mapTamanhos = {
   xs: "h-6 w-6 text-[10px]",
   sm: "h-8 w-8 text-xs",
   md: "h-9 w-9 text-xs",
-  lg: "h-11 w-11 text-sm",
-  xl: "h-16 w-16 text-lg font-bold",
+  lg: "h-12 w-12 text-sm",
+  xl: "h-14 w-14 text-base font-bold",
   "2xl": "h-24 w-24 text-2xl font-bold",
 };
 
@@ -36,7 +36,7 @@ export function AvatarUsuario({
   const temFotoValida = Boolean(fotoUrl && !erroCarregamento);
 
   return (
-    <div className={`relative inline-flex shrink-0 select-none ${className}`}>
+    <div className={`relative inline-flex shrink-0 select-none rounded-full ${className}`}>
       {temFotoValida ? (
         <img
           src={fotoUrl!}

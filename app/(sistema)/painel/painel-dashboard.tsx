@@ -711,8 +711,8 @@ export function PainelDashboard({
                     <AvatarUsuario
                       nome={colab.nome}
                       fotoUrl={colab.fotoUrl}
-                      tamanho="lg"
-                      className="border-2 border-white shadow-md"
+                      tamanho="xl"
+                      className="shadow-sm"
                     />
 
                     <div className="truncate">
