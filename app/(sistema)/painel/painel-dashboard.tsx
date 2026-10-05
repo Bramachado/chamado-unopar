@@ -16,7 +16,6 @@ import {
   ReferenceLine,
 } from "recharts";
 import {
-  Calendar,
   ArrowRight,
   Award,
   X,
@@ -232,22 +231,22 @@ export function PainelDashboard({
   const modalInfo = obterDadosModal();
 
   return (
-    <div className="space-y-8">
-      {/* 1. Cabeçalho Padronizado da Página */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-6">
+      {/* 1. Cabeçalho Padronizado da Página e Barra de Filtros */}
+      <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3 pb-3 border-b border-borda/40">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-texto">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-texto">
             Painel de Indicadores
           </h1>
-          <p className="text-xs sm:text-sm text-texto-suave mt-0.5">
-            Acompanhamento operacional de atendimento, produtividade, prazos e motivos recorrentes.
+          <p className="text-xs text-texto-suave mt-0.5">
+            Métricas operacionais de atendimento, produtividade, cumprimento de prazos e motivos.
           </p>
         </div>
 
-        {/* Seletores de Polo e Período */}
-        <div className="flex flex-wrap items-center gap-3">
+        {/* Barra de Filtros Unificada e Perfeitamente Alinhada */}
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
           {polos.length > 0 && (
-            <div className="w-56">
+            <div className="w-52 shrink-0">
               <CustomSelect
                 options={opcoesPolo}
                 value={poloId}
@@ -256,15 +255,14 @@ export function PainelDashboard({
             </div>
           )}
 
-          {/* Seletor de Período Padronizado */}
-          <div className="flex items-center gap-1 rounded-xl border border-borda bg-superficie p-1 shadow-xs">
-            <Calendar className="h-3.5 w-3.5 text-texto-suave ml-2 mr-1" />
+          {/* Segmented Control de Período Compacto */}
+          <div className="inline-flex h-9 items-center rounded-lg border border-borda bg-fundo p-1 shadow-2xs shrink-0">
             <button
               type="button"
               onClick={() => mudarPeriodo("mes_atual")}
-              className={`h-7 rounded-lg px-3 text-xs font-bold transition ${
+              className={`h-7 px-3 rounded-md text-xs font-semibold transition-all ${
                 periodo === "mes_atual"
-                  ? "bg-[#1D4ED8] text-white shadow-xs"
+                  ? "bg-acento text-white shadow-xs"
                   : "text-texto-suave hover:text-texto"
               }`}
             >
@@ -273,9 +271,9 @@ export function PainelDashboard({
             <button
               type="button"
               onClick={() => mudarPeriodo("semestre_atual")}
-              className={`h-7 rounded-lg px-3 text-xs font-bold transition ${
+              className={`h-7 px-3 rounded-md text-xs font-semibold transition-all ${
                 periodo === "semestre_atual"
-                  ? "bg-[#1D4ED8] text-white shadow-xs"
+                  ? "bg-acento text-white shadow-xs"
                   : "text-texto-suave hover:text-texto"
               }`}
             >
@@ -284,39 +282,41 @@ export function PainelDashboard({
             <button
               type="button"
               onClick={() => mudarPeriodo("ultimos_12_meses")}
-              className={`h-7 rounded-lg px-3 text-xs font-bold transition ${
+              className={`h-7 px-3 rounded-md text-xs font-semibold transition-all ${
                 periodo === "ultimos_12_meses"
-                  ? "bg-[#1D4ED8] text-white shadow-xs"
+                  ? "bg-acento text-white shadow-xs"
                   : "text-texto-suave hover:text-texto"
               }`}
             >
-              Últimos 12 meses
+              12 meses
             </button>
           </div>
         </div>
       </div>
 
-      {/* 2. Cartões de Indicadores Principais com Cores e Ícones */}
-      <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-6">
+      {/* 2. Cartões de Indicadores Principais Alinhados e Compactos */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {/* Total no período */}
         <div
           onClick={() => {
             setBuscaModal("");
             setIndicadorAtivo("total");
           }}
-          className="group cursor-pointer rounded-2xl border border-sky-500/30 bg-sky-500/5 p-4 transition-all hover:border-sky-500 hover:shadow-md space-y-1"
-          title="Clique para detalhar"
+          className="group cursor-pointer rounded-xl border border-borda bg-superficie p-3.5 transition-all hover:border-sky-500/50 hover:bg-superficie/80 hover:shadow-xs space-y-1.5"
+          title="Clique para detalhar chamados registrados"
         >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-texto-suave">Total geral</span>
-            <div className="h-6 w-6 rounded-md bg-sky-500/15 text-sky-600 flex items-center justify-center">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold text-texto-suave truncate">Total geral</span>
+            <div className="h-6 w-6 rounded-md bg-sky-500/10 text-sky-500 flex items-center justify-center shrink-0">
               <Ticket className="h-3.5 w-3.5" />
             </div>
           </div>
-          <span className="text-2xl font-black text-sky-600 tabular-nums block">
-            {dados.totais.total}
-          </span>
-          <span className="text-[11px] text-texto-suave block">Registrados</span>
+          <div className="flex items-baseline gap-1">
+            <span className="text-2xl font-bold tracking-tight text-texto tabular-nums">
+              {dados.totais.total}
+            </span>
+          </div>
+          <p className="text-[11px] text-texto-suave truncate">Registrados no período</p>
         </div>
 
         {/* Aguardando */}
@@ -325,19 +325,21 @@ export function PainelDashboard({
             setBuscaModal("");
             setIndicadorAtivo("aguardando");
           }}
-          className="group cursor-pointer rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 transition-all hover:border-amber-500 hover:shadow-md space-y-1"
-          title="Clique para detalhar"
+          className="group cursor-pointer rounded-xl border border-borda bg-superficie p-3.5 transition-all hover:border-amber-500/50 hover:bg-superficie/80 hover:shadow-xs space-y-1.5"
+          title="Clique para detalhar chamados aguardando"
         >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-texto-suave">Aguardando</span>
-            <div className="h-6 w-6 rounded-md bg-amber-500/15 text-amber-600 flex items-center justify-center">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold text-texto-suave truncate">Aguardando</span>
+            <div className="h-6 w-6 rounded-md bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
               <Clock className="h-3.5 w-3.5" />
             </div>
           </div>
-          <span className="text-2xl font-black text-amber-600 tabular-nums block">
-            {dados.totais.aguardando}
-          </span>
-          <span className="text-[11px] text-texto-suave block">Em andamento</span>
+          <div className="flex items-baseline gap-1">
+            <span className="text-2xl font-bold tracking-tight text-amber-500 tabular-nums">
+              {dados.totais.aguardando}
+            </span>
+          </div>
+          <p className="text-[11px] text-texto-suave truncate">Fila em andamento</p>
         </div>
 
         {/* Concluídos */}
@@ -346,19 +348,21 @@ export function PainelDashboard({
             setBuscaModal("");
             setIndicadorAtivo("concluidos");
           }}
-          className="group cursor-pointer rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 transition-all hover:border-emerald-500 hover:shadow-md space-y-1"
-          title="Clique para detalhar"
+          className="group cursor-pointer rounded-xl border border-borda bg-superficie p-3.5 transition-all hover:border-emerald-500/50 hover:bg-superficie/80 hover:shadow-xs space-y-1.5"
+          title="Clique para detalhar chamados concluídos"
         >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-texto-suave">Concluídos</span>
-            <div className="h-6 w-6 rounded-md bg-emerald-500/15 text-emerald-600 flex items-center justify-center">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold text-texto-suave truncate">Concluídos</span>
+            <div className="h-6 w-6 rounded-md bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
               <CheckCircle2 className="h-3.5 w-3.5" />
             </div>
           </div>
-          <span className="text-2xl font-black text-emerald-600 tabular-nums block">
-            {dados.totais.concluidos}
-          </span>
-          <span className="text-[11px] text-texto-suave block">Resolvidos</span>
+          <div className="flex items-baseline gap-1">
+            <span className="text-2xl font-bold tracking-tight text-emerald-500 tabular-nums">
+              {dados.totais.concluidos}
+            </span>
+          </div>
+          <p className="text-[11px] text-texto-suave truncate">Resolvidos com sucesso</p>
         </div>
 
         {/* Taxa de resolução */}
@@ -367,19 +371,21 @@ export function PainelDashboard({
             setBuscaModal("");
             setIndicadorAtivo("taxa");
           }}
-          className="group cursor-pointer rounded-2xl border border-blue-600/30 bg-blue-600/5 p-4 transition-all hover:border-blue-600 hover:shadow-md space-y-1"
-          title="Clique para detalhar"
+          className="group cursor-pointer rounded-xl border border-borda bg-superficie p-3.5 transition-all hover:border-blue-500/50 hover:bg-superficie/80 hover:shadow-xs space-y-1.5"
+          title="Clique para detalhar taxa de resolução"
         >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-texto-suave">Taxa global</span>
-            <div className="h-6 w-6 rounded-md bg-blue-600/15 text-blue-600 flex items-center justify-center">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold text-texto-suave truncate">Taxa global</span>
+            <div className="h-6 w-6 rounded-md bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">
               <Percent className="h-3.5 w-3.5" />
             </div>
           </div>
-          <span className="text-2xl font-black text-blue-600 tabular-nums block">
-            {dados.totais.total > 0 ? `${taxaGeralResolucao}%` : "—"}
-          </span>
-          <span className="text-[11px] text-texto-suave block">Meta: 90%</span>
+          <div className="flex items-baseline gap-1">
+            <span className="text-2xl font-bold tracking-tight text-texto tabular-nums">
+              {dados.totais.total > 0 ? `${taxaGeralResolucao}%` : "—"}
+            </span>
+          </div>
+          <p className="text-[11px] text-texto-suave truncate">Meta global: 90%</p>
         </div>
 
         {/* Vencidos em aberto */}
@@ -388,27 +394,47 @@ export function PainelDashboard({
             setBuscaModal("");
             setIndicadorAtivo("vencidos");
           }}
-          className={`group cursor-pointer rounded-2xl border p-4 transition-all hover:shadow-md space-y-1 ${
+          className={`group cursor-pointer rounded-xl border p-3.5 transition-all hover:shadow-xs space-y-1.5 ${
             dados.totais.vencidos > 0
-              ? "border-red-500/40 bg-red-500/10 text-red-600 hover:border-red-500"
-              : "border-borda bg-superficie text-texto hover:border-borda/80"
+              ? "border-red-500/30 bg-red-500/5 hover:border-red-500/60 hover:bg-red-500/10"
+              : "border-borda bg-superficie hover:border-borda/80"
           }`}
-          title="Clique para detalhar"
+          title="Clique para detalhar chamados vencidos"
         >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-texto-suave">Vencidos</span>
+          <div className="flex items-center justify-between text-xs">
+            <span
+              className={`font-semibold truncate ${
+                dados.totais.vencidos > 0 ? "text-red-500" : "text-texto-suave"
+              }`}
+            >
+              Vencidos
+            </span>
             <div
-              className={`h-6 w-6 rounded-md flex items-center justify-center ${dados.totais.vencidos > 0 ? "bg-red-500/20 text-red-600" : "bg-fundo text-texto-suave"}`}
+              className={`h-6 w-6 rounded-md flex items-center justify-center shrink-0 ${
+                dados.totais.vencidos > 0
+                  ? "bg-red-500/15 text-red-500"
+                  : "bg-fundo text-texto-suave"
+              }`}
             >
               <AlertOctagon className="h-3.5 w-3.5" />
             </div>
           </div>
-          <span
-            className={`text-2xl font-black tabular-nums block ${dados.totais.vencidos > 0 ? "text-red-600" : "text-texto"}`}
+          <div className="flex items-baseline gap-1">
+            <span
+              className={`text-2xl font-bold tracking-tight tabular-nums ${
+                dados.totais.vencidos > 0 ? "text-red-500" : "text-texto"
+              }`}
+            >
+              {dados.totais.vencidos}
+            </span>
+          </div>
+          <p
+            className={`text-[11px] truncate ${
+              dados.totais.vencidos > 0 ? "text-red-500/80" : "text-texto-suave"
+            }`}
           >
-            {dados.totais.vencidos}
-          </span>
-          <span className="text-[11px] text-texto-suave block">Prazo expirado</span>
+            Prazo expirado
+          </p>
         </div>
 
         {/* Vencendo em 2 dias */}
@@ -417,27 +443,47 @@ export function PainelDashboard({
             setBuscaModal("");
             setIndicadorAtivo("vencendo");
           }}
-          className={`group cursor-pointer rounded-2xl border p-4 transition-all hover:shadow-md space-y-1 ${
+          className={`group cursor-pointer rounded-xl border p-3.5 transition-all hover:shadow-xs space-y-1.5 ${
             dados.totais.vencendo_em_2_dias > 0
-              ? "border-orange-500/40 bg-orange-500/10 text-orange-600 hover:border-orange-500"
-              : "border-borda bg-superficie text-texto hover:border-borda/80"
+              ? "border-amber-500/30 bg-amber-500/5 hover:border-amber-500/60 hover:bg-amber-500/10"
+              : "border-borda bg-superficie hover:border-borda/80"
           }`}
-          title="Clique para detalhar"
+          title="Clique para detalhar chamados a vencer logo"
         >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-texto-suave">Vencem logo</span>
+          <div className="flex items-center justify-between text-xs">
+            <span
+              className={`font-semibold truncate ${
+                dados.totais.vencendo_em_2_dias > 0 ? "text-amber-500" : "text-texto-suave"
+              }`}
+            >
+              Vencem logo
+            </span>
             <div
-              className={`h-6 w-6 rounded-md flex items-center justify-center ${dados.totais.vencendo_em_2_dias > 0 ? "bg-orange-500/20 text-orange-600" : "bg-fundo text-texto-suave"}`}
+              className={`h-6 w-6 rounded-md flex items-center justify-center shrink-0 ${
+                dados.totais.vencendo_em_2_dias > 0
+                  ? "bg-amber-500/15 text-amber-500"
+                  : "bg-fundo text-texto-suave"
+              }`}
             >
               <AlertTriangle className="h-3.5 w-3.5" />
             </div>
           </div>
-          <span
-            className={`text-2xl font-black tabular-nums block ${dados.totais.vencendo_em_2_dias > 0 ? "text-orange-600" : "text-texto"}`}
+          <div className="flex items-baseline gap-1">
+            <span
+              className={`text-2xl font-bold tracking-tight tabular-nums ${
+                dados.totais.vencendo_em_2_dias > 0 ? "text-amber-500" : "text-texto"
+              }`}
+            >
+              {dados.totais.vencendo_em_2_dias}
+            </span>
+          </div>
+          <p
+            className={`text-[11px] truncate ${
+              dados.totais.vencendo_em_2_dias > 0 ? "text-amber-500/80" : "text-texto-suave"
+            }`}
           >
-            {dados.totais.vencendo_em_2_dias}
-          </span>
-          <span className="text-[11px] text-texto-suave block">Em até 2 dias</span>
+            Em até 2 dias
+          </p>
         </div>
       </div>
 
