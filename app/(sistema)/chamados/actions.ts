@@ -4,7 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { obterPerfilAtual } from "@/lib/auth/perfil";
 import { comUsuario, comTransacao } from "@/lib/db/comUsuario";
-import { sql } from "@/lib/db/pool";
+import { getPool, sql } from "@/lib/db/pool";
 import { salvarArquivoLocal } from "@/lib/storage/anexos";
 import { limparCpf, validarCpf } from "@/lib/utils/cpf";
 
@@ -419,6 +419,18 @@ export async function excluirArquivoAction(arquivoId: string, chamadoId: string)
             WHERE id = @id AND chamado_id = @chamado_id
           `);
     });
+
+    try {
+      const pool = await getPool();
+      await pool
+        .request()
+        .input("regId", sql.VarChar(50), arquivoId)
+        .query(
+          `DELETE FROM auditoria.logs WHERE tabela = 'arquivos_conteudo' AND registro_id = @regId`
+        );
+    } catch (cleanErr) {
+      console.warn("[STORAGE] Falha ao limpar conteudo do anexo no banco:", cleanErr);
+    }
 
     revalidatePath(`/chamados/${chamadoId}`);
     return { sucesso: true };

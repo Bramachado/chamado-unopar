@@ -1,8 +1,9 @@
 import fs from "fs/promises";
+import fsSync from "fs";
 import path from "path";
 import crypto from "crypto";
 import { comUsuario } from "@/lib/db/comUsuario";
-import { sql } from "@/lib/db/pool";
+import { getPool, sql } from "@/lib/db/pool";
 import { type Perfil } from "@/types/database";
 
 const DIRETORIO_ANEXOS = process.env.ANEXOS_DIR || path.join(process.cwd(), "anexos_storage");
@@ -39,16 +40,22 @@ export async function salvarArquivoLocal(
       .replace(/[^a-z0-9.]/g, "") || ".dat";
   const nomeSeguro = `${crypto.randomUUID()}${extensao}`;
   const pastaChamado = path.join(DIRETORIO_ANEXOS, chamadoId.replace(/[^a-zA-Z0-9-]/g, ""));
-
-  await fs.mkdir(pastaChamado, { recursive: true });
-
-  const caminhoCompletoDisco = path.join(pastaChamado, nomeSeguro);
   const caminhoRelativo = `${chamadoId}/${nomeSeguro}`;
-
   const buffer = Buffer.from(await arquivo.arrayBuffer());
-  await fs.writeFile(caminhoCompletoDisco, buffer);
 
-  // Registro de metadados no SQL Server via comUsuario
+  // 1. Gravação local em disco (como cache rápido, tolerando ambientes serverless read-only)
+  try {
+    await fs.mkdir(pastaChamado, { recursive: true });
+    const caminhoCompletoDisco = path.join(pastaChamado, nomeSeguro);
+    await fs.writeFile(caminhoCompletoDisco, buffer);
+  } catch (fsErr) {
+    console.warn(
+      "[STORAGE] Não foi possível salvar em disco local (normal em serverless como Vercel):",
+      fsErr instanceof Error ? fsErr.message : fsErr
+    );
+  }
+
+  // 2. Registro de metadados no SQL Server via comUsuario
   const resultado = await comUsuario(
     { usuario_id: perfil.id, papel: perfil.papel },
     async (req) => {
@@ -124,6 +131,32 @@ export async function salvarArquivoLocal(
     }
   );
 
+  // 3. Persistência dos bytes no banco de dados (resiliente para cloud/Vercel/serverless)
+  if (resultado?.id) {
+    try {
+      const base64 = buffer.toString("base64");
+      const payloadJson = JSON.stringify({ arquivo_base64: base64 });
+      const pool = await getPool();
+      await pool
+        .request()
+        .input("tabela", sql.VarChar(100), "arquivos_conteudo")
+        .input("regId", sql.VarChar(50), resultado.id)
+        .input("operacao", sql.VarChar(10), "INSERT")
+        .input("dadosDepois", sql.NVarChar(sql.MAX), payloadJson)
+        .input("origem", sql.VarChar(30), "anexo_storage")
+        .input("uid", sql.VarChar(50), perfil.id)
+        .input("usuarioNome", sql.NVarChar(200), perfil.nome_completo).query(`
+          INSERT INTO auditoria.logs (
+            tabela, registro_id, operacao, dados_depois, usuario_id, usuario_nome, origem, criado_em
+          ) VALUES (
+            @tabela, @regId, @operacao, @dadosDepois, @uid, @usuarioNome, @origem, SYSDATETIMEOFFSET()
+          )
+        `);
+    } catch (dbErr) {
+      console.error("[STORAGE] Erro ao persistir bytes do anexo no banco:", dbErr);
+    }
+  }
+
   return resultado;
 }
 
@@ -137,4 +170,46 @@ export function obterCaminhoAbsolutoSeguro(caminhoRelativo: string): string {
   }
 
   return caminhoCompleto;
+}
+
+/**
+ * Obtém os bytes do arquivo para download ou visualização.
+ * Tenta primeiramente recuperar do banco de dados (nuvem/serverless),
+ * com fallback para o sistema de arquivos local se disponível.
+ */
+export async function obterBufferArquivo(
+  arquivoId: string,
+  caminhoStorage: string
+): Promise<Buffer | null> {
+  // 1. Tentar recuperar do banco de dados (persistente entre instâncias Vercel / serverless)
+  try {
+    const pool = await getPool();
+    const res = await pool.request().input("regId", sql.VarChar(50), arquivoId).query(`
+        SELECT TOP 1 dados_depois
+        FROM auditoria.logs
+        WHERE tabela = 'arquivos_conteudo' AND registro_id = @regId
+        ORDER BY id DESC
+      `);
+
+    if (res.recordset.length > 0 && res.recordset[0].dados_depois) {
+      const parsed = JSON.parse(res.recordset[0].dados_depois);
+      if (parsed.arquivo_base64) {
+        return Buffer.from(parsed.arquivo_base64, "base64");
+      }
+    }
+  } catch (err) {
+    console.warn("[STORAGE] Falha ao recuperar arquivo do banco:", err);
+  }
+
+  // 2. Fallback para disco local caso exista
+  try {
+    const caminhoFisico = obterCaminhoAbsolutoSeguro(caminhoStorage);
+    if (fsSync.existsSync(caminhoFisico)) {
+      return fsSync.readFileSync(caminhoFisico);
+    }
+  } catch (err) {
+    console.warn("[STORAGE] Falha ao recuperar arquivo do disco:", err);
+  }
+
+  return null;
 }

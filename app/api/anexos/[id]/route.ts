@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import fs from "fs";
 import { verificarSessao } from "@/lib/auth/jwt";
 import { comUsuario } from "@/lib/db/comUsuario";
 import { getPool, sql } from "@/lib/db/pool";
-import { obterCaminhoAbsolutoSeguro } from "@/lib/storage/anexos";
+import { obterBufferArquivo } from "@/lib/storage/anexos";
 
 interface Params {
   params: Promise<{
@@ -69,32 +68,25 @@ export async function GET(request: NextRequest, { params }: Params) {
       );
     }
 
-    const caminhoFisico = obterCaminhoAbsolutoSeguro(arquivo.caminho_storage);
+    const bufferConteudo = await obterBufferArquivo(arquivo.id, arquivo.caminho_storage);
 
-    if (!fs.existsSync(caminhoFisico)) {
+    if (!bufferConteudo) {
       return NextResponse.json(
-        { erro: "Arquivo físico não encontrado no servidor." },
+        { erro: "Arquivo físico não encontrado no servidor de armazenamento." },
         { status: 404 }
       );
     }
 
-    const fileStream = fs.createReadStream(caminhoFisico);
-    const responseStream = new ReadableStream({
-      start(controller) {
-        fileStream.on("data", (chunk) => controller.enqueue(chunk));
-        fileStream.on("end", () => controller.close());
-        fileStream.on("error", (err) => controller.error(err));
-      },
-    });
-
     const headers = new Headers();
     headers.set("Content-Type", arquivo.tipo_mime || "application/octet-stream");
+    headers.set("Content-Length", String(bufferConteudo.length));
     headers.set(
       "Content-Disposition",
       `inline; filename="${encodeURIComponent(arquivo.nome_original)}"`
     );
+    headers.set("Cache-Control", "private, max-age=86400, stale-while-revalidate=604800");
 
-    return new Response(responseStream, { headers });
+    return new Response(new Uint8Array(bufferConteudo), { headers });
   } catch (error) {
     console.error("[ERRO_DOWNLOAD_ANEXO]:", error);
     return NextResponse.json({ erro: "Erro ao processar download do anexo." }, { status: 500 });
