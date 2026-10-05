@@ -119,15 +119,13 @@ export async function salvarMotivoAction(
             await req.query(`
               UPDATE dados.motivos
               SET nome = @nome,
-                  nome_normalizado = @nomeNormalizado,
                   filtro = @filtro
               WHERE id = @id
             `);
           } else {
             await req.query(`
               UPDATE dados.motivos
-              SET nome = @nome,
-                  nome_normalizado = @nomeNormalizado
+              SET nome = @nome
               WHERE id = @id
             `);
           }
@@ -149,56 +147,54 @@ export async function salvarMotivoAction(
           SELECT ISNULL(MAX(numero), 0) + 1 AS proximo FROM dados.motivos WITH (UPDLOCK, HOLDLOCK)
         `);
         const proximoNumero = qNum.recordset[0]?.proximo || 1;
-        const codigoFormatado = `#${String(proximoNumero).padStart(2, "0")}`;
 
         req.input("numero", sql.Int, proximoNumero);
-        req.input("codigo", sql.VarChar(10), codigoFormatado);
         req.input("nome", sql.NVarChar(255), nomeLimpo);
         req.input("criado_por", sql.VarChar(50), perfil.id);
 
         if (temColunaFiltro) {
           req.input("filtro", sql.NVarChar(500), filtroLimpo);
           const qInsert = await req.query(`
+            DECLARE @out TABLE (id UNIQUEIDENTIFIER);
+
             INSERT INTO dados.motivos (
               numero,
-              codigo,
               nome,
-              nome_normalizado,
               filtro,
               ativo,
               criado_por
             )
-            OUTPUT CAST(inserted.id AS NVARCHAR(50)) AS id
+            OUTPUT inserted.id INTO @out(id)
             VALUES (
               @numero,
-              @codigo,
               @nome,
-              @nomeNormalizado,
               @filtro,
               1,
               @criado_por
-            )
+            );
+
+            SELECT CAST(id AS NVARCHAR(50)) AS id FROM @out;
           `);
           return qInsert.recordset[0]?.id;
         } else {
           const qInsert = await req.query(`
+            DECLARE @out TABLE (id UNIQUEIDENTIFIER);
+
             INSERT INTO dados.motivos (
               numero,
-              codigo,
               nome,
-              nome_normalizado,
               ativo,
               criado_por
             )
-            OUTPUT CAST(inserted.id AS NVARCHAR(50)) AS id
+            OUTPUT inserted.id INTO @out(id)
             VALUES (
               @numero,
-              @codigo,
               @nome,
-              @nomeNormalizado,
               1,
               @criado_por
-            )
+            );
+
+            SELECT CAST(id AS NVARCHAR(50)) AS id FROM @out;
           `);
           return qInsert.recordset[0]?.id;
         }
