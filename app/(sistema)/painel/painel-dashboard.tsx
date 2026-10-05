@@ -109,14 +109,20 @@ export function PainelDashboard({
   const [poloId, setPoloId] = useState(poloSelecionado);
   const [indicadorAtivo, setIndicadorAtivo] = useState<TipoIndicador>(null);
   const [buscaModal, setBuscaModal] = useState("");
+  const podeVerTodosPolos = perfilAtual?.papel === "admin" || perfilAtual?.papel === "coordenador";
 
-  const opcoesPolo: CustomSelectOption[] = [
-    { value: "todos", label: "Todos os Polos (Consolidado)" },
-    ...polos.map((p) => ({
-      value: p.id,
-      label: `${p.nome} (${p.cidade})`,
-    })),
-  ];
+  const opcoesPolo: CustomSelectOption[] = podeVerTodosPolos
+    ? [
+        { value: "todos", label: "Todos os Polos (Consolidado)" },
+        ...polos.map((p) => ({
+          value: p.id,
+          label: `${p.nome} (${p.cidade})`,
+        })),
+      ]
+    : polos.map((p) => ({
+        value: p.id,
+        label: `${p.nome} (${p.cidade})`,
+      }));
 
   const mudarPeriodo = (novoPeriodo: string) => {
     setPeriodo(novoPeriodo);
@@ -128,6 +134,7 @@ export function PainelDashboard({
   };
 
   const mudarPolo = (novoPolo: string) => {
+    if (!podeVerTodosPolos) return;
     setPoloId(novoPolo);
     const params = new URLSearchParams(searchParams.toString());
     if (novoPolo !== "todos") {
@@ -240,13 +247,20 @@ export function PainelDashboard({
 
         {/* Barra de Filtros Unificada e Perfeitamente Alinhada */}
         <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-          {polos.length > 0 && (
-            <div className="w-52 shrink-0">
-              <CustomSelect
-                options={opcoesPolo}
-                value={poloId}
-                onChange={(val) => mudarPolo(val)}
-              />
+          {podeVerTodosPolos ? (
+            polos.length > 0 && (
+              <div className="w-56 shrink-0">
+                <CustomSelect
+                  options={opcoesPolo}
+                  value={poloId}
+                  onChange={(val) => mudarPolo(val)}
+                />
+              </div>
+            )
+          ) : (
+            <div className="inline-flex h-9 items-center gap-1.5 px-3 rounded-lg border border-borda bg-superficie text-xs font-semibold text-texto shrink-0 shadow-2xs">
+              <span className="text-texto-suave font-normal">Polo:</span>
+              <span>{opcoesPolo[0]?.label || perfilAtual?.polo_nome || "Meu Polo"}</span>
             </div>
           )}
 

@@ -24,8 +24,11 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
   const perfilAtual = await obterPerfilAtual();
   const params = await searchParams;
 
+  const podeVerTodosPolos = perfilAtual.papel === "admin" || perfilAtual.papel === "coordenador";
+
   const periodo = params.periodo || "mes_atual";
-  const poloId = params.polo_id || "todos";
+  // Atendentes visualizam obrigatoriamente apenas o seu próprio polo
+  const poloId = podeVerTodosPolos ? params.polo_id || "todos" : perfilAtual.polo_id || "sem_polo";
   const hoje = new Date();
 
   let dataInicioStr = "";
@@ -68,6 +71,7 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
           CAST(p.id AS NVARCHAR(50)) AS id, 
           p.nome_completo, 
           p.papel,
+          CAST(p.polo_id AS NVARCHAR(50)) AS polo_id,
           av.dados_depois AS avatar_json,
           av.operacao AS avatar_operacao
         FROM dados.perfis p
@@ -163,6 +167,9 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
 
     // Administradores não participam do ranking da equipe
     if (p.papel === "admin") continue;
+
+    // Se um polo específico estiver selecionado (ou para atendente), apenas colaboradores do polo entram no ranking inicial
+    if (poloId !== "todos" && p.polo_id !== poloId) continue;
 
     contagemColaboradores[p.id] = {
       id: p.id,
@@ -410,15 +417,17 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
     chamadosVencidosOuProximos: chamadosCriticos.slice(0, 10),
   };
 
-  const polosFormatados = dadosBanco.polos.map((p: any) => ({
-    id: p.id,
-    nome: p.nome,
-    codigo: p.codigo,
-    cidade: p.cidade,
-    estado: p.estado,
-    ativo: Boolean(p.ativo),
-    criado_em: p.criado_em ? new Date(p.criado_em).toISOString() : new Date().toISOString(),
-  }));
+  const polosFormatados = dadosBanco.polos
+    .filter((p: any) => podeVerTodosPolos || p.id === perfilAtual.polo_id)
+    .map((p: any) => ({
+      id: p.id,
+      nome: p.nome,
+      codigo: p.codigo,
+      cidade: p.cidade,
+      estado: p.estado,
+      ativo: Boolean(p.ativo),
+      criado_em: p.criado_em ? new Date(p.criado_em).toISOString() : new Date().toISOString(),
+    }));
 
   return (
     <PainelDashboard
