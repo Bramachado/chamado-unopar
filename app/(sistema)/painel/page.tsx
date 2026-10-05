@@ -139,15 +139,13 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
   > = {};
 
   for (const p of dadosBanco.perfis) {
+    // Administradores não participam do ranking da equipe
+    if (p.papel === "admin") continue;
+
     contagemColaboradores[p.id] = {
       id: p.id,
       nome: p.nome_completo,
-      papel:
-        p.papel === "admin"
-          ? "Administrador"
-          : p.papel === "coordenador"
-            ? "Coordenador"
-            : "Atendimento",
+      papel: p.papel === "coordenador" ? "Coordenador" : "Atendimento",
       resolvidos: 0,
       abertos: 0,
       total: 0,
@@ -193,23 +191,26 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
           ? "Coordenador"
           : "Atendimento";
 
-    if (!contagemColaboradores[colabId]) {
-      contagemColaboradores[colabId] = {
-        id: colabId,
-        nome: colabNome,
-        papel: colabPapel,
-        resolvidos: 0,
-        abertos: 0,
-        total: 0,
-        diasTotais: 0,
-      };
-    }
-    contagemColaboradores[colabId].total++;
+    // Apenas colaboradores que não são administradores participam do ranking
+    if (c.criador_papel !== "admin") {
+      if (!contagemColaboradores[colabId]) {
+        contagemColaboradores[colabId] = {
+          id: colabId,
+          nome: colabNome,
+          papel: colabPapel,
+          resolvidos: 0,
+          abertos: 0,
+          total: 0,
+          diasTotais: 0,
+        };
+      }
+      contagemColaboradores[colabId].total++;
 
-    if (c.situacao === "concluido") {
-      contagemColaboradores[colabId].resolvidos++;
-    } else {
-      contagemColaboradores[colabId].abertos++;
+      if (c.situacao === "concluido") {
+        contagemColaboradores[colabId].resolvidos++;
+      } else {
+        contagemColaboradores[colabId].abertos++;
+      }
     }
 
     if (c.situacao === "aguardando") {
@@ -256,7 +257,9 @@ export default async function PaginaPainel({ searchParams }: PageProps) {
       );
       contagemMotivos[cod].diasTotais += dias;
       contagemMotivos[cod].concluidos++;
-      contagemColaboradores[colabId].diasTotais += dias;
+      if (c.criador_papel !== "admin" && colabId && contagemColaboradores[colabId]) {
+        contagemColaboradores[colabId].diasTotais += dias;
+      }
       somaDiasGeral += dias;
       totalConcluidosGeral++;
     }

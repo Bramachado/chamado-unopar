@@ -72,16 +72,36 @@ export function PainelDesempenho({
     });
   };
 
+  const ehAdmin = perfilAtual.papel === "admin";
   const listaBruta = recorte === "mes" ? rankingMes : rankingSemestre;
 
   // 1. Lógica de Pontuação e Classificação
   const alguemPontuou = listaBruta.some((r) => (r.pontos_total || 0) > 0);
-  const meuDado = listaBruta.find((r) => r.usuario_id === perfilAtual.id);
+  const meuDado = !ehAdmin ? listaBruta.find((r) => r.usuario_id === perfilAtual.id) : null;
   const meusPontos = meuDado?.pontos_total ?? 0;
   const minhaPosicao = meuDado?.posicao;
 
-  // Classificação válida apenas quando há pontuação real no período
-  const temClassificacao = alguemPontuou && meusPontos > 0 && typeof minhaPosicao === "number";
+  // Classificação válida apenas quando há pontuação real no período e usuário participa do ranking
+  const temClassificacao =
+    !ehAdmin && alguemPontuou && meusPontos > 0 && typeof minhaPosicao === "number";
+
+  // Indicadores consolidados da equipe (utilizados na visão do Administrador)
+  const totalParticipantes = listaBruta.length;
+  const somaPontosEquipe = listaBruta.reduce((acc, curr) => acc + (curr.pontos_total || 0), 0);
+  const mediaPontosEquipe =
+    totalParticipantes > 0 ? Math.round((somaPontosEquipe / totalParticipantes) * 10) / 10 : 0;
+
+  const totalResolvidosEquipe = listaBruta.reduce((acc, curr) => acc + (curr.resolvidos || 0), 0);
+  const totalNoPrazoEquipe = listaBruta.reduce((acc, curr) => acc + (curr.no_prazo || 0), 0);
+  const taxaPrazoEquipe =
+    totalResolvidosEquipe > 0 ? Math.round((totalNoPrazoEquipe / totalResolvidosEquipe) * 100) : 0;
+
+  const somaDiasEquipe = listaBruta.reduce(
+    (acc, curr) => acc + curr.tempo_medio_dias * curr.resolvidos,
+    0
+  );
+  const tempoMedioEquipe =
+    totalResolvidosEquipe > 0 ? Math.round((somaDiasEquipe / totalResolvidosEquipe) * 10) / 10 : 0;
 
   const listaOrdenada = [...listaBruta].sort((a, b) => {
     const pontosA = a.pontos_total || 0;
@@ -117,7 +137,8 @@ export function PainelDesempenho({
   const membrosComPontos = listaOrdenada.filter((m) => (m.pontos_total || 0) > 0);
 
   const metaPontos = 100;
-  const progressoPercentual = Math.min(100, Math.round((meusPontos / metaPontos) * 100));
+  const pontosReferenciaGauge = ehAdmin ? mediaPontosEquipe : meusPontos;
+  const progressoPercentual = Math.min(100, Math.round((pontosReferenciaGauge / metaPontos) * 100));
   const strokeDashoffset = 251.2 - (251.2 * progressoPercentual) / 100;
 
   return (
@@ -176,10 +197,27 @@ export function PainelDesempenho({
       {/* 2. Banner de Status do Usuário */}
       <div className="rounded-2xl border border-borda bg-superficie p-6 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="space-y-1">
-          <span className="text-xs font-semibold text-texto-suave">
-            Operador: {perfilAtual.nome_completo}
-          </span>
-          {temClassificacao ? (
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-texto-suave">
+              Operador: {perfilAtual.nome_completo}
+            </span>
+            {ehAdmin && (
+              <span className="inline-flex items-center rounded-md bg-purple-500/10 px-2 py-0.5 text-[10px] font-bold text-purple-600 border border-purple-500/20">
+                Administrador
+              </span>
+            )}
+          </div>
+          {ehAdmin ? (
+            <div>
+              <h2 className="text-xl font-bold text-texto tracking-tight">
+                Painel Gerencial de Desempenho
+              </h2>
+              <p className="text-xs text-texto-suave mt-0.5">
+                Administradores gerenciam a plataforma e não participam do ranking. Exibindo
+                consolidação da equipe.
+              </p>
+            </div>
+          ) : temClassificacao ? (
             <div>
               <h2 className="text-2xl font-black text-texto tracking-tight">
                 {minhaPosicao}º lugar no ranking
@@ -208,44 +246,65 @@ export function PainelDesempenho({
         </button>
       </div>
 
-      {/* 3. Cards de Indicadores Individuais */}
+      {/* 3. Cards de Indicadores Individuais ou da Equipe */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Card 1: Pontuação Total */}
+        {/* Card 1: Pontuação Total / Média da Equipe */}
         <div className="rounded-xl border border-borda bg-superficie p-5 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-texto-suave">Pontuação total</span>
+            <span className="text-xs font-semibold text-texto-suave">
+              {ehAdmin ? "Média da equipe" : "Pontuação total"}
+            </span>
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-[#1D4ED8]">
               <Zap className="h-4 w-4" />
             </div>
           </div>
           <div className="text-2xl font-black text-texto tabular-nums">
-            {meusPontos} <span className="text-xs font-normal text-texto-suave">pts</span>
+            {ehAdmin ? mediaPontosEquipe : meusPontos}{" "}
+            <span className="text-xs font-normal text-texto-suave">pts</span>
           </div>
-          <div className="text-[11px] text-texto-suave">Composição: Volume, Prazo e Agilidade</div>
+          <div className="text-[11px] text-texto-suave">
+            {ehAdmin
+              ? "Média de pontos da equipe participante"
+              : "Composição: Volume, Prazo e Agilidade"}
+          </div>
         </div>
 
         {/* Card 2: Chamados Concluídos */}
         <div className="rounded-xl border border-borda bg-superficie p-5 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-texto-suave">Chamados concluídos</span>
+            <span className="text-xs font-semibold text-texto-suave">
+              {ehAdmin ? "Total concluídos (Equipe)" : "Chamados concluídos"}
+            </span>
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
               <CheckCheck className="h-4 w-4" />
             </div>
           </div>
-          <div className="text-2xl font-black text-texto tabular-nums">{resolvidos}</div>
-          <div className="text-[11px] text-texto-suave">Demandas com resolução efetiva</div>
+          <div className="text-2xl font-black text-texto tabular-nums">
+            {ehAdmin ? totalResolvidosEquipe : resolvidos}
+          </div>
+          <div className="text-[11px] text-texto-suave">
+            {ehAdmin ? "Demandas resolvidas pelos operadores" : "Demandas com resolução efetiva"}
+          </div>
         </div>
 
         {/* Card 3: Cumprimento de Prazo */}
         <div className="rounded-xl border border-borda bg-superficie p-5 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-texto-suave">Cumprimento de prazo</span>
+            <span className="text-xs font-semibold text-texto-suave">
+              {ehAdmin ? "Cumprimento de prazo (Equipe)" : "Cumprimento de prazo"}
+            </span>
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
               <Target className="h-4 w-4" />
             </div>
           </div>
           <div className="text-2xl font-black text-texto tabular-nums">
-            {resolvidos > 0 ? `${taxaPrazo}%` : "—"}
+            {ehAdmin
+              ? totalResolvidosEquipe > 0
+                ? `${taxaPrazoEquipe}%`
+                : "—"
+              : resolvidos > 0
+                ? `${taxaPrazo}%`
+                : "—"}
           </div>
           <div className="text-[11px] text-texto-suave">Meta institucional: 90% no prazo</div>
         </div>
@@ -253,13 +312,21 @@ export function PainelDesempenho({
         {/* Card 4: Tempo Médio */}
         <div className="rounded-xl border border-borda bg-superficie p-5 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-texto-suave">Tempo médio de solução</span>
+            <span className="text-xs font-semibold text-texto-suave">
+              {ehAdmin ? "Tempo médio (Equipe)" : "Tempo médio de solução"}
+            </span>
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/10 text-purple-600">
               <Clock className="h-4 w-4" />
             </div>
           </div>
           <div className="text-2xl font-black text-texto tabular-nums">
-            {tempoMedio > 0 ? `${tempoMedio}d` : "—"}
+            {ehAdmin
+              ? tempoMedioEquipe > 0
+                ? `${tempoMedioEquipe}d`
+                : "—"
+              : tempoMedio > 0
+                ? `${tempoMedio}d`
+                : "—"}
           </div>
           <div className="text-[11px] text-texto-suave">Meta de agilidade: até 2 dias úteis</div>
         </div>
@@ -370,10 +437,12 @@ export function PainelDesempenho({
           )}
         </div>
 
-        {/* Gauge de Progresso Pessoal */}
+        {/* Gauge de Progresso Pessoal / da Equipe */}
         <div className="rounded-2xl border border-borda bg-superficie p-6 shadow-xs flex flex-col justify-between space-y-4">
           <div className="border-b border-borda pb-3">
-            <h2 className="text-sm font-bold text-texto">Progresso no Período</h2>
+            <h2 className="text-sm font-bold text-texto">
+              {ehAdmin ? "Média da Equipe no Período" : "Progresso no Período"}
+            </h2>
           </div>
 
           <div className="flex flex-col items-center justify-center py-2 space-y-3">
@@ -410,8 +479,8 @@ export function PainelDesempenho({
             </div>
 
             <div className="text-center text-xs text-texto-suave">
-              <span className="font-semibold text-texto">{meusPontos}</span> de {metaPontos} pontos
-              de referência
+              <span className="font-semibold text-texto">{pontosReferenciaGauge}</span> de{" "}
+              {metaPontos} pontos de referência
             </div>
           </div>
 
@@ -429,9 +498,14 @@ export function PainelDesempenho({
 
       {/* 5. Tabela Geral de Classificação */}
       <div className="rounded-2xl border border-borda bg-superficie shadow-xs overflow-hidden">
-        <div className="px-6 py-4 border-b border-borda flex items-center justify-between">
-          <h2 className="text-sm font-bold text-texto">Classificação Geral da Equipe</h2>
-          <span className="text-xs text-texto-suave">{listaOrdenada.length} colaboradores</span>
+        <div className="px-6 py-4 border-b border-borda flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+          <div>
+            <h2 className="text-sm font-bold text-texto">Classificação Geral da Equipe</h2>
+            <p className="text-[11px] text-texto-suave">
+              Colaboradores elegíveis ao ranking. Administradores não participam da disputa.
+            </p>
+          </div>
+          <span className="text-xs text-texto-suave">{listaOrdenada.length} participantes</span>
         </div>
 
         <div className="overflow-x-auto">
@@ -506,7 +580,9 @@ export function PainelDesempenho({
       <div className="rounded-2xl border border-borda bg-superficie p-6 shadow-xs space-y-4">
         <div className="flex items-center justify-between border-b border-borda pb-3">
           <h2 className="text-sm font-bold text-texto">
-            Evolução Pessoal vs. Média da Equipe (Últimos 6 Meses)
+            {ehAdmin
+              ? "Evolução Histórica da Média da Equipe (Últimos 6 Meses)"
+              : "Evolução Pessoal vs. Média da Equipe (Últimos 6 Meses)"}
           </h2>
           <span className="text-xs text-texto-suave">Pontuação mensal consolidada</span>
         </div>
@@ -519,22 +595,24 @@ export function PainelDesempenho({
               <YAxis fontSize={11} domain={[0, 100]} />
               <Tooltip />
               <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "10px" }} />
-              <Line
-                type="monotone"
-                dataKey="minhaPontuacao"
-                name="Sua Pontuação"
-                stroke="#1D4ED8"
-                strokeWidth={2.5}
-                dot={{ r: 4 }}
-              />
+              {!ehAdmin && (
+                <Line
+                  type="monotone"
+                  dataKey="minhaPontuacao"
+                  name="Sua Pontuação"
+                  stroke="#1D4ED8"
+                  strokeWidth={2.5}
+                  dot={{ r: 4 }}
+                />
+              )}
               <Line
                 type="monotone"
                 dataKey="mediaEquipe"
                 name="Média da Equipe"
-                stroke="#94a3b8"
-                strokeWidth={2}
-                strokeDasharray="4 4"
-                dot={{ r: 3 }}
+                stroke={ehAdmin ? "#1D4ED8" : "#94a3b8"}
+                strokeWidth={ehAdmin ? 2.5 : 2}
+                strokeDasharray={ehAdmin ? undefined : "4 4"}
+                dot={{ r: ehAdmin ? 4 : 3 }}
               />
             </LineChart>
           </ResponsiveContainer>

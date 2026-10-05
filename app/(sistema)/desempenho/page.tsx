@@ -38,6 +38,9 @@ function calcularRankingEmMemoria(
   > = {};
 
   for (const p of perfis) {
+    // Administradores não participam do ranking de desempenho
+    if (p.papel === "admin") continue;
+
     statsMap[p.id] = {
       usuario_id: p.id,
       nome_completo: p.nome_completo,
@@ -168,10 +171,11 @@ export default async function PaginaDesempenho({ searchParams }: PageProps) {
         WHERE ativo = 1
         ORDER BY nome ASC;
 
-        -- 2. Perfis ativos
+        -- 2. Perfis ativos participantes (exclui administradores)
         SELECT CAST(id AS NVARCHAR(50)) AS id, nome_completo, email, papel
         FROM dados.perfis
         WHERE ativo = 1
+          AND papel <> 'admin'
           ${sqlPoloPerfis};
 
         -- 3. Chamados do período total
