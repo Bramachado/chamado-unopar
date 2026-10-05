@@ -61,13 +61,18 @@ export async function salvarArquivoLocal(
     async (req) => {
       const q = await req
         .input("chamado_id", sql.VarChar(50), chamadoId)
-        .input("nome_original", sql.VarChar(255), arquivo.name.slice(0, 255))
-        .input("caminho_storage", sql.VarChar(500), caminhoRelativo)
+        .input("nome_original", sql.NVarChar(255), arquivo.name.slice(0, 255))
+        .input("caminho_storage", sql.NVarChar(500), caminhoRelativo.slice(0, 500))
         .input("tamanho_bytes", sql.BigInt, arquivo.size)
-        .input("tipo_mime", sql.VarChar(100), arquivo.type)
-        .input("descricao", sql.VarChar(255), descricao ? descricao.slice(0, 255) : null)
+        .input(
+          "tipo_mime",
+          sql.VarChar(100),
+          (arquivo.type || "application/octet-stream").slice(0, 100)
+        )
+        .input("descricao", sql.NVarChar(255), descricao ? descricao.slice(0, 255) : null)
         .input("criado_por", sql.VarChar(50), perfil.id)
-        .input("criado_por_nome", sql.VarChar(255), perfil.nome_completo).query(`
+        .input("criado_por_nome", sql.NVarChar(200), (perfil.nome_completo || "").slice(0, 200))
+        .query(`
           DECLARE @out TABLE (
             id UNIQUEIDENTIFIER,
             chamado_id UNIQUEIDENTIFIER,
@@ -145,7 +150,11 @@ export async function salvarArquivoLocal(
         .input("dadosDepois", sql.NVarChar(sql.MAX), payloadJson)
         .input("origem", sql.VarChar(30), "anexo_storage")
         .input("uid", sql.VarChar(50), perfil.id)
-        .input("usuarioNome", sql.NVarChar(200), perfil.nome_completo).query(`
+        .input(
+          "usuarioNome",
+          sql.NVarChar(200),
+          (perfil.nome_completo || "Colaboradora").slice(0, 200)
+        ).query(`
           INSERT INTO auditoria.logs (
             tabela, registro_id, operacao, dados_depois, usuario_id, usuario_nome, origem, criado_em
           ) VALUES (

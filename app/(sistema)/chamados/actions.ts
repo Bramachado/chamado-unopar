@@ -12,15 +12,25 @@ const chamadoSchema = z.object({
   protocolo: z
     .string()
     .trim()
+    .max(20, "O protocolo deve ter no máximo 20 caracteres.")
     .regex(
-      /^(CS\d{8}|CS\d{8}-\d{4}|C\d{6,14}|[A-Za-z0-9\-]{5,25})$/,
+      /^(CS\d{8}|CS\d{8}-\d{4}|C\d{6,14}|[A-Za-z0-9\-]{5,20})$/,
       "Protocolo inválido. Informe o código do PAD (ex: C345235256) ou deixe em branco para gerar automaticamente."
     )
     .optional()
     .nullable()
     .or(z.literal("")),
-  aluno_nome: z.string().trim().min(3, "Informe o nome completo do aluno."),
-  aluno_ra: z.string().trim().optional().nullable(),
+  aluno_nome: z
+    .string()
+    .trim()
+    .min(3, "Informe o nome completo do aluno.")
+    .max(200, "O nome do aluno deve ter no máximo 200 caracteres."),
+  aluno_ra: z
+    .string()
+    .trim()
+    .max(50, "O RA deve ter no máximo 50 caracteres.")
+    .optional()
+    .nullable(),
   aluno_cpf: z
     .string()
     .trim()
@@ -45,9 +55,10 @@ const chamadoSchema = z.object({
   contato_telefone: z
     .string()
     .trim()
+    .max(20, "O telefone deve ter no máximo 20 caracteres.")
     .optional()
     .nullable()
-    .transform((val) => (val ? val.replace(/\D/g, "") : null)),
+    .transform((val) => (val ? val.replace(/[^\d+()\-\s]/g, "").slice(0, 20) : null)),
   motivo_id: z.string().uuid("Selecione um motivo válido do catálogo."),
   descricao: z.string().trim().optional().nullable(),
   situacao: z.enum(["aguardando", "concluido", "encerrado"] as const),
@@ -227,22 +238,38 @@ export async function salvarChamado(
       await comUsuario({ usuario_id: perfil.id, papel: perfil.papel }, async (req) => {
         req
           .input("id", sql.VarChar(50), chamadoId)
-          .input("aluno_nome", sql.VarChar(255), payload.aluno_nome)
-          .input("aluno_ra", sql.VarChar(50), payload.aluno_ra || null)
-          .input("aluno_cpf", sql.VarChar(11), payload.aluno_cpf || null)
+          .input("aluno_nome", sql.NVarChar(200), payload.aluno_nome.slice(0, 200))
+          .input(
+            "aluno_ra",
+            sql.VarChar(50),
+            payload.aluno_ra ? payload.aluno_ra.slice(0, 50) : null
+          )
+          .input(
+            "aluno_cpf",
+            sql.VarChar(11),
+            payload.aluno_cpf ? payload.aluno_cpf.slice(0, 11) : null
+          )
           .input("polo_id", sql.VarChar(50), poloFinalId)
-          .input("contato_telefone", sql.VarChar(50), payload.contato_telefone || null)
+          .input(
+            "contato_telefone",
+            sql.VarChar(20),
+            payload.contato_telefone ? payload.contato_telefone.slice(0, 20) : null
+          )
           .input("motivo_id", sql.VarChar(50), payload.motivo_id)
           .input("descricao", sql.NVarChar(sql.MAX), payload.descricao || null)
-          .input("situacao", sql.VarChar(30), payload.situacao)
-          .input("prioridade", sql.VarChar(20), payload.prioridade)
-          .input("data_solicitacao", sql.DateTimeOffset, new Date(payload.data_solicitacao))
-          .input("prazo", sql.DateTimeOffset, new Date(payload.prazo))
+          .input("situacao", sql.VarChar(20), payload.situacao.slice(0, 20))
+          .input("prioridade", sql.VarChar(20), payload.prioridade.slice(0, 20))
+          .input("data_solicitacao", sql.Date, new Date(payload.data_solicitacao))
+          .input("prazo", sql.Date, new Date(payload.prazo))
           .input("data_conclusao", sql.DateTimeOffset, dataConclusao)
           .input("chamado_vinculado_id", sql.VarChar(50), payload.chamado_vinculado_id || null)
           .input("observacao", sql.NVarChar(sql.MAX), payload.observacao || null)
           .input("atualizado_por", sql.VarChar(50), perfil.id)
-          .input("atualizado_por_nome", sql.VarChar(255), perfil.nome_completo);
+          .input(
+            "atualizado_por_nome",
+            sql.NVarChar(200),
+            (perfil.nome_completo || "").slice(0, 200)
+          );
 
         await req.query(`
             UPDATE dados.chamados
@@ -276,23 +303,39 @@ export async function salvarChamado(
         { usuario_id: perfil.id, papel: perfil.papel },
         async (req) => {
           req
-            .input("protocolo", sql.VarChar(30), protocoloFinal!)
-            .input("aluno_nome", sql.VarChar(255), payload.aluno_nome)
-            .input("aluno_ra", sql.VarChar(50), payload.aluno_ra || null)
-            .input("aluno_cpf", sql.VarChar(11), payload.aluno_cpf || null)
+            .input("protocolo", sql.VarChar(20), protocoloFinal!.slice(0, 20))
+            .input("aluno_nome", sql.NVarChar(200), payload.aluno_nome.slice(0, 200))
+            .input(
+              "aluno_ra",
+              sql.VarChar(50),
+              payload.aluno_ra ? payload.aluno_ra.slice(0, 50) : null
+            )
+            .input(
+              "aluno_cpf",
+              sql.VarChar(11),
+              payload.aluno_cpf ? payload.aluno_cpf.slice(0, 11) : null
+            )
             .input("polo_id", sql.VarChar(50), poloFinalId)
-            .input("contato_telefone", sql.VarChar(50), payload.contato_telefone || null)
+            .input(
+              "contato_telefone",
+              sql.VarChar(20),
+              payload.contato_telefone ? payload.contato_telefone.slice(0, 20) : null
+            )
             .input("motivo_id", sql.VarChar(50), payload.motivo_id)
             .input("descricao", sql.NVarChar(sql.MAX), payload.descricao || null)
-            .input("situacao", sql.VarChar(30), payload.situacao)
-            .input("prioridade", sql.VarChar(20), payload.prioridade)
-            .input("data_solicitacao", sql.DateTimeOffset, new Date(payload.data_solicitacao))
-            .input("prazo", sql.DateTimeOffset, new Date(payload.prazo))
+            .input("situacao", sql.VarChar(20), payload.situacao.slice(0, 20))
+            .input("prioridade", sql.VarChar(20), payload.prioridade.slice(0, 20))
+            .input("data_solicitacao", sql.Date, new Date(payload.data_solicitacao))
+            .input("prazo", sql.Date, new Date(payload.prazo))
             .input("data_conclusao", sql.DateTimeOffset, dataConclusao)
             .input("chamado_vinculado_id", sql.VarChar(50), payload.chamado_vinculado_id || null)
             .input("observacao", sql.NVarChar(sql.MAX), payload.observacao || null)
             .input("criado_por", sql.VarChar(50), perfil.id)
-            .input("criado_por_nome", sql.VarChar(255), perfil.nome_completo);
+            .input(
+              "criado_por_nome",
+              sql.NVarChar(200),
+              (perfil.nome_completo || "").slice(0, 200)
+            );
 
           const q = await req.query(`
             DECLARE @out TABLE (id UNIQUEIDENTIFIER);
@@ -390,7 +433,8 @@ export async function anexarArquivoAction(formData: FormData) {
       await req
         .input("id", sql.VarChar(50), chamadoId)
         .input("atualizado_por", sql.VarChar(50), perfil.id)
-        .input("atualizado_por_nome", sql.VarChar(255), perfil.nome_completo).query(`
+        .input("atualizado_por_nome", sql.NVarChar(200), (perfil.nome_completo || "").slice(0, 200))
+        .query(`
             UPDATE dados.chamados
             SET atualizado_por = @atualizado_por,
                 atualizado_por_nome = @atualizado_por_nome,

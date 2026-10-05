@@ -278,7 +278,7 @@ export function FormularioChamado({
               value={protocolo}
               onChange={(e) => handleVerificarProtocolo(e.target.value)}
               placeholder="Ex: C345235256 ou deixe vazio para gerar"
-              maxLength={25}
+              maxLength={20}
               className={`w-full rounded-lg border bg-fundo px-3.5 py-2 font-mono text-xs font-bold uppercase text-texto placeholder:normal-case placeholder:font-normal placeholder:text-texto-suave focus:outline-none shadow-xs ${
                 errosCampo.protocolo
                   ? "border-erro ring-1 ring-erro/50 bg-erro-fundo/10"
@@ -321,6 +321,7 @@ export function FormularioChamado({
               value={alunoNome}
               onChange={(e) => setAlunoNome(e.target.value)}
               placeholder="Nome do aluno"
+              maxLength={200}
               className={`w-full rounded-lg border bg-fundo px-3.5 py-2 text-xs font-medium text-texto placeholder:text-texto-suave focus:outline-none shadow-xs ${
                 errosCampo.aluno_nome
                   ? "border-erro ring-1 ring-erro/50 bg-erro-fundo/10"
@@ -374,6 +375,7 @@ export function FormularioChamado({
               value={alunoRa}
               onChange={(e) => setAlunoRa(e.target.value)}
               placeholder="Ex: 1234567"
+              maxLength={50}
               className="w-full rounded-lg border border-borda bg-fundo px-3.5 py-2 font-mono text-xs text-texto tabular-nums placeholder:text-texto-suave focus:border-acento focus:outline-none shadow-xs"
             />
           </div>
@@ -387,6 +389,7 @@ export function FormularioChamado({
               value={contatoTelefone}
               onChange={(e) => setContatoTelefone(e.target.value)}
               placeholder="(94) 99999-9999"
+              maxLength={20}
               className="w-full rounded-lg border border-borda bg-fundo px-3.5 py-2 font-mono text-xs text-texto tabular-nums placeholder:text-texto-suave focus:border-acento focus:outline-none shadow-xs"
             />
           </div>
