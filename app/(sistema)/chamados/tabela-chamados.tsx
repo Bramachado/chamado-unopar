@@ -718,19 +718,19 @@ export function TabelaChamados({
       )}
 
       {/* 3. Tabela de Chamados Desktop */}
-      <div className="hidden sm:block overflow-x-auto rounded-lg border border-borda bg-superficie">
+      <div className="tabela-scroll hidden sm:block overflow-x-auto rounded-xl border border-borda bg-superficie shadow-xs">
         <table className="tabela-densa">
           <thead>
             <tr>
-              <th className="w-32">Protocolo</th>
-              <th>Aluno(a) / Documentos</th>
-              <th className="w-36">Polo</th>
+              <th className="w-28">Protocolo</th>
+              <th className="min-w-[170px]">Aluno(a) / Documentos</th>
+              <th className="w-32">Polo</th>
               <th className="w-28">Contato</th>
-              <th className="w-44">Motivo</th>
-              <th className="w-28 text-center">Situação</th>
+              <th className="min-w-[180px]">Motivo</th>
+              <th className="w-24 text-center">Situação</th>
               <th className="w-24 text-center">Prioridade</th>
               <th className="w-24 text-right">Abertura</th>
-              <th className="w-40 text-right">Prazo / SLA</th>
+              <th className="w-36 text-right">Prazo / SLA</th>
               <th className="w-32">Responsável</th>
               <th className="w-24 text-right">Ações</th>
             </tr>

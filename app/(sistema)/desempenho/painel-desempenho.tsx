@@ -508,7 +508,7 @@ export function PainelDesempenho({
           <span className="text-xs text-texto-suave">{listaOrdenada.length} participantes</span>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="tabela-scroll overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-fundo border-b border-borda text-texto-suave font-semibold">
               <tr>

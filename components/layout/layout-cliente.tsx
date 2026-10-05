@@ -20,7 +20,7 @@ export function LayoutCliente({ perfil, notificacoesIniciais, children }: Layout
   const [recolhido, setRecolhido] = useState(false);
 
   return (
-    <div className="min-h-[100dvh] flex bg-fundo text-texto relative antialiased selection:bg-blue-100 selection:text-blue-900">
+    <div className="min-h-[100dvh] w-full max-w-full overflow-x-hidden flex bg-fundo text-texto relative antialiased selection:bg-blue-100 selection:text-blue-900">
       {/* Sidebar Lateral com Controle de Recolher/Expandir */}
       <SidebarPrincipal
         perfil={perfil}
@@ -33,7 +33,7 @@ export function LayoutCliente({ perfil, notificacoesIniciais, children }: Layout
 
       {/* Conteúdo Principal com compensação da largura da Sidebar */}
       <div
-        className={`flex flex-1 flex-col transition-all duration-300 ${
+        className={`flex min-w-0 flex-1 flex-col transition-all duration-300 ${
           recolhido ? "lg:pl-20" : "lg:pl-72"
         }`}
       >
@@ -77,7 +77,7 @@ export function LayoutCliente({ perfil, notificacoesIniciais, children }: Layout
         </header>
 
         {/* Área de Conteúdo da Página */}
-        <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 sm:px-8 pt-4 pb-8 sm:pt-6 sm:pb-10">
+        <main className="mx-auto w-full max-w-[1400px] min-w-0 flex-1 px-4 sm:px-8 pt-4 pb-8 sm:pt-6 sm:pb-10">
           {children}
         </main>
 

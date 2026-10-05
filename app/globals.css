@@ -111,3 +111,65 @@ body {
 .btn-tátil:active {
   transform: scale(0.98);
 }
+
+/* ==============================================================================
+   ESTILIZAÇÃO MODERNA E ELEGANTE DE BARRAS DE ROLAGEM (SCROLLBARS)
+   ============================================================================== */
+
+/* Suporte padrão W3C (Firefox e navegadores modernos) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--borda) transparent;
+}
+
+/* Suporte Webkit (Chrome, Edge, Safari, Opera, Brave) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--borda);
+  border-radius: 9999px;
+  transition: background-color 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--texto-suave);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Scrollbar especializada e de alta usabilidade para tabelas com rolagem horizontal */
+.tabela-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--borda) transparent;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tabela-scroll::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+
+.tabela-scroll::-webkit-scrollbar-track {
+  background: var(--fundo);
+  border-radius: 0 0 12px 12px;
+}
+
+.tabela-scroll::-webkit-scrollbar-thumb {
+  background-color: var(--borda);
+  border-radius: 9999px;
+  transition: background-color 0.15s ease;
+}
+
+.tabela-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: var(--acento);
+}

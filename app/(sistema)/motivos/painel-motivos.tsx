@@ -165,7 +165,7 @@ export function PainelMotivos({ motivos, perfilAtual }: PainelMotivosProps) {
       </div>
 
       {/* 3. Tabela de Motivos */}
-      <div className="overflow-x-auto rounded-lg border border-borda bg-superficie">
+      <div className="tabela-scroll overflow-x-auto rounded-xl border border-borda bg-superficie shadow-xs">
         <table className="tabela-densa">
           <thead>
             <tr>
