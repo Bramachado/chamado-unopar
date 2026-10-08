@@ -21,8 +21,6 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
 } from "lucide-react";
 import { format, parseISO, startOfDay, differenceInCalendarDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -354,17 +352,14 @@ export function TabelaChamados({
     });
   }, [chamadosFiltrados, filtrosExcel]);
 
-  // Referências e estado de rolagem horizontal sincronizada no topo
+  // Referências e estado de rolagem horizontal da tabela
   const tableContainerRef = useRef<HTMLDivElement>(null);
-  const topScrollRef = useRef<HTMLDivElement>(null);
-  const [scrollWidth, setScrollWidth] = useState(0);
   const [podeRolarEsquerda, setPodeRolarEsquerda] = useState(false);
   const [podeRolarDireita, setPodeRolarDireita] = useState(false);
 
   const atualizarMetricasRolagem = useCallback(() => {
     if (!tableContainerRef.current) return;
     const { scrollLeft, scrollWidth: sw, clientWidth: cw } = tableContainerRef.current;
-    setScrollWidth(sw);
     setPodeRolarEsquerda(scrollLeft > 10);
     setPodeRolarDireita(scrollLeft + cw < sw - 10);
   }, []);
@@ -374,9 +369,6 @@ export function TabelaChamados({
     if (!el) return;
 
     const handleScroll = () => {
-      if (topScrollRef.current && Math.abs(topScrollRef.current.scrollLeft - el.scrollLeft) > 1) {
-        topScrollRef.current.scrollLeft = el.scrollLeft;
-      }
       atualizarMetricasRolagem();
     };
 
@@ -394,26 +386,10 @@ export function TabelaChamados({
     };
   }, [atualizarMetricasRolagem, chamadosExibicao.length]);
 
-  const handleTopScroll = () => {
-    if (topScrollRef.current && tableContainerRef.current) {
-      if (Math.abs(tableContainerRef.current.scrollLeft - topScrollRef.current.scrollLeft) > 1) {
-        tableContainerRef.current.scrollLeft = topScrollRef.current.scrollLeft;
-      }
-    }
-  };
-
   const rolarTabela = (direcao: "esquerda" | "direita") => {
     if (!tableContainerRef.current) return;
     const delta = direcao === "esquerda" ? -350 : 350;
     tableContainerRef.current.scrollBy({ left: delta, behavior: "smooth" });
-  };
-
-  const rolarParaExtremo = (lado: "inicio" | "fim") => {
-    if (!tableContainerRef.current) return;
-    tableContainerRef.current.scrollTo({
-      left: lado === "inicio" ? 0 : tableContainerRef.current.scrollWidth,
-      behavior: "smooth",
-    });
   };
 
   const alternarEscopo = (novoEscopo: "meus" | "todos") => {
@@ -911,78 +887,40 @@ export function TabelaChamados({
         </div>
       )}
 
-      {/* 3. Tabela de Chamados Desktop com Navegação e Rolagem Superior */}
-      <div className="hidden sm:flex flex-col rounded-xl border border-borda bg-superficie shadow-xs overflow-hidden">
-        {/* Barra superior com contador e controles rápidos de navegação lateral */}
-        <div className="flex items-center justify-between px-3.5 py-2.5 bg-superficie border-b border-borda text-xs">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-texto">
-              {chamadosExibicao.length} chamado{chamadosExibicao.length === 1 ? "" : "s"}
-            </span>
-            <span className="text-borda">•</span>
-            <span className="text-[11px] text-texto-suave hidden md:inline">
-              Navegue pelas colunas ou role lateralmente
-            </span>
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => rolarParaExtremo("inicio")}
-              disabled={!podeRolarEsquerda}
-              className="inline-flex items-center gap-1 h-7 px-2 rounded-lg border border-borda bg-fundo hover:bg-superficie hover:text-texto disabled:opacity-30 disabled:cursor-not-allowed text-[11px] font-medium transition cursor-pointer"
-              title="Ir para as primeiras colunas"
-            >
-              <ChevronsLeft className="h-3.5 w-3.5" />
-              <span className="hidden lg:inline">Início</span>
-            </button>
+      {/* 3. Tabela de Chamados Desktop com Navegação por Setinhas */}
+      <div className="hidden sm:block relative rounded-xl border border-borda bg-superficie shadow-xs overflow-hidden group">
+        {/* Setinha para voltar colunas (à esquerda) */}
+        {podeRolarEsquerda && (
+          <div className="absolute left-0 top-0 h-11 pl-2 flex items-center bg-gradient-to-r from-superficie-destaque via-superficie-destaque/95 to-transparent z-30 pointer-events-none pr-8">
             <button
               type="button"
               onClick={() => rolarTabela("esquerda")}
-              disabled={!podeRolarEsquerda}
-              className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg border border-borda bg-fundo hover:bg-superficie hover:text-texto disabled:opacity-30 disabled:cursor-not-allowed text-[11px] font-medium transition shadow-2xs cursor-pointer"
-              title="Rolar colunas para a esquerda"
+              className="pointer-events-auto h-8 w-8 rounded-full bg-superficie border border-borda shadow-md hover:bg-acento hover:text-white hover:border-acento text-acento flex items-center justify-center transition-all cursor-pointer hover:scale-110 active:scale-95"
+              title="Voltar para as colunas anteriores"
             >
-              <ChevronLeft className="h-3.5 w-3.5" />
-              <span>Rolar colunas</span>
+              <ChevronLeft className="h-4 w-4 stroke-[2.5]" />
             </button>
+          </div>
+        )}
+
+        {/* Setinha bonita na frente para avançar colunas (à direita) */}
+        {podeRolarDireita && (
+          <div className="absolute right-0 top-0 h-11 pr-2 flex items-center bg-gradient-to-l from-superficie-destaque via-superficie-destaque/95 to-transparent z-30 pointer-events-none pl-8">
             <button
               type="button"
               onClick={() => rolarTabela("direita")}
-              disabled={!podeRolarDireita}
-              className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg border border-borda bg-fundo hover:bg-superficie hover:text-texto disabled:opacity-30 disabled:cursor-not-allowed text-[11px] font-medium transition shadow-2xs cursor-pointer"
-              title="Rolar colunas para a direita"
+              className="pointer-events-auto h-8 w-8 rounded-full bg-superficie border border-borda shadow-md hover:bg-acento hover:text-white hover:border-acento text-acento flex items-center justify-center transition-all cursor-pointer hover:scale-110 active:scale-95"
+              title="Avançar para as próximas colunas"
             >
-              <span>Rolar colunas</span>
-              <ChevronRight className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => rolarParaExtremo("fim")}
-              disabled={!podeRolarDireita}
-              className="inline-flex items-center gap-1 h-7 px-2 rounded-lg border border-borda bg-fundo hover:bg-superficie hover:text-texto disabled:opacity-30 disabled:cursor-not-allowed text-[11px] font-medium transition cursor-pointer"
-              title="Ir para as últimas colunas (SLA, Ações)"
-            >
-              <span className="hidden lg:inline">Fim</span>
-              <ChevronsRight className="h-3.5 w-3.5" />
+              <ChevronRight className="h-4 w-4 stroke-[2.5]" />
             </button>
           </div>
-        </div>
-
-        {/* Barra de rolagem superior sincronizada */}
-        <div
-          ref={topScrollRef}
-          onScroll={handleTopScroll}
-          className="overflow-x-auto tabela-scroll h-3 bg-superficie-destaque/60 border-b border-borda/60 cursor-ew-resize shrink-0"
-          title="Barra de rolagem superior (arraste para percorrer as colunas)"
-        >
-          <div style={{ width: scrollWidth > 0 ? `${scrollWidth}px` : "1400px" }} className="h-1" />
-        </div>
+        )}
 
         {/* Tabela com container de rolagem e cabeçalho fixo no topo */}
         <div
           ref={tableContainerRef}
-          className="tabela-scroll overflow-auto max-h-[72vh] min-h-[380px] relative"
+          className="tabela-scroll overflow-auto max-h-[72vh] min-h-[380px]"
         >
           <table className="tabela-densa">
             <thead className="sticky top-0 z-20 bg-superficie-destaque shadow-xs">
