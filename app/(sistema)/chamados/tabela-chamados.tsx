@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useMemo } from "react";
+import { useState, useTransition, useMemo, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { type Chamado, type Motivo, type Perfil, type Polo } from "@/types/database";
@@ -19,6 +19,10 @@ import {
   CalendarClock,
   Inbox,
   X,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 import { format, parseISO, startOfDay, differenceInCalendarDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -349,6 +353,68 @@ export function TabelaChamados({
       return true;
     });
   }, [chamadosFiltrados, filtrosExcel]);
+
+  // Referências e estado de rolagem horizontal sincronizada no topo
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+  const topScrollRef = useRef<HTMLDivElement>(null);
+  const [scrollWidth, setScrollWidth] = useState(0);
+  const [podeRolarEsquerda, setPodeRolarEsquerda] = useState(false);
+  const [podeRolarDireita, setPodeRolarDireita] = useState(false);
+
+  const atualizarMetricasRolagem = useCallback(() => {
+    if (!tableContainerRef.current) return;
+    const { scrollLeft, scrollWidth: sw, clientWidth: cw } = tableContainerRef.current;
+    setScrollWidth(sw);
+    setPodeRolarEsquerda(scrollLeft > 10);
+    setPodeRolarDireita(scrollLeft + cw < sw - 10);
+  }, []);
+
+  useEffect(() => {
+    const el = tableContainerRef.current;
+    if (!el) return;
+
+    const handleScroll = () => {
+      if (topScrollRef.current && Math.abs(topScrollRef.current.scrollLeft - el.scrollLeft) > 1) {
+        topScrollRef.current.scrollLeft = el.scrollLeft;
+      }
+      atualizarMetricasRolagem();
+    };
+
+    el.addEventListener("scroll", handleScroll, { passive: true });
+    atualizarMetricasRolagem();
+
+    const resizeObserver = new ResizeObserver(() => {
+      atualizarMetricasRolagem();
+    });
+    resizeObserver.observe(el);
+
+    return () => {
+      el.removeEventListener("scroll", handleScroll);
+      resizeObserver.disconnect();
+    };
+  }, [atualizarMetricasRolagem, chamadosExibicao.length]);
+
+  const handleTopScroll = () => {
+    if (topScrollRef.current && tableContainerRef.current) {
+      if (Math.abs(tableContainerRef.current.scrollLeft - topScrollRef.current.scrollLeft) > 1) {
+        tableContainerRef.current.scrollLeft = topScrollRef.current.scrollLeft;
+      }
+    }
+  };
+
+  const rolarTabela = (direcao: "esquerda" | "direita") => {
+    if (!tableContainerRef.current) return;
+    const delta = direcao === "esquerda" ? -350 : 350;
+    tableContainerRef.current.scrollBy({ left: delta, behavior: "smooth" });
+  };
+
+  const rolarParaExtremo = (lado: "inicio" | "fim") => {
+    if (!tableContainerRef.current) return;
+    tableContainerRef.current.scrollTo({
+      left: lado === "inicio" ? 0 : tableContainerRef.current.scrollWidth,
+      behavior: "smooth",
+    });
+  };
 
   const alternarEscopo = (novoEscopo: "meus" | "todos") => {
     setEscopo(novoEscopo);
@@ -845,266 +911,342 @@ export function TabelaChamados({
         </div>
       )}
 
-      {/* 3. Tabela de Chamados Desktop */}
-      <div className="tabela-scroll hidden sm:block overflow-x-auto rounded-xl border border-borda bg-superficie shadow-xs">
-        <table className="tabela-densa">
-          <thead>
-            <tr>
-              <th className="w-32">
-                <div className="flex items-center justify-between gap-1">
-                  <span>Protocolo</span>
-                  <FiltroColunaExcel
-                    titulo="Protocolo"
-                    itens={itensProtocolo}
-                    selecionados={filtrosExcel.protocolo}
-                    onAplicar={(vals) => setFiltrosExcel((prev) => ({ ...prev, protocolo: vals }))}
-                  />
-                </div>
-              </th>
-              <th className="min-w-[190px]">
-                <div className="flex items-center justify-between gap-1">
-                  <span>Aluno(a) / Documentos</span>
-                  <FiltroColunaExcel
-                    titulo="Aluno(a)"
-                    itens={itensAluno}
-                    selecionados={filtrosExcel.aluno}
-                    onAplicar={(vals) => setFiltrosExcel((prev) => ({ ...prev, aluno: vals }))}
-                  />
-                </div>
-              </th>
-              <th className="w-36">
-                <div className="flex items-center justify-between gap-1">
-                  <span>Polo</span>
-                  <FiltroColunaExcel
-                    titulo="Polo"
-                    itens={itensPolo}
-                    selecionados={filtrosExcel.polo}
-                    onAplicar={(vals) => setFiltrosExcel((prev) => ({ ...prev, polo: vals }))}
-                  />
-                </div>
-              </th>
-              <th className="w-32">
-                <div className="flex items-center justify-between gap-1">
-                  <span>Contato</span>
-                  <FiltroColunaExcel
-                    titulo="Contato"
-                    itens={itensContato}
-                    selecionados={filtrosExcel.contato}
-                    onAplicar={(vals) => setFiltrosExcel((prev) => ({ ...prev, contato: vals }))}
-                  />
-                </div>
-              </th>
-              <th className="min-w-[190px]">
-                <div className="flex items-center justify-between gap-1">
-                  <span>Motivo</span>
-                  <FiltroColunaExcel
-                    titulo="Motivo"
-                    itens={itensMotivo}
-                    selecionados={filtrosExcel.motivo}
-                    onAplicar={(vals) => setFiltrosExcel((prev) => ({ ...prev, motivo: vals }))}
-                  />
-                </div>
-              </th>
-              <th className="w-24 text-center">Situação</th>
-              <th className="w-24 text-center">Prioridade</th>
-              <th className="w-24 text-right">Abertura</th>
-              <th className="w-36 text-right">Prazo / SLA</th>
-              <th className="w-32">Responsável</th>
-              <th className="w-24 text-right">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {chamadosExibicao.length === 0 ? (
+      {/* 3. Tabela de Chamados Desktop com Navegação e Rolagem Superior */}
+      <div className="hidden sm:flex flex-col rounded-xl border border-borda bg-superficie shadow-xs overflow-hidden">
+        {/* Barra superior com contador e controles rápidos de navegação lateral */}
+        <div className="flex items-center justify-between px-3.5 py-2.5 bg-superficie border-b border-borda text-xs">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-texto">
+              {chamadosExibicao.length} chamado{chamadosExibicao.length === 1 ? "" : "s"}
+            </span>
+            <span className="text-borda">•</span>
+            <span className="text-[11px] text-texto-suave hidden md:inline">
+              Navegue pelas colunas ou role lateralmente
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => rolarParaExtremo("inicio")}
+              disabled={!podeRolarEsquerda}
+              className="inline-flex items-center gap-1 h-7 px-2 rounded-lg border border-borda bg-fundo hover:bg-superficie hover:text-texto disabled:opacity-30 disabled:cursor-not-allowed text-[11px] font-medium transition cursor-pointer"
+              title="Ir para as primeiras colunas"
+            >
+              <ChevronsLeft className="h-3.5 w-3.5" />
+              <span className="hidden lg:inline">Início</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => rolarTabela("esquerda")}
+              disabled={!podeRolarEsquerda}
+              className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg border border-borda bg-fundo hover:bg-superficie hover:text-texto disabled:opacity-30 disabled:cursor-not-allowed text-[11px] font-medium transition shadow-2xs cursor-pointer"
+              title="Rolar colunas para a esquerda"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+              <span>Rolar colunas</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => rolarTabela("direita")}
+              disabled={!podeRolarDireita}
+              className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg border border-borda bg-fundo hover:bg-superficie hover:text-texto disabled:opacity-30 disabled:cursor-not-allowed text-[11px] font-medium transition shadow-2xs cursor-pointer"
+              title="Rolar colunas para a direita"
+            >
+              <span>Rolar colunas</span>
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => rolarParaExtremo("fim")}
+              disabled={!podeRolarDireita}
+              className="inline-flex items-center gap-1 h-7 px-2 rounded-lg border border-borda bg-fundo hover:bg-superficie hover:text-texto disabled:opacity-30 disabled:cursor-not-allowed text-[11px] font-medium transition cursor-pointer"
+              title="Ir para as últimas colunas (SLA, Ações)"
+            >
+              <span className="hidden lg:inline">Fim</span>
+              <ChevronsRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Barra de rolagem superior sincronizada */}
+        <div
+          ref={topScrollRef}
+          onScroll={handleTopScroll}
+          className="overflow-x-auto tabela-scroll h-3 bg-superficie-destaque/60 border-b border-borda/60 cursor-ew-resize shrink-0"
+          title="Barra de rolagem superior (arraste para percorrer as colunas)"
+        >
+          <div style={{ width: scrollWidth > 0 ? `${scrollWidth}px` : "1400px" }} className="h-1" />
+        </div>
+
+        {/* Tabela com container de rolagem e cabeçalho fixo no topo */}
+        <div
+          ref={tableContainerRef}
+          className="tabela-scroll overflow-auto max-h-[72vh] min-h-[380px] relative"
+        >
+          <table className="tabela-densa">
+            <thead className="sticky top-0 z-20 bg-superficie-destaque shadow-xs">
               <tr>
-                <td colSpan={11} className="py-12 text-center text-xs text-texto-suave">
-                  Nenhum chamado encontrado para os filtros selecionados.
-                </td>
+                <th className="w-32 bg-superficie-destaque">
+                  <div className="flex items-center justify-between gap-1">
+                    <span>Protocolo</span>
+                    <FiltroColunaExcel
+                      titulo="Protocolo"
+                      itens={itensProtocolo}
+                      selecionados={filtrosExcel.protocolo}
+                      onAplicar={(vals) =>
+                        setFiltrosExcel((prev) => ({ ...prev, protocolo: vals }))
+                      }
+                    />
+                  </div>
+                </th>
+                <th className="min-w-[190px] bg-superficie-destaque">
+                  <div className="flex items-center justify-between gap-1">
+                    <span>Aluno(a) / Documentos</span>
+                    <FiltroColunaExcel
+                      titulo="Aluno(a)"
+                      itens={itensAluno}
+                      selecionados={filtrosExcel.aluno}
+                      onAplicar={(vals) => setFiltrosExcel((prev) => ({ ...prev, aluno: vals }))}
+                    />
+                  </div>
+                </th>
+                <th className="w-36 bg-superficie-destaque">
+                  <div className="flex items-center justify-between gap-1">
+                    <span>Polo</span>
+                    <FiltroColunaExcel
+                      titulo="Polo"
+                      itens={itensPolo}
+                      selecionados={filtrosExcel.polo}
+                      onAplicar={(vals) => setFiltrosExcel((prev) => ({ ...prev, polo: vals }))}
+                    />
+                  </div>
+                </th>
+                <th className="w-32 bg-superficie-destaque">
+                  <div className="flex items-center justify-between gap-1">
+                    <span>Contato</span>
+                    <FiltroColunaExcel
+                      titulo="Contato"
+                      itens={itensContato}
+                      selecionados={filtrosExcel.contato}
+                      onAplicar={(vals) => setFiltrosExcel((prev) => ({ ...prev, contato: vals }))}
+                      alinhamento="right"
+                    />
+                  </div>
+                </th>
+                <th className="min-w-[220px] bg-superficie-destaque">
+                  <div className="flex items-center justify-between gap-1">
+                    <span>Motivo</span>
+                    <FiltroColunaExcel
+                      titulo="Motivo"
+                      itens={itensMotivo}
+                      selecionados={filtrosExcel.motivo}
+                      onAplicar={(vals) => setFiltrosExcel((prev) => ({ ...prev, motivo: vals }))}
+                      alinhamento="right"
+                    />
+                  </div>
+                </th>
+                <th className="w-24 text-center bg-superficie-destaque">Situação</th>
+                <th className="w-24 text-center bg-superficie-destaque">Prioridade</th>
+                <th className="w-24 text-right bg-superficie-destaque">Abertura</th>
+                <th className="w-36 text-right bg-superficie-destaque">Prazo / SLA</th>
+                <th className="w-32 bg-superficie-destaque">Responsável</th>
+                <th className="w-24 text-right bg-superficie-destaque">Ações</th>
               </tr>
-            ) : (
-              chamadosExibicao.map((c) => {
-                const infoPrazo = obterInfoPrazo(c.prazo, c.situacao);
-                const ehAutor = c.criado_por === perfilAtual.id;
-                const ehAdmin = perfilAtual.papel === "admin";
-                const podeEditar = true;
-                const podeExcluir = ehAdmin || ehAutor;
+            </thead>
+            <tbody>
+              {chamadosExibicao.length === 0 ? (
+                <tr>
+                  <td colSpan={11} className="py-12 text-center text-xs text-texto-suave">
+                    Nenhum chamado encontrado para os filtros selecionados.
+                  </td>
+                </tr>
+              ) : (
+                chamadosExibicao.map((c) => {
+                  const infoPrazo = obterInfoPrazo(c.prazo, c.situacao);
+                  const ehAutor = c.criado_por === perfilAtual.id;
+                  const ehAdmin = perfilAtual.papel === "admin";
+                  const podeEditar = true;
+                  const podeExcluir = ehAdmin || ehAutor;
 
-                return (
-                  <tr
-                    key={c.id}
-                    className={`transition-colors ${infoPrazo.bordaTabela} ${
-                      infoPrazo.bgLinha ||
-                      (c.prioridade === "priorizar" && c.situacao === "aguardando"
-                        ? "bg-alerta-fundo/10"
-                        : "")
-                    }`}
-                  >
-                    {/* Protocolo */}
-                    <td className="font-mono text-xs font-semibold">
-                      <Link
-                        href={`/chamados/${c.id}`}
-                        className="text-acento hover:underline flex items-center gap-1"
-                        title="Ver detalhes do chamado"
-                      >
-                        <span>{c.protocolo}</span>
-                      </Link>
-                    </td>
-
-                    {/* Aluno e Documentos (CPF e RA) */}
-                    <td className="text-xs">
-                      <div className="font-medium text-texto">{c.aluno_nome}</div>
-                      {(c.aluno_cpf || c.aluno_ra) && (
-                        <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-texto-suave font-mono whitespace-nowrap">
-                          {c.aluno_cpf && <span>CPF: {formatarCpf(c.aluno_cpf)}</span>}
-                          {c.aluno_cpf && c.aluno_ra && <span className="text-borda">·</span>}
-                          {c.aluno_ra && <span>RA: {c.aluno_ra}</span>}
-                        </div>
-                      )}
-                    </td>
-
-                    {/* Polo */}
-                    <td className="text-xs">
-                      {c.polo_nome ? (
-                        <span
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border border-borda bg-fundo text-texto"
-                          title={`${c.polo_nome} - ${c.polo_cidade || ""}`}
-                        >
-                          <span className="w-1.5 h-1.5 rounded-full bg-acento"></span>
-                          <span>{c.polo_cidade || c.polo_nome}</span>
-                        </span>
-                      ) : (
-                        <span className="text-texto-suave text-[11px]">—</span>
-                      )}
-                    </td>
-
-                    {/* Contato */}
-                    <td className="font-mono text-xs tabular-nums text-texto-suave">
-                      {c.contato_telefone || "—"}
-                    </td>
-
-                    {/* Motivo */}
-                    <td className="text-xs text-texto truncate max-w-xs" title={c.motivos?.nome}>
-                      <span className="font-mono font-medium text-acento mr-1.5">
-                        {c.motivos?.codigo}
-                      </span>
-                      <span>{c.motivos?.nome || "—"}</span>
-                    </td>
-
-                    {/* Situação */}
-                    <td className="text-center">
-                      <span
-                        className={`inline-flex items-center justify-center h-6 px-2.5 rounded-full text-[11px] font-semibold border ${
-                          c.situacao === "concluido"
-                            ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
-                            : c.situacao === "encerrado"
-                              ? "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"
-                              : c.situacao === "rascunho"
-                                ? "bg-zinc-100 text-zinc-700 border-zinc-300 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700"
-                                : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800"
-                        }`}
-                      >
-                        {c.situacao === "concluido"
-                          ? "Concluído"
-                          : c.situacao === "aguardando"
-                            ? "Aguardando"
-                            : c.situacao === "rascunho"
-                              ? "Rascunho"
-                              : "Encerrado"}
-                      </span>
-                    </td>
-
-                    {/* Prioridade */}
-                    <td className="text-center">
-                      {c.prioridade === "priorizar" ? (
-                        <span className="inline-flex items-center justify-center h-6 px-2 rounded-full border border-rose-200 bg-rose-50 text-[11px] font-semibold text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800">
-                          Priorizar
-                        </span>
-                      ) : (
-                        <span className="text-[11px] text-texto-suave font-normal">Normal</span>
-                      )}
-                    </td>
-
-                    {/* Data de Solicitação */}
-                    <td className="font-mono text-xs tabular-nums text-texto-suave text-right">
-                      {format(parseISO(c.data_solicitacao), "dd/MM/yyyy", { locale: ptBR })}
-                    </td>
-
-                    {/* Prazo com Identificador Vermelho / Urgência */}
-                    <td className="text-right whitespace-nowrap">
-                      {c.situacao === "aguardando" ? (
-                        <div className="inline-flex flex-col items-end gap-1">
-                          <span
-                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold border ${infoPrazo.badgeClasse}`}
-                            title={infoPrazo.subtexto}
-                          >
-                            {infoPrazo.tipo === "vencido" && (
-                              <AlertOctagon className="h-3 w-3 shrink-0 text-rose-600 dark:text-rose-300" />
-                            )}
-                            {infoPrazo.tipo === "vence_hoje" && (
-                              <Clock className="h-3 w-3 shrink-0 text-rose-600 dark:text-rose-300" />
-                            )}
-                            {infoPrazo.tipo === "vence_2dias" && (
-                              <CalendarClock className="h-3 w-3 shrink-0 text-amber-600 dark:text-amber-300" />
-                            )}
-                            {infoPrazo.tipo === "no_prazo" && (
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                            )}
-                            <span>{infoPrazo.textoBadge}</span>
-                          </span>
-                          <span className="font-mono text-[11px] tabular-nums text-texto-suave">
-                            {format(parseISO(c.prazo), "dd/MM/yyyy", { locale: ptBR })}
-                          </span>
-                        </div>
-                      ) : (
-                        <div className="font-mono text-xs tabular-nums text-texto-suave">
-                          {format(parseISO(c.prazo), "dd/MM/yyyy", { locale: ptBR })}
-                        </div>
-                      )}
-                    </td>
-
-                    {/* Responsável */}
-                    <td className="text-xs text-texto">
-                      {formatarResponsavel(c.perfis?.nome_completo)}
-                    </td>
-
-                    {/* Ações */}
-                    <td className="text-right">
-                      <div className="inline-flex items-center gap-1">
+                  return (
+                    <tr
+                      key={c.id}
+                      className={`transition-colors ${infoPrazo.bordaTabela} ${
+                        infoPrazo.bgLinha ||
+                        (c.prioridade === "priorizar" && c.situacao === "aguardando"
+                          ? "bg-alerta-fundo/10"
+                          : "")
+                      }`}
+                    >
+                      {/* Protocolo */}
+                      <td className="font-mono text-xs font-semibold">
                         <Link
                           href={`/chamados/${c.id}`}
-                          className="btn-tátil rounded-md p-1.5 text-texto-suave hover:bg-fundo hover:text-acento transition"
-                          title="Visualizar chamado"
+                          className="text-acento hover:underline flex items-center gap-1"
+                          title="Ver detalhes do chamado"
                         >
-                          <Eye className="h-4 w-4" />
+                          <span>{c.protocolo}</span>
                         </Link>
+                      </td>
 
-                        {podeEditar && (
+                      {/* Aluno e Documentos (CPF e RA) */}
+                      <td className="text-xs">
+                        <div className="font-medium text-texto">{c.aluno_nome}</div>
+                        {(c.aluno_cpf || c.aluno_ra) && (
+                          <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-texto-suave font-mono whitespace-nowrap">
+                            {c.aluno_cpf && <span>CPF: {formatarCpf(c.aluno_cpf)}</span>}
+                            {c.aluno_cpf && c.aluno_ra && <span className="text-borda">·</span>}
+                            {c.aluno_ra && <span>RA: {c.aluno_ra}</span>}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Polo */}
+                      <td className="text-xs">
+                        {c.polo_nome ? (
+                          <span
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border border-borda bg-fundo text-texto"
+                            title={`${c.polo_nome} - ${c.polo_cidade || ""}`}
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-acento"></span>
+                            <span>{c.polo_cidade || c.polo_nome}</span>
+                          </span>
+                        ) : (
+                          <span className="text-texto-suave text-[11px]">—</span>
+                        )}
+                      </td>
+
+                      {/* Contato */}
+                      <td className="font-mono text-xs tabular-nums text-texto-suave">
+                        {c.contato_telefone || "—"}
+                      </td>
+
+                      {/* Motivo */}
+                      <td className="text-xs text-texto truncate max-w-xs" title={c.motivos?.nome}>
+                        <span className="font-mono font-medium text-acento mr-1.5">
+                          {c.motivos?.codigo}
+                        </span>
+                        <span>{c.motivos?.nome || "—"}</span>
+                      </td>
+
+                      {/* Situação */}
+                      <td className="text-center">
+                        <span
+                          className={`inline-flex items-center justify-center h-6 px-2.5 rounded-full text-[11px] font-semibold border ${
+                            c.situacao === "concluido"
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+                              : c.situacao === "encerrado"
+                                ? "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"
+                                : c.situacao === "rascunho"
+                                  ? "bg-zinc-100 text-zinc-700 border-zinc-300 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700"
+                                  : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800"
+                          }`}
+                        >
+                          {c.situacao === "concluido"
+                            ? "Concluído"
+                            : c.situacao === "aguardando"
+                              ? "Aguardando"
+                              : c.situacao === "rascunho"
+                                ? "Rascunho"
+                                : "Encerrado"}
+                        </span>
+                      </td>
+
+                      {/* Prioridade */}
+                      <td className="text-center">
+                        {c.prioridade === "priorizar" ? (
+                          <span className="inline-flex items-center justify-center h-6 px-2 rounded-full border border-rose-200 bg-rose-50 text-[11px] font-semibold text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800">
+                            Priorizar
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-texto-suave font-normal">Normal</span>
+                        )}
+                      </td>
+
+                      {/* Data de Solicitação */}
+                      <td className="font-mono text-xs tabular-nums text-texto-suave text-right">
+                        {format(parseISO(c.data_solicitacao), "dd/MM/yyyy", { locale: ptBR })}
+                      </td>
+
+                      {/* Prazo com Identificador Vermelho / Urgência */}
+                      <td className="text-right whitespace-nowrap">
+                        {c.situacao === "aguardando" ? (
+                          <div className="inline-flex flex-col items-end gap-1">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold border ${infoPrazo.badgeClasse}`}
+                              title={infoPrazo.subtexto}
+                            >
+                              {infoPrazo.tipo === "vencido" && (
+                                <AlertOctagon className="h-3 w-3 shrink-0 text-rose-600 dark:text-rose-300" />
+                              )}
+                              {infoPrazo.tipo === "vence_hoje" && (
+                                <Clock className="h-3 w-3 shrink-0 text-rose-600 dark:text-rose-300" />
+                              )}
+                              {infoPrazo.tipo === "vence_2dias" && (
+                                <CalendarClock className="h-3 w-3 shrink-0 text-amber-600 dark:text-amber-300" />
+                              )}
+                              {infoPrazo.tipo === "no_prazo" && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                              )}
+                              <span>{infoPrazo.textoBadge}</span>
+                            </span>
+                            <span className="font-mono text-[11px] tabular-nums text-texto-suave">
+                              {format(parseISO(c.prazo), "dd/MM/yyyy", { locale: ptBR })}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="font-mono text-xs tabular-nums text-texto-suave">
+                            {format(parseISO(c.prazo), "dd/MM/yyyy", { locale: ptBR })}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Responsável */}
+                      <td className="text-xs text-texto">
+                        {formatarResponsavel(c.perfis?.nome_completo)}
+                      </td>
+
+                      {/* Ações */}
+                      <td className="text-right">
+                        <div className="inline-flex items-center gap-1">
                           <Link
-                            href={`/chamados/${c.id}/editar`}
+                            href={`/chamados/${c.id}`}
                             className="btn-tátil rounded-md p-1.5 text-texto-suave hover:bg-fundo hover:text-acento transition"
-                            title="Editar chamado"
+                            title="Visualizar chamado"
                           >
-                            <Edit className="h-4 w-4" />
+                            <Eye className="h-4 w-4" />
                           </Link>
-                        )}
 
-                        {podeExcluir && (
-                          <button
-                            type="button"
-                            onClick={() => setChamadoExcluir(c)}
-                            className="btn-tátil rounded-md p-1.5 text-texto-suave hover:bg-fundo hover:text-erro transition"
-                            title="Excluir chamado"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                          {podeEditar && (
+                            <Link
+                              href={`/chamados/${c.id}/editar`}
+                              className="btn-tátil rounded-md p-1.5 text-texto-suave hover:bg-fundo hover:text-acento transition"
+                              title="Editar chamado"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Link>
+                          )}
+
+                          {podeExcluir && (
+                            <button
+                              type="button"
+                              onClick={() => setChamadoExcluir(c)}
+                              className="btn-tátil rounded-md p-1.5 text-texto-suave hover:bg-fundo hover:text-erro transition"
+                              title="Excluir chamado"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Cards Responsivos para Mobile */}

@@ -132,7 +132,7 @@ export function FiltroColunaExcel({
       {aberto && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className={`absolute top-full mt-1.5 z-50 w-72 rounded-xl border border-borda bg-superficie p-3 shadow-xl backdrop-blur-md animate-in fade-in zoom-in-95 duration-100 text-left ${
+          className={`absolute top-full mt-1.5 z-50 w-80 sm:w-96 max-w-[calc(100vw-2rem)] rounded-xl border border-borda bg-superficie p-3.5 shadow-2xl backdrop-blur-md animate-in fade-in zoom-in-95 duration-100 text-left ${
             alinhamento === "right" ? "right-0" : "left-0"
           }`}
         >
@@ -193,13 +193,13 @@ export function FiltroColunaExcel({
                 onClick={() => setTemporarios(new Set())}
                 className="text-[10px] text-acento hover:underline font-semibold"
               >
-                Desmarcar
+                Desmarcar todos
               </button>
             )}
           </div>
 
           {/* Lista com Rolagem de Itens Distintos */}
-          <div className="max-h-48 overflow-y-auto space-y-0.5 pr-1 divide-y divide-borda/20 tabela-scroll">
+          <div className="max-h-56 overflow-y-auto space-y-0.5 pr-1 divide-y divide-borda/20 tabela-scroll">
             {itensVisiveis.length === 0 ? (
               <div className="py-4 text-center text-xs text-texto-suave italic">
                 Nenhum valor correspondente
@@ -210,25 +210,26 @@ export function FiltroColunaExcel({
                 return (
                   <label
                     key={item.valor}
-                    className="flex items-center justify-between gap-2 px-1.5 py-1.5 rounded-md hover:bg-fundo cursor-pointer text-xs select-none transition"
+                    className="flex items-start justify-between gap-2.5 px-1.5 py-1.5 rounded-md hover:bg-fundo cursor-pointer text-xs select-none transition group"
                   >
-                    <div className="flex items-center gap-2 truncate min-w-0">
+                    <div className="flex items-start gap-2.5 min-w-0 flex-1">
                       <input
                         type="checkbox"
                         checked={marcado}
                         onChange={() => alternarItem(item.valor)}
-                        className="rounded border-borda text-acento focus:ring-0 cursor-pointer h-3.5 w-3.5 shrink-0"
+                        className="rounded border-borda text-acento focus:ring-0 cursor-pointer h-3.5 w-3.5 mt-0.5 shrink-0"
                       />
                       <span
-                        className={`truncate text-xs ${
-                          marcado ? "font-semibold text-texto" : "text-texto-suave"
+                        className={`text-xs leading-snug break-words ${
+                          marcado
+                            ? "font-semibold text-texto"
+                            : "text-texto-suave group-hover:text-texto"
                         }`}
-                        title={item.valor}
                       >
                         {item.valor}
                       </span>
                     </div>
-                    <span className="font-mono text-[10px] text-texto-suave/80 shrink-0 bg-fundo px-1 rounded border border-borda/40">
+                    <span className="font-mono text-[10px] text-texto-suave/80 shrink-0 bg-fundo px-1 py-0.5 rounded border border-borda/40 mt-0.5">
                       {item.contagem}
                     </span>
                   </label>
