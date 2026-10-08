@@ -763,37 +763,71 @@ export function PainelDashboard({
                     )}
                   </div>
 
-                  {/* Lado Direito: Barra Proporcional de Alta Visibilidade */}
+                  {/* Lado Direito: Barra Proporcional de Volume e Resolução */}
                   <div className="flex-1 sm:max-w-xl">
-                    <div className="flex h-10 w-full overflow-hidden rounded-xl border-2 border-white/80 bg-fundo shadow-sm">
-                      {/* Resolvidos (Azul Cobalto) */}
-                      <div
-                        style={{ width: `${Math.max(colab.pctResolvidos, 8)}%` }}
-                        className="flex items-center justify-between bg-[#1D4ED8] px-3.5 text-white transition-all duration-500 shadow-inner"
-                        title={`${colab.resolvidos} resolvidos (${colab.pctResolvidos}%)`}
-                      >
-                        <span className="font-mono text-sm font-extrabold tabular-nums">
-                          {colab.resolvidos}
-                        </span>
-                        <span className="text-[11px] font-bold font-mono opacity-95">
-                          {colab.pctResolvidos}%
-                        </span>
-                      </div>
+                    {(() => {
+                      const maxChamadosRanking = Math.max(
+                        ...dados.rankingEquipe.map((c) => c.total),
+                        1
+                      );
+                      const larguraRelativa =
+                        colab.total > 0 ? (colab.total / maxChamadosRanking) * 100 : 0;
 
-                      {/* Em Aberto (Vermelho) */}
-                      <div
-                        style={{ width: `${Math.max(colab.pctAbertos, 8)}%` }}
-                        className="flex items-center justify-between bg-[#DC2626] px-3.5 text-white transition-all duration-500 shadow-inner"
-                        title={`${colab.abertos} em aberto (${colab.pctAbertos}%)`}
-                      >
-                        <span className="font-mono text-sm font-extrabold tabular-nums">
-                          {colab.abertos}
-                        </span>
-                        <span className="text-[11px] font-bold font-mono opacity-95">
-                          {colab.pctAbertos}%
-                        </span>
-                      </div>
-                    </div>
+                      return (
+                        <div className="relative flex h-10 w-full overflow-hidden rounded-xl border-2 border-white/80 bg-fundo shadow-sm p-1">
+                          {colab.total > 0 ? (
+                            <div
+                              style={{ width: `${Math.max(larguraRelativa, 14)}%` }}
+                              className="flex h-full overflow-hidden rounded-lg transition-all duration-500 shadow-xs"
+                            >
+                              {/* Resolvidos (Azul Cobalto) */}
+                              {colab.resolvidos > 0 && (
+                                <div
+                                  style={{
+                                    width: `${(colab.resolvidos / colab.total) * 100}%`,
+                                  }}
+                                  className="flex items-center justify-between bg-[#1D4ED8] px-2.5 text-white shadow-inner min-w-[34px]"
+                                  title={`${colab.resolvidos} resolvidos (${colab.pctResolvidos}%)`}
+                                >
+                                  <span className="font-mono text-xs font-extrabold tabular-nums">
+                                    {colab.resolvidos}
+                                  </span>
+                                  {colab.pctResolvidos > 0 && (
+                                    <span className="text-[10px] font-bold font-mono opacity-90 ml-1">
+                                      {colab.pctResolvidos}%
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Em Aberto (Vermelho) */}
+                              {colab.abertos > 0 && (
+                                <div
+                                  style={{
+                                    width: `${(colab.abertos / colab.total) * 100}%`,
+                                  }}
+                                  className="flex items-center justify-between bg-[#DC2626] px-2.5 text-white shadow-inner min-w-[34px]"
+                                  title={`${colab.abertos} em aberto (${colab.pctAbertos}%)`}
+                                >
+                                  <span className="font-mono text-xs font-extrabold tabular-nums">
+                                    {colab.abertos}
+                                  </span>
+                                  {colab.pctAbertos > 0 && (
+                                    <span className="text-[10px] font-bold font-mono opacity-90 ml-1">
+                                      {colab.pctAbertos}%
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-[11px] font-medium text-texto-suave/70 italic">
+                              Nenhum chamado no período
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     <div className="mt-1.5 flex items-center justify-between text-[11px] text-texto-suave px-1">
                       <span>

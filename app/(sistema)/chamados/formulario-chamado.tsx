@@ -103,6 +103,7 @@ export function FormularioChamado({
     { value: "aguardando", label: "Aguardando (em andamento)" },
     { value: "concluido", label: "Concluído (resolvido)" },
     { value: "encerrado", label: "Encerrado (sem resolver)" },
+    { value: "rascunho", label: "Rascunho" },
   ];
 
   const opcoesPrioridade: CustomSelectOption[] = [
@@ -150,6 +151,12 @@ export function FormularioChamado({
     e.preventDefault();
     setMensagemErro(null);
     setErrosCampo({});
+
+    if (!descricao.trim()) {
+      setErrosCampo({ descricao: "A descrição do chamado é obrigatória." });
+      setMensagemErro("A descrição do chamado é obrigatória. Preencha os detalhes da solicitação.");
+      return;
+    }
 
     const formData = new FormData();
     if (chamadoInicial?.id) {
@@ -437,7 +444,9 @@ export function FormularioChamado({
               label="Situação Atual *"
               options={opcoesSituacao}
               value={situacao}
-              onChange={(val) => setSituacao(val as "aguardando" | "concluido" | "encerrado")}
+              onChange={(val) =>
+                setSituacao(val as "aguardando" | "concluido" | "encerrado" | "rascunho")
+              }
             />
           </div>
 
@@ -452,14 +461,31 @@ export function FormularioChamado({
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-texto mb-1.5">Descrição do Chamado</label>
+          <label className="block text-xs font-bold text-texto mb-1.5">
+            Descrição do Chamado <span className="text-erro font-bold">*</span>
+          </label>
           <textarea
             rows={3}
+            required
             value={descricao}
-            onChange={(e) => setDescricao(e.target.value)}
+            onChange={(e) => {
+              setDescricao(e.target.value);
+              if (errosCampo.descricao) {
+                setErrosCampo((prev) => {
+                  const novo = { ...prev };
+                  delete novo.descricao;
+                  return novo;
+                });
+              }
+            }}
             placeholder="Detalhes ou contexto da solicitação aberta na plataforma externa..."
-            className="w-full rounded-lg border border-borda bg-fundo px-3.5 py-2 text-xs font-medium text-texto placeholder:text-texto-suave focus:border-acento focus:outline-none shadow-xs"
+            className={`w-full rounded-lg border bg-fundo px-3.5 py-2 text-xs font-medium text-texto placeholder:text-texto-suave focus:border-acento focus:outline-none shadow-xs ${
+              errosCampo.descricao ? "border-erro ring-1 ring-erro" : "border-borda"
+            }`}
           />
+          {errosCampo.descricao && (
+            <p className="mt-1 text-[11px] font-medium text-erro">{errosCampo.descricao}</p>
+          )}
         </div>
       </div>
 

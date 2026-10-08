@@ -60,8 +60,8 @@ const chamadoSchema = z.object({
     .nullable()
     .transform((val) => (val ? val.replace(/[^\d+()\-\s]/g, "").slice(0, 20) : null)),
   motivo_id: z.string().uuid("Selecione um motivo válido do catálogo."),
-  descricao: z.string().trim().optional().nullable(),
-  situacao: z.enum(["aguardando", "concluido", "encerrado"] as const),
+  descricao: z.string().trim().min(1, "A descrição do chamado é obrigatória."),
+  situacao: z.enum(["aguardando", "concluido", "encerrado", "rascunho"] as const),
   prioridade: z.enum(["normal", "priorizar"] as const),
   data_solicitacao: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data de solicitação inválida."),
   prazo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data de prazo inválida."),

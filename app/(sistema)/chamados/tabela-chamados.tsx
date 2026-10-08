@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { type Chamado, type Motivo, type Perfil, type Polo } from "@/types/database";
@@ -27,6 +27,7 @@ import { CustomSelect, type CustomSelectOption } from "@/components/ui/custom-se
 import { CustomCheckbox } from "@/components/ui/custom-checkbox";
 import { CustomDatePicker } from "@/components/ui/custom-date-picker";
 import { formatarCpf } from "@/lib/utils/cpf";
+import { FiltroColunaExcel } from "@/components/ui/filtro-coluna-excel";
 
 export type TipoFiltroPrazo = "todos" | "vencidos" | "vence_hoje" | "vence_2dias" | "pendentes";
 
@@ -51,6 +52,19 @@ export function obterInfoPrazo(prazoIso: string, situacao: string): InfoPrazo {
         "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
       bordaTabela: "",
       bgLinha: "",
+    };
+  }
+
+  if (situacao === "rascunho") {
+    return {
+      tipo: "finalizado",
+      dias: null,
+      textoBadge: "Rascunho",
+      subtexto: "Chamado em rascunho",
+      badgeClasse:
+        "bg-zinc-100 text-zinc-700 border-zinc-300 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700 font-medium",
+      bordaTabela: "border-l-4 border-l-zinc-400",
+      bgLinha: "bg-zinc-50/20 hover:bg-zinc-50/40 dark:bg-zinc-900/20",
     };
   }
 
@@ -193,6 +207,7 @@ export function TabelaChamados({
     { value: "aguardando", label: "Aguardando (Em andamento)" },
     { value: "concluido", label: "Concluído (Resolvido)" },
     { value: "encerrado", label: "Encerrado (Sem resolução)" },
+    { value: "rascunho", label: "Rascunho" },
   ];
 
   const opcoesPrioridade: CustomSelectOption[] = [
@@ -244,6 +259,96 @@ export function TabelaChamados({
     if (filtroPrazo === "pendentes") return c.situacao === "aguardando";
     return true;
   });
+
+  // Estado para filtros estilo Excel em colunas específicas
+  const [filtrosExcel, setFiltrosExcel] = useState<{
+    protocolo?: Set<string>;
+    aluno?: Set<string>;
+    polo?: Set<string>;
+    contato?: Set<string>;
+    motivo?: Set<string>;
+  }>({});
+
+  // Listas de valores únicos com contagens para os filtros estilo Excel
+  const itensProtocolo = useMemo(() => {
+    const contagem: Record<string, number> = {};
+    chamadosFiltrados.forEach((c) => {
+      const val = c.protocolo?.trim();
+      if (val) contagem[val] = (contagem[val] || 0) + 1;
+    });
+    return Object.entries(contagem)
+      .map(([valor, cont]) => ({ valor, contagem: cont }))
+      .sort((a, b) => a.valor.localeCompare(b.valor));
+  }, [chamadosFiltrados]);
+
+  const itensAluno = useMemo(() => {
+    const contagem: Record<string, number> = {};
+    chamadosFiltrados.forEach((c) => {
+      const val = c.aluno_nome?.trim();
+      if (val) contagem[val] = (contagem[val] || 0) + 1;
+    });
+    return Object.entries(contagem)
+      .map(([valor, cont]) => ({ valor, contagem: cont }))
+      .sort((a, b) => a.valor.localeCompare(b.valor));
+  }, [chamadosFiltrados]);
+
+  const itensPolo = useMemo(() => {
+    const contagem: Record<string, number> = {};
+    chamadosFiltrados.forEach((c) => {
+      const val = (c.polo_nome || c.polo_cidade || "Sem polo").trim();
+      contagem[val] = (contagem[val] || 0) + 1;
+    });
+    return Object.entries(contagem)
+      .map(([valor, cont]) => ({ valor, contagem: cont }))
+      .sort((a, b) => a.valor.localeCompare(b.valor));
+  }, [chamadosFiltrados]);
+
+  const itensContato = useMemo(() => {
+    const contagem: Record<string, number> = {};
+    chamadosFiltrados.forEach((c) => {
+      const val = (c.contato_telefone || "Não informado").trim();
+      contagem[val] = (contagem[val] || 0) + 1;
+    });
+    return Object.entries(contagem)
+      .map(([valor, cont]) => ({ valor, contagem: cont }))
+      .sort((a, b) => a.valor.localeCompare(b.valor));
+  }, [chamadosFiltrados]);
+
+  const itensMotivo = useMemo(() => {
+    const contagem: Record<string, number> = {};
+    chamadosFiltrados.forEach((c) => {
+      const val = c.motivos ? `${c.motivos.codigo} — ${c.motivos.nome}`.trim() : "Outros";
+      contagem[val] = (contagem[val] || 0) + 1;
+    });
+    return Object.entries(contagem)
+      .map(([valor, cont]) => ({ valor, contagem: cont }))
+      .sort((a, b) => a.valor.localeCompare(b.valor));
+  }, [chamadosFiltrados]);
+
+  // Lista final combinada com filtros rápidos + filtros estilo Excel
+  const chamadosExibicao = useMemo(() => {
+    return chamadosFiltrados.filter((c) => {
+      if (filtrosExcel.protocolo && filtrosExcel.protocolo.size > 0) {
+        if (!c.protocolo || !filtrosExcel.protocolo.has(c.protocolo.trim())) return false;
+      }
+      if (filtrosExcel.aluno && filtrosExcel.aluno.size > 0) {
+        if (!c.aluno_nome || !filtrosExcel.aluno.has(c.aluno_nome.trim())) return false;
+      }
+      if (filtrosExcel.polo && filtrosExcel.polo.size > 0) {
+        const val = (c.polo_nome || c.polo_cidade || "Sem polo").trim();
+        if (!filtrosExcel.polo.has(val)) return false;
+      }
+      if (filtrosExcel.contato && filtrosExcel.contato.size > 0) {
+        const val = (c.contato_telefone || "Não informado").trim();
+        if (!filtrosExcel.contato.has(val)) return false;
+      }
+      if (filtrosExcel.motivo && filtrosExcel.motivo.size > 0) {
+        const val = c.motivos ? `${c.motivos.codigo} — ${c.motivos.nome}`.trim() : "Outros";
+        if (!filtrosExcel.motivo.has(val)) return false;
+      }
+      return true;
+    });
+  }, [chamadosFiltrados, filtrosExcel]);
 
   const alternarEscopo = (novoEscopo: "meus" | "todos") => {
     setEscopo(novoEscopo);
@@ -314,6 +419,7 @@ export function TabelaChamados({
     setDataFim("");
     setApenasReincidentes(false);
     setFiltroPrazo("todos");
+    setFiltrosExcel({});
 
     const padraoEscopo = ehAdmin ? "todos" : "meus";
     setEscopo(padraoEscopo);
@@ -718,16 +824,87 @@ export function TabelaChamados({
         </div>
       )}
 
+      {/* Indicador de Filtros de Coluna Ativos */}
+      {Object.values(filtrosExcel).some((s) => s && s.size > 0) && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl border border-acento/30 bg-acento/5 text-xs text-texto shadow-2xs">
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-acento shrink-0" />
+            <span>
+              Filtro ativo nas colunas estilo Excel. Exibindo{" "}
+              <strong className="text-acento font-bold">{chamadosExibicao.length}</strong> de{" "}
+              <strong>{chamadosFiltrados.length}</strong> chamados.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setFiltrosExcel({})}
+            className="text-xs font-bold text-acento hover:underline self-start sm:self-auto cursor-pointer"
+          >
+            Limpar filtros de coluna
+          </button>
+        </div>
+      )}
+
       {/* 3. Tabela de Chamados Desktop */}
       <div className="tabela-scroll hidden sm:block overflow-x-auto rounded-xl border border-borda bg-superficie shadow-xs">
         <table className="tabela-densa">
           <thead>
             <tr>
-              <th className="w-28">Protocolo</th>
-              <th className="min-w-[170px]">Aluno(a) / Documentos</th>
-              <th className="w-32">Polo</th>
-              <th className="w-28">Contato</th>
-              <th className="min-w-[180px]">Motivo</th>
+              <th className="w-32">
+                <div className="flex items-center justify-between gap-1">
+                  <span>Protocolo</span>
+                  <FiltroColunaExcel
+                    titulo="Protocolo"
+                    itens={itensProtocolo}
+                    selecionados={filtrosExcel.protocolo}
+                    onAplicar={(vals) => setFiltrosExcel((prev) => ({ ...prev, protocolo: vals }))}
+                  />
+                </div>
+              </th>
+              <th className="min-w-[190px]">
+                <div className="flex items-center justify-between gap-1">
+                  <span>Aluno(a) / Documentos</span>
+                  <FiltroColunaExcel
+                    titulo="Aluno(a)"
+                    itens={itensAluno}
+                    selecionados={filtrosExcel.aluno}
+                    onAplicar={(vals) => setFiltrosExcel((prev) => ({ ...prev, aluno: vals }))}
+                  />
+                </div>
+              </th>
+              <th className="w-36">
+                <div className="flex items-center justify-between gap-1">
+                  <span>Polo</span>
+                  <FiltroColunaExcel
+                    titulo="Polo"
+                    itens={itensPolo}
+                    selecionados={filtrosExcel.polo}
+                    onAplicar={(vals) => setFiltrosExcel((prev) => ({ ...prev, polo: vals }))}
+                  />
+                </div>
+              </th>
+              <th className="w-32">
+                <div className="flex items-center justify-between gap-1">
+                  <span>Contato</span>
+                  <FiltroColunaExcel
+                    titulo="Contato"
+                    itens={itensContato}
+                    selecionados={filtrosExcel.contato}
+                    onAplicar={(vals) => setFiltrosExcel((prev) => ({ ...prev, contato: vals }))}
+                  />
+                </div>
+              </th>
+              <th className="min-w-[190px]">
+                <div className="flex items-center justify-between gap-1">
+                  <span>Motivo</span>
+                  <FiltroColunaExcel
+                    titulo="Motivo"
+                    itens={itensMotivo}
+                    selecionados={filtrosExcel.motivo}
+                    onAplicar={(vals) => setFiltrosExcel((prev) => ({ ...prev, motivo: vals }))}
+                  />
+                </div>
+              </th>
               <th className="w-24 text-center">Situação</th>
               <th className="w-24 text-center">Prioridade</th>
               <th className="w-24 text-right">Abertura</th>
@@ -737,14 +914,14 @@ export function TabelaChamados({
             </tr>
           </thead>
           <tbody>
-            {chamadosFiltrados.length === 0 ? (
+            {chamadosExibicao.length === 0 ? (
               <tr>
                 <td colSpan={11} className="py-12 text-center text-xs text-texto-suave">
                   Nenhum chamado encontrado para os filtros selecionados.
                 </td>
               </tr>
             ) : (
-              chamadosFiltrados.map((c) => {
+              chamadosExibicao.map((c) => {
                 const infoPrazo = obterInfoPrazo(c.prazo, c.situacao);
                 const ehAutor = c.criado_por === perfilAtual.id;
                 const ehAdmin = perfilAtual.papel === "admin";
@@ -820,14 +997,18 @@ export function TabelaChamados({
                             ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
                             : c.situacao === "encerrado"
                               ? "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"
-                              : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800"
+                              : c.situacao === "rascunho"
+                                ? "bg-zinc-100 text-zinc-700 border-zinc-300 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700"
+                                : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800"
                         }`}
                       >
                         {c.situacao === "concluido"
                           ? "Concluído"
                           : c.situacao === "aguardando"
                             ? "Aguardando"
-                            : "Encerrado"}
+                            : c.situacao === "rascunho"
+                              ? "Rascunho"
+                              : "Encerrado"}
                       </span>
                     </td>
 
@@ -928,12 +1109,12 @@ export function TabelaChamados({
 
       {/* Cards Responsivos para Mobile */}
       <div className="block sm:hidden space-y-3">
-        {chamadosFiltrados.length === 0 ? (
+        {chamadosExibicao.length === 0 ? (
           <div className="rounded-lg border border-borda bg-superficie p-8 text-center text-xs text-texto-suave">
             Nenhum chamado encontrado.
           </div>
         ) : (
-          chamadosFiltrados.map((c) => {
+          chamadosExibicao.map((c) => {
             const infoPrazo = obterInfoPrazo(c.prazo, c.situacao);
             const ehAutor = c.criado_por === perfilAtual.id;
             const ehAdmin = perfilAtual.papel === "admin";
@@ -963,10 +1144,18 @@ export function TabelaChamados({
                           ? "bg-sucesso-fundo/40 text-sucesso border-sucesso/30"
                           : c.situacao === "encerrado"
                             ? "bg-fundo text-texto-suave border-borda"
-                            : "bg-fundo text-texto border-borda"
+                            : c.situacao === "rascunho"
+                              ? "bg-zinc-100 text-zinc-700 border-zinc-300 dark:bg-zinc-800 dark:text-zinc-300"
+                              : "bg-fundo text-texto border-borda"
                       }`}
                     >
-                      {c.situacao}
+                      {c.situacao === "concluido"
+                        ? "Concluído"
+                        : c.situacao === "aguardando"
+                          ? "Aguardando"
+                          : c.situacao === "rascunho"
+                            ? "Rascunho"
+                            : "Encerrado"}
                     </span>
                   </div>
                 </div>
