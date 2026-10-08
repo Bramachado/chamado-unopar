@@ -947,17 +947,7 @@ export function TabelaChamados({
                     />
                   </div>
                 </th>
-                <th className="w-36 bg-superficie-destaque">
-                  <div className="flex items-center justify-between gap-1">
-                    <span>Polo</span>
-                    <FiltroColunaExcel
-                      titulo="Polo"
-                      itens={itensPolo}
-                      selecionados={filtrosExcel.polo}
-                      onAplicar={(vals) => setFiltrosExcel((prev) => ({ ...prev, polo: vals }))}
-                    />
-                  </div>
-                </th>
+                <th className="w-28 text-center bg-superficie-destaque">Situação</th>
                 <th className="w-32 bg-superficie-destaque">
                   <div className="flex items-center justify-between gap-1">
                     <span>Contato</span>
@@ -982,7 +972,18 @@ export function TabelaChamados({
                     />
                   </div>
                 </th>
-                <th className="w-24 text-center bg-superficie-destaque">Situação</th>
+                <th className="w-36 bg-superficie-destaque">
+                  <div className="flex items-center justify-between gap-1">
+                    <span>Polo</span>
+                    <FiltroColunaExcel
+                      titulo="Polo"
+                      itens={itensPolo}
+                      selecionados={filtrosExcel.polo}
+                      onAplicar={(vals) => setFiltrosExcel((prev) => ({ ...prev, polo: vals }))}
+                      alinhamento="right"
+                    />
+                  </div>
+                </th>
                 <th className="w-24 text-center bg-superficie-destaque">Prioridade</th>
                 <th className="w-24 text-right bg-superficie-destaque">Abertura</th>
                 <th className="w-36 text-right bg-superficie-destaque">Prazo / SLA</th>
@@ -1038,34 +1039,6 @@ export function TabelaChamados({
                         )}
                       </td>
 
-                      {/* Polo */}
-                      <td className="text-xs">
-                        {c.polo_nome ? (
-                          <span
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border border-borda bg-fundo text-texto"
-                            title={`${c.polo_nome} - ${c.polo_cidade || ""}`}
-                          >
-                            <span className="w-1.5 h-1.5 rounded-full bg-acento"></span>
-                            <span>{c.polo_cidade || c.polo_nome}</span>
-                          </span>
-                        ) : (
-                          <span className="text-texto-suave text-[11px]">—</span>
-                        )}
-                      </td>
-
-                      {/* Contato */}
-                      <td className="font-mono text-xs tabular-nums text-texto-suave">
-                        {c.contato_telefone || "—"}
-                      </td>
-
-                      {/* Motivo */}
-                      <td className="text-xs text-texto truncate max-w-xs" title={c.motivos?.nome}>
-                        <span className="font-mono font-medium text-acento mr-1.5">
-                          {c.motivos?.codigo}
-                        </span>
-                        <span>{c.motivos?.nome || "—"}</span>
-                      </td>
-
                       {/* Situação */}
                       <td className="text-center">
                         <span
@@ -1087,6 +1060,34 @@ export function TabelaChamados({
                                 ? "Rascunho"
                                 : "Encerrado"}
                         </span>
+                      </td>
+
+                      {/* Contato */}
+                      <td className="font-mono text-xs tabular-nums text-texto-suave">
+                        {c.contato_telefone || "—"}
+                      </td>
+
+                      {/* Motivo */}
+                      <td className="text-xs text-texto truncate max-w-xs" title={c.motivos?.nome}>
+                        <span className="font-mono font-medium text-acento mr-1.5">
+                          {c.motivos?.codigo}
+                        </span>
+                        <span>{c.motivos?.nome || "—"}</span>
+                      </td>
+
+                      {/* Polo */}
+                      <td className="text-xs">
+                        {c.polo_nome ? (
+                          <span
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border border-borda bg-fundo text-texto"
+                            title={`${c.polo_nome} - ${c.polo_cidade || ""}`}
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-acento"></span>
+                            <span>{c.polo_cidade || c.polo_nome}</span>
+                          </span>
+                        ) : (
+                          <span className="text-texto-suave text-[11px]">—</span>
+                        )}
                       </td>
 
                       {/* Prioridade */}
@@ -1211,11 +1212,6 @@ export function TabelaChamados({
                     {c.protocolo}
                   </Link>
                   <div className="flex items-center gap-1.5">
-                    {c.polo_nome && (
-                      <span className="rounded border border-borda bg-fundo px-1.5 py-0.5 text-[10px] font-medium text-texto">
-                        {c.polo_cidade || c.polo_nome}
-                      </span>
-                    )}
                     <span
                       className={`rounded border px-2 py-0.5 text-[10px] font-medium ${
                         c.situacao === "concluido"
@@ -1235,6 +1231,11 @@ export function TabelaChamados({
                             ? "Rascunho"
                             : "Encerrado"}
                     </span>
+                    {c.polo_nome && (
+                      <span className="rounded border border-borda bg-fundo px-1.5 py-0.5 text-[10px] font-medium text-texto">
+                        {c.polo_cidade || c.polo_nome}
+                      </span>
+                    )}
                   </div>
                 </div>
 
