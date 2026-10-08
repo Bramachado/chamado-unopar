@@ -374,6 +374,7 @@ export function TabelaChamados({
 
     el.addEventListener("scroll", handleScroll, { passive: true });
     atualizarMetricasRolagem();
+    const timer = setTimeout(atualizarMetricasRolagem, 100);
 
     const resizeObserver = new ResizeObserver(() => {
       atualizarMetricasRolagem();
@@ -381,6 +382,7 @@ export function TabelaChamados({
     resizeObserver.observe(el);
 
     return () => {
+      clearTimeout(timer);
       el.removeEventListener("scroll", handleScroll);
       resizeObserver.disconnect();
     };
@@ -889,32 +891,28 @@ export function TabelaChamados({
 
       {/* 3. Tabela de Chamados Desktop com Navegação por Setinhas */}
       <div className="hidden sm:block relative rounded-xl border border-borda bg-superficie shadow-xs overflow-hidden group">
-        {/* Setinha para voltar colunas (à esquerda) */}
+        {/* Setinha estilizada para voltar colunas (à esquerda) */}
         {podeRolarEsquerda && (
-          <div className="absolute left-0 top-0 h-11 pl-2 flex items-center bg-gradient-to-r from-superficie-destaque via-superficie-destaque/95 to-transparent z-30 pointer-events-none pr-8">
-            <button
-              type="button"
-              onClick={() => rolarTabela("esquerda")}
-              className="pointer-events-auto h-8 w-8 rounded-full bg-superficie border border-borda shadow-md hover:bg-acento hover:text-white hover:border-acento text-acento flex items-center justify-center transition-all cursor-pointer hover:scale-110 active:scale-95"
-              title="Voltar para as colunas anteriores"
-            >
-              <ChevronLeft className="h-4 w-4 stroke-[2.5]" />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => rolarTabela("esquerda")}
+            className="absolute left-2 top-1.5 z-30 h-8 w-8 rounded-full bg-superficie border border-borda shadow-md ring-2 ring-acento/20 hover:ring-acento hover:bg-acento hover:text-white hover:border-acento text-acento flex items-center justify-center transition-all cursor-pointer hover:scale-110 active:scale-95"
+            title="Voltar para as colunas anteriores"
+          >
+            <ChevronLeft className="h-5 w-5 stroke-[2.5]" />
+          </button>
         )}
 
-        {/* Setinha bonita na frente para avançar colunas (à direita) */}
+        {/* Setinha bonita e estilizada na frente para avançar colunas (à direita) */}
         {podeRolarDireita && (
-          <div className="absolute right-0 top-0 h-11 pr-2 flex items-center bg-gradient-to-l from-superficie-destaque via-superficie-destaque/95 to-transparent z-30 pointer-events-none pl-8">
-            <button
-              type="button"
-              onClick={() => rolarTabela("direita")}
-              className="pointer-events-auto h-8 w-8 rounded-full bg-superficie border border-borda shadow-md hover:bg-acento hover:text-white hover:border-acento text-acento flex items-center justify-center transition-all cursor-pointer hover:scale-110 active:scale-95"
-              title="Avançar para as próximas colunas"
-            >
-              <ChevronRight className="h-4 w-4 stroke-[2.5]" />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => rolarTabela("direita")}
+            className="absolute right-2 top-1.5 z-30 h-8 w-8 rounded-full bg-superficie border border-borda shadow-md ring-2 ring-acento/20 hover:ring-acento hover:bg-acento hover:text-white hover:border-acento text-acento flex items-center justify-center transition-all cursor-pointer hover:scale-110 active:scale-95"
+            title="Avançar para as próximas colunas"
+          >
+            <ChevronRight className="h-5 w-5 stroke-[2.5]" />
+          </button>
         )}
 
         {/* Tabela com container de rolagem e cabeçalho fixo no topo */}
