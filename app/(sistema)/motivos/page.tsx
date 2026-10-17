@@ -1,52 +1,60 @@
 import { obterPerfilAtual } from "@/lib/auth/perfil";
 import { comUsuario } from "@/lib/db/comUsuario";
+import { instanteDoBanco } from "@/lib/datas";
+import { paresSemelhantes } from "@/lib/motivos/normalizacao";
+import { podeConsolidarMotivos, podeGerirMotivos } from "@/lib/auth/autorizacao";
 import { PainelMotivos } from "./painel-motivos";
+import type { Motivo } from "@/types/database";
 
 export default async function PaginaMotivos() {
   const perfil = await obterPerfilAtual();
 
-  const motivos = await comUsuario({ usuario_id: perfil.id, papel: perfil.papel }, async (req) => {
-    // Verifica se a coluna filtro já existe na tabela dados.motivos
-    const checkCol = await req.query(`
-        SELECT 1 FROM sys.columns 
-        WHERE object_id = OBJECT_ID('dados.motivos') AND name = 'filtro'
-      `);
-    const temColunaFiltro = checkCol.recordset.length > 0;
-    const colunaFiltroSql = temColunaFiltro
-      ? "m.filtro,"
-      : "CAST(NULL AS NVARCHAR(500)) AS filtro,";
-    const groupByFiltroSql = temColunaFiltro ? ", m.filtro" : "";
-
+  const linhas = await comUsuario({ usuario_id: perfil.id, papel: perfil.papel }, async (req) => {
     const q = await req.query(`
-        SELECT 
-          CAST(m.id AS NVARCHAR(50)) AS id,
-          m.numero,
-          m.codigo,
-          m.nome,
-          m.nome_normalizado,
-          ${colunaFiltroSql}
-          m.ativo,
-          m.criado_em,
-          COUNT(c.id) AS total_chamados
-        FROM dados.motivos m
-        LEFT JOIN dados.chamados c ON c.motivo_id = m.id AND c.excluido_em IS NULL
-        GROUP BY m.id, m.numero, m.codigo, m.nome, m.nome_normalizado, m.ativo, m.criado_em ${groupByFiltroSql}
-        ORDER BY m.numero ASC, m.codigo ASC
-      `);
+      SELECT CAST(m.id AS NVARCHAR(50)) AS id, m.numero, m.codigo, m.nome, m.nome_normalizado, m.filtro,
+        m.descricao, m.ativo, m.criado_em, CAST(m.consolidado_para_id AS NVARCHAR(50)) AS consolidado_para_id,
+        d.codigo AS consolidado_para_codigo, m.consolidado_em, m.consolidacao_justificativa,
+        (SELECT COUNT(*) FROM dados.chamados c WHERE c.motivo_id = m.id AND c.excluido_em IS NULL) AS total_chamados
+      FROM dados.motivos m
+      LEFT JOIN dados.motivos d ON d.id = m.consolidado_para_id
+      ORDER BY m.numero`);
     return q.recordset;
   });
 
-  const motivosFormatados = motivos.map((m: any) => ({
+  const motivos: Motivo[] = linhas.map((m) => ({
     id: m.id,
     numero: m.numero,
     codigo: m.codigo,
     nome: m.nome,
     nome_normalizado: m.nome_normalizado,
-    filtro: m.filtro || null,
+    filtro: m.filtro ?? null,
+    descricao: m.descricao ?? null,
     ativo: Boolean(m.ativo),
-    criado_em: m.criado_em ? new Date(m.criado_em).toISOString() : new Date().toISOString(),
+    criado_em: instanteDoBanco(m.criado_em) ?? "",
     total_chamados: Number(m.total_chamados) || 0,
+    consolidado_para_id: m.consolidado_para_id ?? null,
+    consolidado_para_codigo: m.consolidado_para_codigo ?? null,
+    consolidado_em: instanteDoBanco(m.consolidado_em),
+    consolidacao_justificativa: m.consolidacao_justificativa ?? null,
   }));
 
-  return <PainelMotivos motivos={motivosFormatados} perfilAtual={perfil} />;
+  // Pares de ativos semelhantes para revisão humana (nada é unido automaticamente)
+  const pares = paresSemelhantes(
+    motivos.map((m) => ({
+      id: m.id,
+      codigo: m.codigo,
+      nome: m.nome,
+      filtro: m.filtro ?? null,
+      ativo: m.ativo,
+    }))
+  ).map((p) => ({ a: p.a.id, b: p.b.id, tipo: p.tipo, similaridade: p.similaridade }));
+
+  return (
+    <PainelMotivos
+      motivos={motivos}
+      pares={pares}
+      podeGerir={podeGerirMotivos(perfil)}
+      podeConsolidar={podeConsolidarMotivos(perfil)}
+    />
+  );
 }
