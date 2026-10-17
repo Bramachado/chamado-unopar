@@ -123,7 +123,7 @@ Este documento acompanha o pull request. Ele registra as causas confirmadas no c
 
 As cinco migrações e as cinco reversões foram aplicadas, revertidas e reaplicadas no banco de testes, que reproduz a RLS da produção, sem perda de chamados (`db/teste/testar-reversao.ts`). A reversão da 0002 desliga a RLS só durante o `UPDATE` de situações, porque sem contexto de sessão as linhas ficam invisíveis.
 
-**Situação em 17/10/2026:** etapa "preparar" executada na produção, com backup `ChamadosUnopar_antes_migracoes_20261017T035259.bak` verificado e definições exportadas (9 módulos e 3 predicados RLS). As migrações ainda não foram aplicadas.
+**Situação em 17/10/2026:** migrações 0001 a 0005 **aplicadas na produção** depois do backup verificado `ChamadosUnopar_antes_migracoes_20261017T064807.bak`, com as definições anteriores exportadas em `db/producao/definicoes-20261017T064807.sql` (fora do Git; guardar junto do backup). A aplicação publicada na VPS ainda é a versão anterior. Ela continua funcionando com o banco migrado, exceto "revelar senha do cofre", que passa a exigir justificativa e só volta a funcionar com o deploy desta branch.
 
 **Ordem de implantação:**
 
