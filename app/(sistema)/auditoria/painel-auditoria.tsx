@@ -1,10 +1,10 @@
 "use client";
 
+import { formatarInstante } from "@/lib/datas";
+
 import { useState, useTransition } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { type LogAuditoria } from "@/types/database";
-import { format, parseISO } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { Search, ChevronLeft, ChevronRight, Download, RotateCcw, Eye, X } from "lucide-react";
 import Link from "next/link";
 import { CustomSelect, type CustomSelectOption } from "@/components/ui/custom-select";
@@ -27,7 +27,12 @@ interface PainelAuditoriaProps {
 const opcoesTabela: CustomSelectOption[] = [
   { value: "", label: "Todas as tabelas" },
   { value: "chamados", label: "chamados", sublabel: "Protocolos acadêmicos" },
-  { value: "arquivos", label: "arquivos", sublabel: "Anexos de chamados" },
+  { value: "exportacao_chamados", label: "exportacao_chamados", sublabel: "Exportações CSV" },
+  {
+    value: "arquivos_conteudo",
+    label: "arquivos_conteudo",
+    sublabel: "Conteúdo técnico de anexos",
+  },
   { value: "motivos", label: "motivos", sublabel: "Catálogo de motivos" },
   { value: "perfis", label: "perfis", sublabel: "Equipe e contas do sistema" },
   { value: "credenciais_externas", label: "credenciais_externas", sublabel: "Cofre cifrado" },
@@ -205,7 +210,7 @@ export function PainelAuditoria({
               logs.map((log) => (
                 <tr key={log.id}>
                   <td className="font-mono text-xs tabular-nums text-texto-suave">
-                    {format(parseISO(log.criado_em), "dd/MM/yy HH:mm:ss", { locale: ptBR })}
+                    {formatarInstante(log.criado_em, { segundos: true })}
                   </td>
                   <td className="text-center">
                     <span
@@ -305,7 +310,7 @@ export function PainelAuditoria({
                 </div>
                 <div>
                   <strong>Data:</strong>{" "}
-                  {new Date(logSelecionado.criado_em).toLocaleString("pt-BR")}
+                  {formatarInstante(logSelecionado.criado_em, { segundos: true })}
                 </div>
               </div>
 

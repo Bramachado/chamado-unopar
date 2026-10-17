@@ -4,6 +4,8 @@ import { comUsuario } from "@/lib/db/comUsuario";
 import { sql } from "@/lib/db/pool";
 import { PainelAuditoria } from "./painel-auditoria";
 import { type LogAuditoria } from "@/types/database";
+import { montarWhereAuditoria } from "@/lib/auditoria/filtros";
+import { lerCamposAlterados, lerJsonAuditoria } from "@/lib/auditoria/redacao";
 
 interface AuditPageProps {
   searchParams: Promise<{
@@ -25,52 +27,29 @@ export default async function PaginaAuditoria({ searchParams }: AuditPageProps) 
   }
 
   const params = await searchParams;
-  const pagina = Number(params.pagina) || 1;
-  const porPagina = Number(params.por_pagina) || 25;
+  const pagina = Math.max(1, Number(params.pagina) || 1);
+  const porPagina = Math.min(100, Math.max(10, Number(params.por_pagina) || 25));
   const offset = (pagina - 1) * porPagina;
 
-  const dados = await comUsuario(
-    { usuario_id: perfil.id, papel: perfil.papel },
-    async (req) => {
-      let whereClause = "WHERE 1=1";
+  const dados = await comUsuario({ usuario_id: perfil.id, papel: perfil.papel }, async (req) => {
+    const whereClause = montarWhereAuditoria(req, params);
 
-      if (params.busca && params.busca.trim() !== "") {
-        const termo = params.busca.trim();
-        req.input("termo", sql.VarChar(255), `%${termo}%`);
-        req.input("termoPrefixo", sql.VarChar(50), `${termo}%`);
-        whereClause += " AND (protocolo LIKE @termoPrefixo OR usuario_nome LIKE @termo)";
-      }
+    req.input("offset", sql.Int, offset);
+    req.input("limit", sql.Int, porPagina);
 
-      if (params.tabela) {
-        req.input("tabela", sql.VarChar(50), params.tabela);
-        whereClause += " AND tabela = @tabela";
-      }
-
-      if (params.operacao) {
-        req.input("operacao", sql.VarChar(10), params.operacao);
-        whereClause += " AND operacao = @operacao";
-      }
-
-      if (params.data_inicio) {
-        req.input("data_inicio", sql.DateTimeOffset, new Date(params.data_inicio));
-        whereClause += " AND criado_em >= @data_inicio";
-      }
-
-      if (params.data_fim) {
-        req.input("data_fim", sql.DateTimeOffset, new Date(params.data_fim + "T23:59:59.999Z"));
-        whereClause += " AND criado_em <= @data_fim";
-      }
-
-      req.input("offset", sql.Int, offset);
-      req.input("limit", sql.Int, porPagina);
-
-      const qTotal = await req.query(`
+    const qTotal = await req
+      .query(
+        `
         SELECT COUNT(id) AS total
         FROM auditoria.logs
         ${whereClause}
-      `).catch(() => ({ recordset: [{ total: 0 }] }));
+      `
+      )
+      .catch(() => ({ recordset: [{ total: 0 }] }));
 
-      const qLogs = await req.query(`
+    const qLogs = await req
+      .query(
+        `
         SELECT 
           id,
           tabela,
@@ -89,23 +68,24 @@ export default async function PaginaAuditoria({ searchParams }: AuditPageProps) 
         ORDER BY criado_em DESC
         OFFSET @offset ROWS
         FETCH NEXT @limit ROWS ONLY
-      `).catch(() => ({ recordset: [] }));
+      `
+      )
+      .catch(() => ({ recordset: [] }));
 
-      return {
-        total: qTotal.recordset[0]?.total || 0,
-        logs: qLogs.recordset,
-      };
-    }
-  );
+    return {
+      total: qTotal.recordset[0]?.total || 0,
+      logs: qLogs.recordset,
+    };
+  });
 
   const logsFormatados: LogAuditoria[] = dados.logs.map((l: any) => ({
     id: l.id,
     tabela: l.tabela,
     registro_id: l.registro_id,
     operacao: l.operacao,
-    dados_antes: typeof l.dados_antes === "string" ? JSON.parse(l.dados_antes) : l.dados_antes,
-    dados_depois: typeof l.dados_depois === "string" ? JSON.parse(l.dados_depois) : l.dados_depois,
-    campos_alterados: l.campos_alterados,
+    dados_antes: lerJsonAuditoria(l.dados_antes),
+    dados_depois: lerJsonAuditoria(l.dados_depois),
+    campos_alterados: lerCamposAlterados(l.campos_alterados),
     usuario_id: l.usuario_id,
     usuario_nome: l.usuario_nome,
     protocolo: l.protocolo,

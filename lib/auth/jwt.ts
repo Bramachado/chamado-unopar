@@ -13,6 +13,8 @@ export interface PayloadSessao {
   papel: "admin" | "coordenador" | "atendente";
   polo_id?: string | null;
   polo_nome?: string | null;
+  /** Emissão do token (segundos desde a época), preenchido pelo JWT. */
+  iat?: number;
 }
 
 /**

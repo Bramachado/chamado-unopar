@@ -68,20 +68,4 @@ export async function autenticarAgente(
   };
 }
 
-/**
- * Prazo padrão de 5 dias úteis (mesma regra do formulário, sem feriados).
- */
-export function calcularPrazo5DiasUteis(dataSolicitacao: string): string {
-  const data = new Date(`${dataSolicitacao}T12:00:00Z`);
-  let diasUteis = 0;
-  while (diasUteis < 5) {
-    data.setUTCDate(data.getUTCDate() + 1);
-    const diaSemana = data.getUTCDay();
-    if (diaSemana !== 0 && diaSemana !== 6) diasUteis++;
-  }
-  return data.toISOString().slice(0, 10);
-}
-
-export function hojeEmBelem(): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Belem" }).format(new Date());
-}
+// Prazo e "hoje" vêm da regra única: calcularPrazoPadrao (lib/sla) e hojeCivil (lib/datas).

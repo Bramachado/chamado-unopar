@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:permissoes": "tsx scripts/testar-permissoes.ts",
+    "test": "tsx --test tests/*.test.ts",
+    "test:integracao": "tsx --test --test-concurrency=1 tests/integracao/*.test.ts",
+    "db:teste:preparar": "tsx db/teste/preparar.ts",
+    "db:migrar": "tsx scripts/aplicar-migracoes.ts",
     "prepare": "husky"
   },
   "dependencies": {

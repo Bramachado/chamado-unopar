@@ -181,7 +181,7 @@ export async function POST(request: NextRequest, { params }: Params) {
             (p.data.observacao ? `. ${p.data.observacao}` : ".");
           await anotarChamado(req, perfil, tarefa.chamado_id, linha, {
             protocolo,
-            set: "protocolo = @novo_prot, situacao = CASE WHEN situacao = 'rascunho' THEN 'aguardando' ELSE situacao END,",
+            set: "protocolo = @novo_prot, situacao = CASE WHEN situacao IN ('rascunho', 'aguardando') THEN 'aguardando_externo' ELSE situacao END, status_externo = N'Aberto no PAD',",
           });
           return { status: 200, corpo: { sucesso: true, protocolo } };
         }

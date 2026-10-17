@@ -1,11 +1,21 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { Fragment, useState, useTransition } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { type RankingItem, type Perfil, type Polo } from "@/types/database";
+import { type Perfil, type Polo } from "@/types/database";
 import { CustomSelect, type CustomSelectOption } from "@/components/ui/custom-select";
-import { ArrowRight, Zap, CheckCheck, Target, Info, Trophy, BarChart3, Clock } from "lucide-react";
+import {
+  ArrowRight,
+  Zap,
+  CheckCheck,
+  Target,
+  Info,
+  Trophy,
+  BarChart3,
+  Clock,
+  ChevronDown,
+} from "lucide-react";
 import {
   ResponsiveContainer,
   LineChart,
@@ -16,438 +26,293 @@ import {
   CartesianGrid,
   Legend,
 } from "recharts";
+import { PESOS, type LinhaRanking, type ResumoEquipe } from "@/lib/indicadores/pontuacao";
+import { REGRA_SLA } from "@/lib/sla";
+import { formatarDataCivil } from "@/lib/datas";
+import type { Periodo } from "@/lib/indicadores/definicoes";
 
-interface EvolucaoItem {
-  mes: string;
-  minhaPontuacao: number;
-  mediaEquipe: number;
+export interface RecorteDesempenho {
+  rotulo: string;
+  periodo: Periodo;
+  linhas: LinhaRanking[];
+  equipe: ResumoEquipe;
+  links: Record<string, string>;
 }
 
-interface PainelDesempenhoProps {
-  rankingMes: RankingItem[];
-  rankingSemestre: RankingItem[];
+interface Props {
+  recortes: RecorteDesempenho[];
   perfilAtual: Perfil;
-  evolucaoPessoal: EvolucaoItem[];
-  rotuloSemestre: string;
+  evolucao: { mes: string; minhaPontuacao: number | null; mediaEquipe: number | null }[];
   polos?: Polo[];
   poloSelecionado?: string;
+  versaoFormula: string;
+}
+
+const num = (v: number | null | undefined, sufixo = "") =>
+  v === null || v === undefined ? "—" : `${String(v).replace(".", ",")}${sufixo}`;
+
+function Indicador({
+  titulo,
+  valor,
+  descricao,
+  icone,
+  cor,
+}: {
+  titulo: string;
+  valor: string;
+  descricao: string;
+  icone: React.ReactNode;
+  cor: string;
+}) {
+  return (
+    <div className="rounded-xl border border-borda bg-superficie p-5 shadow-xs space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold text-texto-suave">{titulo}</span>
+        <span
+          className={`flex h-8 w-8 items-center justify-center rounded-lg ${cor}`}
+          aria-hidden="true"
+        >
+          {icone}
+        </span>
+      </div>
+      <div className="text-2xl font-black text-texto tabular-nums">{valor}</div>
+      <div className="text-[11px] text-texto-suave">{descricao}</div>
+    </div>
+  );
 }
 
 export function PainelDesempenho({
-  rankingMes,
-  rankingSemestre,
+  recortes,
   perfilAtual,
-  evolucaoPessoal,
-  rotuloSemestre,
+  evolucao,
   polos = [],
   poloSelecionado = "todos",
-}: PainelDesempenhoProps) {
+  versaoFormula,
+}: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [, startTransition] = useTransition();
-
-  const [recorte, setRecorte] = useState<"mes" | "semestre">("mes");
-  const [poloId, setPoloId] = useState(poloSelecionado);
-  const [mostrarModalFormula, setMostrarModalFormula] = useState(false);
-
-  const opcoesPolo: CustomSelectOption[] = [
-    { value: "todos", label: "Todos os Polos (Consolidado)" },
-    ...polos.map((p) => ({
-      value: p.id,
-      label: `${p.nome} (${p.cidade})`,
-    })),
-  ];
-
-  const mudarPolo = (novoPolo: string) => {
-    setPoloId(novoPolo);
-    const params = new URLSearchParams(searchParams.toString());
-    if (novoPolo !== "todos") {
-      params.set("polo_id", novoPolo);
-    } else {
-      params.delete("polo_id");
-    }
-    startTransition(() => {
-      router.push(`${pathname}?${params.toString()}`);
-    });
-  };
+  const [carregando, startTransition] = useTransition();
+  const [indice, setIndice] = useState(0);
+  const [mostrarFormula, setMostrarFormula] = useState(false);
+  const [aberto, setAberto] = useState<string | null>(null);
 
   const ehAdmin = perfilAtual.papel === "admin";
-  const listaBruta = recorte === "mes" ? rankingMes : rankingSemestre;
+  const recorte = recortes[indice] ?? recortes[0]!;
+  const eu = perfilAtual.id.toLowerCase();
+  const meu = recorte.linhas.find((l) => l.usuario_id === eu);
+  const elegiveis = recorte.linhas.filter((l) => l.elegivel);
+  const podio = elegiveis.slice(0, 3);
+  const acima =
+    meu?.posicao && meu.posicao > 1
+      ? elegiveis.filter((l) => (l.posicao ?? 0) < meu.posicao!).at(-1)
+      : undefined;
 
-  // 1. Lógica de Pontuação e Classificação
-  const alguemPontuou = listaBruta.some((r) => (r.pontos_total || 0) > 0);
-  const meuDado = !ehAdmin ? listaBruta.find((r) => r.usuario_id === perfilAtual.id) : null;
-  const meusPontos = meuDado?.pontos_total ?? 0;
-  const minhaPosicao = meuDado?.posicao;
-
-  // Classificação válida apenas quando há pontuação real no período e usuário participa do ranking
-  const temClassificacao =
-    !ehAdmin && alguemPontuou && meusPontos > 0 && typeof minhaPosicao === "number";
-
-  // Indicadores consolidados da equipe (utilizados na visão do Administrador)
-  const totalParticipantes = listaBruta.length;
-  const somaPontosEquipe = listaBruta.reduce((acc, curr) => acc + (curr.pontos_total || 0), 0);
-  const mediaPontosEquipe =
-    totalParticipantes > 0 ? Math.round((somaPontosEquipe / totalParticipantes) * 10) / 10 : 0;
-
-  const totalResolvidosEquipe = listaBruta.reduce((acc, curr) => acc + (curr.resolvidos || 0), 0);
-  const totalNoPrazoEquipe = listaBruta.reduce((acc, curr) => acc + (curr.no_prazo || 0), 0);
-  const taxaPrazoEquipe =
-    totalResolvidosEquipe > 0 ? Math.round((totalNoPrazoEquipe / totalResolvidosEquipe) * 100) : 0;
-
-  const somaDiasEquipe = listaBruta.reduce(
-    (acc, curr) => acc + curr.tempo_medio_dias * curr.resolvidos,
-    0
-  );
-  const tempoMedioEquipe =
-    totalResolvidosEquipe > 0 ? Math.round((somaDiasEquipe / totalResolvidosEquipe) * 10) / 10 : 0;
-
-  const listaOrdenada = [...listaBruta].sort((a, b) => {
-    const pontosA = a.pontos_total || 0;
-    const pontosB = b.pontos_total || 0;
-    if (!alguemPontuou) {
-      return a.nome_completo.localeCompare(b.nome_completo);
-    }
-    if (pontosA !== pontosB) {
-      return pontosB - pontosA;
-    }
-    return a.nome_completo.localeCompare(b.nome_completo);
-  });
-
-  let textoDistancia: string | null = null;
-  if (temClassificacao && minhaPosicao && minhaPosicao > 1) {
-    const pessoaAcima = listaBruta.find((r) => r.posicao === minhaPosicao - 1);
-    if (pessoaAcima && pessoaAcima.pontos_total > meusPontos) {
-      const diferencaPontos = Math.max(
-        0,
-        Math.round((pessoaAcima.pontos_total - meusPontos) * 10) / 10
-      );
-      const chamadosEstimados = Math.ceil(diferencaPontos / 4);
-      textoDistancia = `${diferencaPontos} pts para alcançar o ${minhaPosicao - 1}º lugar (aprox. ${chamadosEstimados} chamado${chamadosEstimados > 1 ? "s" : ""} no prazo)`;
-    }
-  } else if (temClassificacao && minhaPosicao === 1) {
-    textoDistancia = "Você está na 1ª colocação geral do período.";
-  }
-
-  const resolvidos = meuDado?.resolvidos ?? 0;
-  const taxaPrazo = meuDado?.taxa_prazo ?? 0;
-  const tempoMedio = meuDado?.tempo_medio_dias ?? 0;
-
-  const membrosComPontos = listaOrdenada.filter((m) => (m.pontos_total || 0) > 0);
-
-  const metaPontos = 100;
-  const pontosReferenciaGauge = ehAdmin ? mediaPontosEquipe : meusPontos;
-  const progressoPercentual = Math.min(100, Math.round((pontosReferenciaGauge / metaPontos) * 100));
-  const strokeDashoffset = 251.2 - (251.2 * progressoPercentual) / 100;
+  const mudarPolo = (valor: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (valor !== "todos") params.set("polo_id", valor);
+    else params.delete("polo_id");
+    startTransition(() => router.push(`${pathname}?${params.toString()}`));
+  };
+  const opcoesPolo: CustomSelectOption[] = [
+    ...(ehAdmin ? [{ value: "todos", label: "Todos os polos (consolidado)" }] : []),
+    ...polos.map((p) => ({ value: p.id, label: `${p.nome} (${p.cidade})` })),
+  ];
+  const ref = ehAdmin ? recorte.equipe.media_pontos : (meu?.pontos_total ?? null);
+  const progresso = Math.round(ref ?? 0);
 
   return (
-    <div className="space-y-6 max-w-[1400px] mx-auto">
-      {/* 1. Cabeçalho da Página */}
+    <div className="space-y-6 max-w-[1400px] mx-auto" aria-busy={carregando}>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-texto">
             Acompanhamento de Desempenho
           </h1>
           <p className="text-xs sm:text-sm text-texto-suave mt-0.5">
-            Métricas de resolução efetiva, cumprimento de prazos e agilidade no atendimento.
+            {recorte.rotulo} ({formatarDataCivil(recorte.periodo.inicio)} a{" "}
+            {formatarDataCivil(recorte.periodo.fim)}) · chamados finalizados no período
           </p>
         </div>
-
-        {/* Seletores de Polo e Período */}
         <div className="flex flex-wrap items-center gap-3">
-          {polos.length > 0 && (
+          {ehAdmin ? (
             <div className="w-56">
-              <CustomSelect
-                options={opcoesPolo}
-                value={poloId}
-                onChange={(val) => mudarPolo(val)}
-              />
+              <CustomSelect options={opcoesPolo} value={poloSelecionado} onChange={mudarPolo} />
             </div>
+          ) : (
+            <span className="rounded-lg border border-borda bg-superficie px-3 py-1.5 text-xs font-semibold text-texto">
+              {polos[0]?.nome ?? perfilAtual.polo_nome ?? "Meu polo"}
+            </span>
           )}
-
-          {/* Seletor Mês Atual / Semestre Letivo */}
-          <div className="flex items-center gap-1.5 rounded-xl border border-borda bg-superficie p-1 shadow-xs">
-            <button
-              type="button"
-              onClick={() => setRecorte("mes")}
-              className={`rounded-lg px-4 py-1.5 text-xs font-semibold transition-all ${
-                recorte === "mes"
-                  ? "bg-[#1D4ED8] text-white shadow-xs"
-                  : "text-texto-suave hover:text-texto"
-              }`}
-            >
-              Mês atual
-            </button>
-            <button
-              type="button"
-              onClick={() => setRecorte("semestre")}
-              className={`rounded-lg px-4 py-1.5 text-xs font-semibold transition-all ${
-                recorte === "semestre"
-                  ? "bg-[#1D4ED8] text-white shadow-xs"
-                  : "text-texto-suave hover:text-texto"
-              }`}
-            >
-              Semestre letivo ({rotuloSemestre})
-            </button>
+          <div
+            role="group"
+            aria-label="Recorte"
+            className="flex items-center gap-1.5 rounded-xl border border-borda bg-superficie p-1 shadow-xs"
+          >
+            {recortes.map((r, i) => (
+              <button
+                key={r.rotulo}
+                type="button"
+                aria-pressed={i === indice}
+                onClick={() => setIndice(i)}
+                className={`rounded-lg px-4 py-1.5 text-xs font-semibold transition-all ${i === indice ? "bg-[#1D4ED8] text-white shadow-xs" : "text-texto-suave hover:text-texto"}`}
+              >
+                {r.rotulo}
+              </button>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* 2. Banner de Status do Usuário */}
       <div className="rounded-2xl border border-borda bg-superficie p-6 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-texto-suave">
-              Operador: {perfilAtual.nome_completo}
-            </span>
-            {ehAdmin && (
-              <span className="inline-flex items-center rounded-md bg-purple-500/10 px-2 py-0.5 text-[10px] font-bold text-purple-600 border border-purple-500/20">
-                Administrador
-              </span>
-            )}
-          </div>
+          <span className="text-xs font-semibold text-texto-suave">
+            Operador: {perfilAtual.nome_completo}
+          </span>
           {ehAdmin ? (
-            <div>
-              <h2 className="text-xl font-bold text-texto tracking-tight">
-                Painel Gerencial de Desempenho
-              </h2>
-              <p className="text-xs text-texto-suave mt-0.5">
-                Administradores gerenciam a plataforma e não participam do ranking. Exibindo
-                consolidação da equipe.
+            <>
+              <h2 className="text-xl font-bold text-texto">Painel gerencial de desempenho</h2>
+              <p className="text-xs text-texto-suave">Administradores não participam do ranking.</p>
+            </>
+          ) : meu?.elegivel ? (
+            <>
+              <h2 className="text-2xl font-black text-texto">{meu.posicao}º lugar no ranking</h2>
+              <p className="text-xs text-texto-suave">
+                {meu.posicao === 1
+                  ? "Você está na 1ª colocação do período."
+                  : acima
+                    ? `${num(Math.round(((acima.pontos_total ?? 0) - (meu.pontos_total ?? 0)) * 10) / 10)} pts abaixo de ${acima.nome_completo.split(" ")[0]}.`
+                    : ""}
               </p>
-            </div>
-          ) : temClassificacao ? (
-            <div>
-              <h2 className="text-2xl font-black text-texto tracking-tight">
-                {minhaPosicao}º lugar no ranking
-              </h2>
-              <p className="text-xs text-texto-suave mt-0.5">{textoDistancia}</p>
-            </div>
+            </>
           ) : (
-            <div>
-              <h2 className="text-xl font-bold text-texto tracking-tight">
-                Sem classificação neste período
-              </h2>
-              <p className="text-xs text-texto-suave mt-0.5">
-                Conclua chamados com resolução efetiva dentro do prazo para pontuar.
+            <>
+              <h2 className="text-xl font-bold text-texto">Sem classificação neste período</h2>
+              <p className="text-xs text-texto-suave">
+                A classificação considera chamados resolvidos ou encerrados no período.
               </p>
-            </div>
+            </>
           )}
         </div>
-
         <button
           type="button"
-          onClick={() => setMostrarModalFormula(true)}
-          className="inline-flex items-center gap-2 rounded-xl border border-borda bg-fundo px-3.5 py-2 text-xs font-semibold text-texto hover:bg-superficie transition shadow-xs"
+          onClick={() => setMostrarFormula(true)}
+          className="inline-flex items-center gap-2 rounded-xl border border-borda bg-fundo px-3.5 py-2 text-xs font-semibold text-texto hover:bg-superficie"
         >
-          <Info className="h-4 w-4 text-sky-500" />
-          <span>Critérios de Pontuação</span>
+          <Info className="h-4 w-4 text-sky-500" aria-hidden="true" /> Critérios de pontuação
         </button>
       </div>
 
-      {/* 3. Cards de Indicadores Individuais ou da Equipe */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Card 1: Pontuação Total / Média da Equipe */}
-        <div className="rounded-xl border border-borda bg-superficie p-5 shadow-xs space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-texto-suave">
-              {ehAdmin ? "Média da equipe" : "Pontuação total"}
-            </span>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-[#1D4ED8]">
-              <Zap className="h-4 w-4" />
-            </div>
-          </div>
-          <div className="text-2xl font-black text-texto tabular-nums">
-            {ehAdmin ? mediaPontosEquipe : meusPontos}{" "}
-            <span className="text-xs font-normal text-texto-suave">pts</span>
-          </div>
-          <div className="text-[11px] text-texto-suave">
-            {ehAdmin
-              ? "Média de pontos da equipe participante"
-              : "Composição: Volume, Prazo e Agilidade"}
-          </div>
-        </div>
-
-        {/* Card 2: Chamados Concluídos */}
-        <div className="rounded-xl border border-borda bg-superficie p-5 shadow-xs space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-texto-suave">
-              {ehAdmin ? "Total concluídos (Equipe)" : "Chamados concluídos"}
-            </span>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
-              <CheckCheck className="h-4 w-4" />
-            </div>
-          </div>
-          <div className="text-2xl font-black text-texto tabular-nums">
-            {ehAdmin ? totalResolvidosEquipe : resolvidos}
-          </div>
-          <div className="text-[11px] text-texto-suave">
-            {ehAdmin ? "Demandas resolvidas pelos operadores" : "Demandas com resolução efetiva"}
-          </div>
-        </div>
-
-        {/* Card 3: Cumprimento de Prazo */}
-        <div className="rounded-xl border border-borda bg-superficie p-5 shadow-xs space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-texto-suave">
-              {ehAdmin ? "Cumprimento de prazo (Equipe)" : "Cumprimento de prazo"}
-            </span>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
-              <Target className="h-4 w-4" />
-            </div>
-          </div>
-          <div className="text-2xl font-black text-texto tabular-nums">
-            {ehAdmin
-              ? totalResolvidosEquipe > 0
-                ? `${taxaPrazoEquipe}%`
-                : "—"
-              : resolvidos > 0
-                ? `${taxaPrazo}%`
-                : "—"}
-          </div>
-          <div className="text-[11px] text-texto-suave">Meta institucional: 90% no prazo</div>
-        </div>
-
-        {/* Card 4: Tempo Médio */}
-        <div className="rounded-xl border border-borda bg-superficie p-5 shadow-xs space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-texto-suave">
-              {ehAdmin ? "Tempo médio (Equipe)" : "Tempo médio de solução"}
-            </span>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/10 text-purple-600">
-              <Clock className="h-4 w-4" />
-            </div>
-          </div>
-          <div className="text-2xl font-black text-texto tabular-nums">
-            {ehAdmin
-              ? tempoMedioEquipe > 0
-                ? `${tempoMedioEquipe}d`
-                : "—"
-              : tempoMedio > 0
-                ? `${tempoMedio}d`
-                : "—"}
-          </div>
-          <div className="text-[11px] text-texto-suave">Meta de agilidade: até 2 dias úteis</div>
-        </div>
+        <Indicador
+          titulo={ehAdmin ? "Média da equipe" : "Pontuação total"}
+          valor={`${num(ref)} pts`}
+          descricao={
+            ehAdmin
+              ? `Média simples das notas de ${recorte.equipe.participantes_elegiveis} participante(s)`
+              : meu?.elegivel
+                ? `Volume ${num(meu.pontos.volume)} + Prazo ${num(meu.pontos.prazo)} + Agilidade ${num(meu.pontos.agilidade)}`
+                : "Sem chamados finalizados no período"
+          }
+          icone={<Zap className="h-4 w-4" />}
+          cor="bg-blue-500/10 text-[#1D4ED8]"
+        />
+        <Indicador
+          titulo={ehAdmin ? "Resolvidos (equipe)" : "Resolvidos"}
+          valor={String(ehAdmin ? recorte.equipe.resolvidos : (meu?.resolvidos ?? 0))}
+          descricao={
+            ehAdmin
+              ? "Soma dos resolvidos no período"
+              : `${meu?.encerrados ?? 0} encerrado(s) sem solução · ${meu?.pendentes ?? 0} pendente(s) agora`
+          }
+          icone={<CheckCheck className="h-4 w-4" />}
+          cor="bg-emerald-500/10 text-emerald-600"
+        />
+        <Indicador
+          titulo="Cumprimento do prazo"
+          valor={num(ehAdmin ? recorte.equipe.taxa_prazo : meu?.taxa_prazo, "%")}
+          descricao={
+            ehAdmin
+              ? `${recorte.equipe.no_prazo} de ${recorte.equipe.resolvidos} resolvidos no prazo (ponderado por chamado)`
+              : `${meu?.no_prazo ?? 0} de ${meu?.resolvidos ?? 0} resolvidos no prazo · meta 90%`
+          }
+          icone={<Target className="h-4 w-4" />}
+          cor="bg-amber-500/10 text-amber-600"
+        />
+        <Indicador
+          titulo="Tempo médio"
+          valor={num(
+            ehAdmin ? recorte.equipe.tempo_medio_dias_uteis : meu?.tempo_medio_dias_uteis,
+            " d.ú."
+          )}
+          descricao="Dias úteis da abertura à resolução (mesma regra do prazo)"
+          icone={<Clock className="h-4 w-4" />}
+          cor="bg-purple-500/10 text-purple-600"
+        />
       </div>
 
-      {/* 4. Destaques (Pódio) e Progresso de Metas */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Pódio de Atendimento */}
-        <div className="lg:col-span-2 rounded-2xl border border-borda bg-superficie p-6 shadow-xs space-y-4">
+        <section
+          className="lg:col-span-2 rounded-2xl border border-borda bg-superficie p-6 shadow-xs space-y-4"
+          aria-labelledby="titulo-destaques"
+        >
           <div className="flex items-center justify-between border-b border-borda pb-3">
-            <div className="flex items-center gap-2">
-              <Trophy className="h-4 w-4 text-amber-500" />
-              <h2 className="text-sm font-bold text-texto">Destaques de Atendimento</h2>
-            </div>
-            <span className="text-xs font-medium text-texto-suave">
-              {recorte === "mes" ? "Mês atual" : `Semestre ${rotuloSemestre}`}
-            </span>
+            <h2
+              id="titulo-destaques"
+              className="text-sm font-bold text-texto flex items-center gap-2"
+            >
+              <Trophy className="h-4 w-4 text-amber-500" aria-hidden="true" /> Destaques
+            </h2>
+            <span className="text-xs text-texto-suave">{recorte.rotulo}</span>
           </div>
-
-          {membrosComPontos.length === 0 ? (
+          {podio.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-borda bg-fundo p-8 text-center space-y-2">
-              <BarChart3 className="h-8 w-8 text-texto-suave" />
+              <BarChart3 className="h-8 w-8 text-texto-suave" aria-hidden="true" />
               <h3 className="text-sm font-bold text-texto">
-                Nenhum chamado foi concluído com pontuação no período.
+                Nenhum chamado finalizado no período.
               </h3>
-              <p className="text-xs text-texto-suave max-w-md">
-                Conclua chamados dentro do prazo regulamentar para registrar sua participação no
-                ranking.
-              </p>
-              <div className="pt-2">
-                <Link
-                  href="/chamados"
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-[#1D4ED8] px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-blue-700 transition"
-                >
-                  <span>Ver chamados em aberto</span>
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
-              </div>
+              <Link
+                href="/chamados?situacao=pendentes"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[#1D4ED8] px-3.5 py-1.5 text-xs font-semibold text-white"
+              >
+                Ver pendências <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+              </Link>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-              {/* 1º Lugar */}
-              {membrosComPontos[0] && (
-                <div className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-4 text-center space-y-1">
-                  <div className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-amber-500 text-white font-black text-xs shadow-xs">
-                    1º
-                  </div>
-                  <span
-                    className="text-xs font-bold text-texto block truncate"
-                    title={membrosComPontos[0].nome_completo}
-                  >
-                    {membrosComPontos[0].nome_completo}
+            <ol className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {podio.map((p) => (
+                <li
+                  key={p.usuario_id}
+                  className={`rounded-xl border p-4 text-center space-y-1 ${p.posicao === 1 ? "border-amber-500/40 bg-amber-500/5" : "border-borda bg-fundo"}`}
+                >
+                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-amber-500 text-white font-black text-xs">
+                    {p.posicao}º
                   </span>
-                  <span className="text-lg font-black text-amber-600 tabular-nums block">
-                    {membrosComPontos[0].pontos_total} pts
-                  </span>
-                  <span className="text-[11px] text-texto-suave block">
-                    {membrosComPontos[0].resolvidos} concl. · {membrosComPontos[0].taxa_prazo}%
-                    prazo
-                  </span>
-                </div>
-              )}
-
-              {/* 2º Lugar */}
-              {membrosComPontos[1] && (
-                <div className="rounded-xl border border-borda bg-fundo p-4 text-center space-y-1">
-                  <div className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-borda bg-superficie text-texto font-black text-xs shadow-xs">
-                    2º
-                  </div>
-                  <span
-                    className="text-xs font-bold text-texto block truncate"
-                    title={membrosComPontos[1].nome_completo}
-                  >
-                    {membrosComPontos[1].nome_completo}
+                  <span className="text-xs font-bold text-texto block truncate">
+                    {p.nome_completo}
                   </span>
                   <span className="text-lg font-black text-texto tabular-nums block">
-                    {membrosComPontos[1].pontos_total} pts
+                    {num(p.pontos_total)} pts
                   </span>
                   <span className="text-[11px] text-texto-suave block">
-                    {membrosComPontos[1].resolvidos} concl. · {membrosComPontos[1].taxa_prazo}%
-                    prazo
+                    {p.resolvidos} resolvidos · {num(p.taxa_prazo, "%")} no prazo
                   </span>
-                </div>
-              )}
-
-              {/* 3º Lugar */}
-              {membrosComPontos[2] && (
-                <div className="rounded-xl border border-borda bg-fundo p-4 text-center space-y-1">
-                  <div className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-borda bg-superficie text-texto font-black text-xs shadow-xs">
-                    3º
-                  </div>
-                  <span
-                    className="text-xs font-bold text-texto block truncate"
-                    title={membrosComPontos[2].nome_completo}
-                  >
-                    {membrosComPontos[2].nome_completo}
-                  </span>
-                  <span className="text-lg font-black text-texto tabular-nums block">
-                    {membrosComPontos[2].pontos_total} pts
-                  </span>
-                  <span className="text-[11px] text-texto-suave block">
-                    {membrosComPontos[2].resolvidos} concl. · {membrosComPontos[2].taxa_prazo}%
-                    prazo
-                  </span>
-                </div>
-              )}
-            </div>
+                </li>
+              ))}
+            </ol>
           )}
-        </div>
+        </section>
 
-        {/* Gauge de Progresso Pessoal / da Equipe */}
-        <div className="rounded-2xl border border-borda bg-superficie p-6 shadow-xs flex flex-col justify-between space-y-4">
-          <div className="border-b border-borda pb-3">
-            <h2 className="text-sm font-bold text-texto">
-              {ehAdmin ? "Média da Equipe no Período" : "Progresso no Período"}
-            </h2>
-          </div>
-
-          <div className="flex flex-col items-center justify-center py-2 space-y-3">
-            <div className="relative h-28 w-28 flex items-center justify-center">
-              <svg className="h-full w-full -rotate-90" viewBox="0 0 100 100">
+        <section className="rounded-2xl border border-borda bg-superficie p-6 shadow-xs flex flex-col justify-between space-y-4">
+          <h2 className="text-sm font-bold text-texto border-b border-borda pb-3">
+            {ehAdmin ? "Média da equipe" : "Sua nota no período"}
+          </h2>
+          <div className="flex flex-col items-center py-2 space-y-3">
+            <div
+              className="relative h-28 w-28 flex items-center justify-center"
+              role="img"
+              aria-label={`${num(ref)} de 100 pontos`}
+            >
+              <svg className="h-full w-full -rotate-90" viewBox="0 0 100 100" aria-hidden="true">
                 <circle
                   cx="50"
                   cy="50"
@@ -460,228 +325,271 @@ export function PainelDesempenho({
                   cx="50"
                   cy="50"
                   r="40"
-                  className="stroke-[#1D4ED8] transition-all duration-700 ease-out"
+                  className="stroke-[#1D4ED8]"
                   strokeWidth="8"
                   strokeDasharray="251.2"
-                  strokeDashoffset={strokeDashoffset}
+                  strokeDashoffset={251.2 - (251.2 * Math.min(100, progresso)) / 100}
                   strokeLinecap="round"
                   fill="none"
                 />
               </svg>
-              <div className="absolute flex flex-col items-center">
-                <span className="text-xl font-black text-texto tabular-nums">
-                  {progressoPercentual}%
-                </span>
-                <span className="text-[9px] font-semibold text-texto-suave uppercase tracking-wider">
-                  da Meta
-                </span>
-              </div>
+              <span className="absolute text-xl font-black text-texto tabular-nums">
+                {num(ref)}
+              </span>
             </div>
-
-            <div className="text-center text-xs text-texto-suave">
-              <span className="font-semibold text-texto">{pontosReferenciaGauge}</span> de{" "}
-              {metaPontos} pontos de referência
-            </div>
+            <span className="text-xs text-texto-suave">de 100 pontos possíveis</span>
           </div>
-
-          <div className="border-t border-borda pt-3 text-center">
-            <button
-              type="button"
-              onClick={() => setMostrarModalFormula(true)}
-              className="text-xs font-semibold text-[#1D4ED8] hover:underline"
-            >
-              Ver detalhes da fórmula
-            </button>
-          </div>
-        </div>
+          <button
+            type="button"
+            onClick={() => setMostrarFormula(true)}
+            className="text-xs font-semibold text-[#1D4ED8] hover:underline"
+          >
+            Como a nota é calculada
+          </button>
+        </section>
       </div>
 
-      {/* 5. Tabela Geral de Classificação */}
-      <div className="rounded-2xl border border-borda bg-superficie shadow-xs overflow-hidden">
-        <div className="px-6 py-4 border-b border-borda flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-          <div>
-            <h2 className="text-sm font-bold text-texto">Classificação Geral da Equipe</h2>
-            <p className="text-[11px] text-texto-suave">
-              Colaboradores elegíveis ao ranking. Administradores não participam da disputa.
-            </p>
-          </div>
-          <span className="text-xs text-texto-suave">{listaOrdenada.length} participantes</span>
+      <section
+        className="rounded-2xl border border-borda bg-superficie shadow-xs overflow-hidden"
+        aria-labelledby="titulo-classificacao"
+      >
+        <div className="px-6 py-4 border-b border-borda">
+          <h2 id="titulo-classificacao" className="text-sm font-bold text-texto">
+            Classificação da equipe
+          </h2>
+          <p className="text-[11px] text-texto-suave">
+            Clique em uma linha para ver os componentes da nota e os chamados considerados. Quem não
+            finalizou chamados no período aparece sem nota.
+          </p>
         </div>
-
         <div className="tabela-scroll overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-fundo border-b border-borda text-texto-suave font-semibold">
               <tr>
-                <th className="py-3 px-4 w-12 text-center">Pos</th>
-                <th className="py-3 px-4">Operador</th>
-                <th className="py-3 px-4 text-center">Concluídos</th>
-                <th className="py-3 px-4 text-center">No Prazo</th>
-                <th className="py-3 px-4 text-center">Taxa Prazo</th>
-                <th className="py-3 px-4 text-center">Tempo Médio</th>
-                <th className="py-3 px-4 text-right">Pontos</th>
+                <th scope="col" className="py-3 px-4 w-12 text-center">
+                  Pos.
+                </th>
+                <th scope="col" className="py-3 px-4">
+                  Operador
+                </th>
+                <th scope="col" className="py-3 px-4 text-center">
+                  Resolvidos
+                </th>
+                <th scope="col" className="py-3 px-4 text-center">
+                  Encerrados
+                </th>
+                <th scope="col" className="py-3 px-4 text-center">
+                  No prazo
+                </th>
+                <th scope="col" className="py-3 px-4 text-center">
+                  Tempo médio
+                </th>
+                <th scope="col" className="py-3 px-4 text-right">
+                  Nota
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-borda">
-              {listaOrdenada.map((item, index) => {
-                const ehUsuarioLogado = item.usuario_id === perfilAtual.id;
-                const pontuou = (item.pontos_total || 0) > 0;
-
+              {recorte.linhas.map((l) => {
+                const sou = l.usuario_id === eu;
+                const expandido = aberto === l.usuario_id;
                 return (
-                  <tr
-                    key={item.usuario_id}
-                    className={`transition-colors ${
-                      ehUsuarioLogado ? "bg-blue-500/5 font-semibold" : "hover:bg-fundo/50"
-                    }`}
-                  >
-                    <td className="py-3 px-4 text-center font-bold text-texto-suave">
-                      {pontuou ? `${index + 1}º` : "—"}
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-2.5">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1D4ED8] text-[11px] font-bold text-white shadow-xs">
-                          {item.nome_completo.substring(0, 2).toUpperCase()}
-                        </div>
-                        <div>
-                          <span className="text-texto block truncate max-w-[200px]">
-                            {item.nome_completo}
-                          </span>
-                          {ehUsuarioLogado && (
-                            <span className="inline-block rounded bg-[#1D4ED8] px-1.5 py-0.2 text-[10px] font-bold text-white">
+                  <Fragment key={l.usuario_id}>
+                    <tr className={sou ? "bg-blue-500/5 font-semibold" : "hover:bg-fundo/50"}>
+                      <td className="py-3 px-4 text-center font-bold text-texto-suave">
+                        {l.posicao ? `${l.posicao}º` : "—"}
+                      </td>
+                      <td className="py-3 px-4">
+                        <button
+                          type="button"
+                          aria-expanded={expandido}
+                          onClick={() => setAberto(expandido ? null : l.usuario_id)}
+                          className="flex items-center gap-1.5 text-left text-texto hover:text-acento"
+                        >
+                          <ChevronDown
+                            className={`h-3.5 w-3.5 transition-transform ${expandido ? "rotate-180" : ""}`}
+                            aria-hidden="true"
+                          />
+                          {l.nome_completo}
+                          {sou && (
+                            <span className="rounded bg-[#1D4ED8] px-1.5 text-[10px] font-bold text-white">
                               Você
                             </span>
                           )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-center tabular-nums text-texto">
-                      {item.resolvidos}
-                    </td>
-                    <td className="py-3 px-4 text-center tabular-nums text-texto">
-                      {item.no_prazo}
-                    </td>
-                    <td className="py-3 px-4 text-center tabular-nums text-texto">
-                      {item.resolvidos > 0 ? `${item.taxa_prazo}%` : "—"}
-                    </td>
-                    <td className="py-3 px-4 text-center tabular-nums text-texto">
-                      {item.tempo_medio_dias > 0 ? `${item.tempo_medio_dias}d` : "—"}
-                    </td>
-                    <td className="py-3 px-4 text-right font-black text-texto tabular-nums">
-                      {item.pontos_total}
-                    </td>
-                  </tr>
+                        </button>
+                      </td>
+                      <td className="py-3 px-4 text-center tabular-nums">{l.resolvidos}</td>
+                      <td className="py-3 px-4 text-center tabular-nums">{l.encerrados}</td>
+                      <td className="py-3 px-4 text-center tabular-nums">
+                        {l.resolvidos > 0 ? `${l.no_prazo} (${num(l.taxa_prazo, "%")})` : "—"}
+                      </td>
+                      <td className="py-3 px-4 text-center tabular-nums">
+                        {num(l.tempo_medio_dias_uteis, " d.ú.")}
+                      </td>
+                      <td className="py-3 px-4 text-right font-black tabular-nums">
+                        {l.elegivel ? num(l.pontos_total) : "sem nota"}
+                      </td>
+                    </tr>
+                    {expandido && (
+                      <tr className="bg-fundo/60">
+                        <td colSpan={7} className="px-6 py-3 text-[11px] text-texto">
+                          {l.elegivel ? (
+                            <div className="flex flex-wrap gap-x-6 gap-y-1">
+                              <span>
+                                Volume: {num(l.volume_ponderado)} ponderado ({l.resolvidos} × 1 +{" "}
+                                {l.encerrados} × 0,5) → <strong>{num(l.pontos.volume)}</strong> / 40
+                              </span>
+                              <span>
+                                Prazo: {l.no_prazo}/{l.resolvidos} no prazo →{" "}
+                                <strong>{num(l.pontos.prazo)}</strong> / 40
+                              </span>
+                              <span>
+                                Agilidade: média {num(l.tempo_medio_dias_uteis)} d.ú. →{" "}
+                                <strong>{num(l.pontos.agilidade)}</strong> / 20
+                              </span>
+                              <span>
+                                Total: <strong>{num(l.pontos_total)}</strong>
+                              </span>
+                            </div>
+                          ) : (
+                            <span>
+                              Sem chamados finalizados no período ({l.pendentes} pendente(s) agora).
+                            </span>
+                          )}
+                          <Link
+                            href={recorte.links[l.usuario_id] ?? "/chamados"}
+                            className="mt-1 inline-flex items-center gap-1 font-semibold text-acento hover:underline"
+                          >
+                            Ver os {l.resolvidos + l.encerrados} chamado(s) considerados{" "}
+                            <ArrowRight className="h-3 w-3" aria-hidden="true" />
+                          </Link>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 );
               })}
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
 
-      {/* 6. Gráfico de Evolução Histórica (6 Meses) */}
-      <div className="rounded-2xl border border-borda bg-superficie p-6 shadow-xs space-y-4">
-        <div className="flex items-center justify-between border-b border-borda pb-3">
-          <h2 className="text-sm font-bold text-texto">
-            {ehAdmin
-              ? "Evolução Histórica da Média da Equipe (Últimos 6 Meses)"
-              : "Evolução Pessoal vs. Média da Equipe (Últimos 6 Meses)"}
-          </h2>
-          <span className="text-xs text-texto-suave">Pontuação mensal consolidada</span>
-        </div>
-
+      <section className="rounded-2xl border border-borda bg-superficie p-6 shadow-xs space-y-4">
+        <h2 className="text-sm font-bold text-texto border-b border-borda pb-3">
+          {ehAdmin
+            ? "Média da equipe (últimos 6 meses)"
+            : "Sua nota x média da equipe (últimos 6 meses)"}
+        </h2>
         <div className="h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={evolucaoPessoal}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis dataKey="mes" textAnchor="end" height={40} fontSize={11} />
+            <LineChart data={evolucao}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--borda)" />
+              <XAxis dataKey="mes" fontSize={11} />
               <YAxis fontSize={11} domain={[0, 100]} />
-              <Tooltip />
-              <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "10px" }} />
+              <Tooltip
+                formatter={(v) => (v === null ? "sem nota" : `${String(v).replace(".", ",")} pts`)}
+              />
+              <Legend wrapperStyle={{ fontSize: "11px" }} />
               {!ehAdmin && (
                 <Line
                   type="monotone"
                   dataKey="minhaPontuacao"
-                  name="Sua Pontuação"
+                  name="Sua nota"
                   stroke="#1D4ED8"
                   strokeWidth={2.5}
                   dot={{ r: 4 }}
+                  connectNulls={false}
                 />
               )}
               <Line
                 type="monotone"
                 dataKey="mediaEquipe"
-                name="Média da Equipe"
+                name="Média da equipe"
                 stroke={ehAdmin ? "#1D4ED8" : "#94a3b8"}
-                strokeWidth={ehAdmin ? 2.5 : 2}
+                strokeWidth={2}
                 strokeDasharray={ehAdmin ? undefined : "4 4"}
-                dot={{ r: ehAdmin ? 4 : 3 }}
+                dot={{ r: 3 }}
+                connectNulls={false}
               />
             </LineChart>
           </ResponsiveContainer>
         </div>
-      </div>
+      </section>
 
-      {/* Modal Educativo: Critérios de Pontuação */}
-      {mostrarModalFormula && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="w-full max-w-lg rounded-2xl border border-borda bg-superficie p-6 shadow-2xl space-y-4 text-texto">
+      {mostrarFormula && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onKeyDown={(e) => e.key === "Escape" && setMostrarFormula(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="titulo-formula"
+            className="w-full max-w-lg rounded-2xl border border-borda bg-superficie p-6 shadow-2xl space-y-4 text-texto"
+          >
             <div className="flex items-center justify-between border-b border-borda pb-3">
-              <h3 className="text-base font-bold text-texto">
-                Critérios de Avaliação de Desempenho
+              <h3 id="titulo-formula" className="text-base font-bold">
+                Critérios de avaliação (versão {versaoFormula})
               </h3>
               <button
                 type="button"
-                onClick={() => setMostrarModalFormula(false)}
-                className="rounded-lg p-1.5 text-texto-suave hover:bg-fundo hover:text-texto"
+                onClick={() => setMostrarFormula(false)}
+                className="rounded-lg p-1.5 text-texto-suave hover:bg-fundo"
+                aria-label="Fechar"
               >
                 ✕
               </button>
             </div>
-
             <div className="space-y-3 text-xs text-texto-suave leading-relaxed">
               <p>
-                A pontuação do ranking é calculada com base em 3 pilares equilibrados de qualidade
-                operacional:
+                Nota de 0 a 100 = soma de três componentes. Considera os chamados{" "}
+                <strong>resolvidos ou encerrados no período</strong>, atribuídos ao responsável
+                atual. Chamados de teste e importados de planilha não contam.
               </p>
-
-              <div className="rounded-xl border border-borda bg-fundo p-3 space-y-2">
+              <div className="rounded-xl border border-borda bg-fundo p-3 space-y-1">
                 <div className="flex justify-between font-bold text-texto">
-                  <span>1. Volume Relativo à Equipe</span>
-                  <span>Até 40 pontos (40%)</span>
+                  <span>1. Volume</span>
+                  <span>até {PESOS.volumeMaximo} pontos</span>
                 </div>
                 <p className="text-[11px]">
-                  Calculado proporcionalmente em relação ao colaborador com maior volume ponderado
-                  no período (sem teto fixo). Chamados concluídos têm peso 1.0 e encerrados têm peso
-                  0.5.
+                  Volume ponderado (resolvido = {PESOS.pesoResolvido}; encerrado sem solução ={" "}
+                  {String(PESOS.pesoEncerrado).replace(".", ",")}) em proporção ao maior volume da
+                  equipe no mesmo período: quem tem o maior volume recebe {PESOS.volumeMaximo}.
                 </p>
               </div>
-
-              <div className="rounded-xl border border-borda bg-fundo p-3 space-y-2">
+              <div className="rounded-xl border border-borda bg-fundo p-3 space-y-1">
                 <div className="flex justify-between font-bold text-texto">
-                  <span>2. Cumprimento do Prazo (SLA)</span>
-                  <span>Até 40 pontos (40%)</span>
+                  <span>2. Cumprimento do prazo</span>
+                  <span>até {PESOS.prazoMaximo} pontos</span>
                 </div>
                 <p className="text-[11px]">
-                  Percentual de chamados finalizados dentro do prazo regulamentar de 5 dias úteis
-                  (proporcional até 40 pontos).
+                  Proporção de resolvidos cujo dia de conclusão foi até o prazo (
+                  {REGRA_SLA.diasUteisPadrao} dias úteis, salvo ajuste justificado).
                 </p>
               </div>
-
-              <div className="rounded-xl border border-borda bg-fundo p-3 space-y-2">
+              <div className="rounded-xl border border-borda bg-fundo p-3 space-y-1">
                 <div className="flex justify-between font-bold text-texto">
-                  <span>3. Agilidade de Atendimento</span>
-                  <span>Até 20 pontos (20%)</span>
+                  <span>3. Agilidade</span>
+                  <span>até {PESOS.agilidadeMaxima} pontos</span>
                 </div>
                 <p className="text-[11px]">
-                  Tempo médio em dias para resolução: até 1 dia (20 pts), até 2 dias (15 pts), até 3
-                  dias (10 pts), acima de 3 dias (5 pts).
+                  Tempo médio em dias úteis até a resolução:{" "}
+                  {PESOS.faixasAgilidade
+                    .map((f) => `até ${f.ateDiasUteis} → ${f.pontos} pts`)
+                    .join("; ")}
+                  ; acima → {PESOS.pontosAgilidadeAcimaDasFaixas} pts. Sem resolvidos → 0.
                 </p>
               </div>
+              <p className="text-[11px]">
+                Média da equipe: média simples das notas de quem finalizou chamados no período. Taxa
+                de prazo e tempo médio da equipe são ponderados por chamado.
+              </p>
             </div>
-
-            <div className="pt-2 text-right">
+            <div className="text-right">
               <button
                 type="button"
-                onClick={() => setMostrarModalFormula(false)}
-                className="rounded-xl bg-[#1D4ED8] px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 transition"
+                onClick={() => setMostrarFormula(false)}
+                className="rounded-xl bg-[#1D4ED8] px-4 py-2 text-xs font-bold text-white"
               >
                 Entendi
               </button>

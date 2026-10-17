@@ -6,6 +6,7 @@ import { type Perfil, type Polo } from "@/types/database";
 
 interface UsuarioComCredencial extends Perfil {
   tem_credencial_externa?: boolean;
+  pendencias?: number;
 }
 
 export default async function PaginaUsuarios() {
@@ -42,6 +43,9 @@ export default async function PaginaUsuarios() {
           pol.nome AS polo_nome,
           pol.cidade AS polo_cidade,
           CASE WHEN ce.perfil_id IS NOT NULL THEN 1 ELSE 0 END AS tem_credencial_externa,
+          (SELECT COUNT(*) FROM dados.chamados c
+             WHERE c.excluido_em IS NULL AND COALESCE(c.responsavel_id, c.criado_por) = p.id
+               AND c.situacao IN ('rascunho','aguardando','em_atendimento','aguardando_aluno','aguardando_externo')) AS pendencias,
           av.dados_depois AS avatar_json,
           av.operacao AS avatar_operacao,
           p.criado_em,
@@ -74,13 +78,14 @@ export default async function PaginaUsuarios() {
         ORDER BY nome ASC;
 
         -- 3. Acessos recentes do cofre
-        SELECT TOP 10
+        SELECT TOP 20
           CAST(a.id AS NVARCHAR(50)) AS id,
           CAST(a.perfil_alvo AS NVARCHAR(50)) AS perfil_alvo_id,
           CAST(a.admin_id AS NVARCHAR(50)) AS acessado_por,
           a.data_hora,
           a.ip,
           a.user_agent,
+          a.justificativa,
           pAlvo.nome_completo AS perfil_alvo_nome,
           pAdmin.nome_completo AS admin_nome
         FROM auditoria.credencial_acessos a
@@ -135,6 +140,7 @@ export default async function PaginaUsuarios() {
       polo_cidade: u.polo_cidade || null,
       avatar_url: avatarUrl,
       tem_credencial_externa: Boolean(u.tem_credencial_externa),
+      pendencias: Number(u.pendencias ?? 0),
       criado_em: criadoEmIso,
       atualizado_em: atualizadoEmIso,
     };
@@ -168,8 +174,9 @@ export default async function PaginaUsuarios() {
       perfil_alvo: String(a.perfil_alvo_id || ""),
       admin_id: String(a.acessado_por || ""),
       data_hora: dataHoraIso,
-      ip: a.ip || "127.0.0.1",
-      user_agent: a.user_agent || "Desconhecido",
+      ip: a.ip || null,
+      user_agent: a.user_agent || null,
+      justificativa: a.justificativa || null,
       perfil_alvo_nome: a.perfil_alvo_nome || "—",
       admin_nome: a.admin_nome || "Administrador",
     };

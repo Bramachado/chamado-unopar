@@ -50,7 +50,7 @@ export async function GET(request: NextRequest, { params }: Params) {
       const qa = await req.query(`
         SELECT CAST(a.id AS NVARCHAR(50)) AS id, a.nome_original, a.tipo_mime, a.tamanho_bytes, a.descricao
         FROM dados.arquivos_chamados a
-        WHERE a.chamado_id = @chamado_id
+        WHERE a.chamado_id = @chamado_id AND a.excluido_em IS NULL
         ORDER BY a.criado_em ASC
       `);
       return { tarefa, chamado: qc.recordset[0] || null, anexos: qa.recordset };

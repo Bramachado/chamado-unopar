@@ -285,7 +285,7 @@ export function PainelConfiguracoes({ perfil }: PainelConfiguracoesProps) {
 
               <p className="text-xs text-texto-suave leading-relaxed">
                 Rastreie alterações em chamados, uploads de arquivos, manipulação de motivos e
-                qualquer operação sensível com IP e data/hora.
+                qualquer operação sensível com data/hora e IP (quando informado pelo proxy).
               </p>
 
               <div className="flex flex-wrap gap-2 pt-1 text-xs">
@@ -293,7 +293,9 @@ export function PainelConfiguracoes({ perfil }: PainelConfiguracoesProps) {
                   <span>Exportação CSV</span>
                 </span>
                 <span className="inline-flex items-center gap-1 rounded-md bg-fundo px-2.5 py-1 font-medium text-texto border border-borda">
-                  <span>Trilha imutável</span>
+                  <span title="A aplicação só insere registros (sem permissão de alterar ou apagar). Administradores do banco ainda podem alterá-los.">
+                    Somente inclusão pela aplicação
+                  </span>
                 </span>
               </div>
             </div>

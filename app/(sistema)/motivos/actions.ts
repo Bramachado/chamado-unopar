@@ -1,21 +1,17 @@
 "use server";
 
-import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { obterPerfilAtual } from "@/lib/auth/perfil";
-import { comUsuario, comTransacao } from "@/lib/db/comUsuario";
-import { sql } from "@/lib/db/pool";
-
-const motivoSchema = z.object({
-  id: z.string().optional(),
-  nome: z.string().trim().min(3, "O nome do motivo deve conter pelo menos 3 caracteres."),
-  filtro: z.string().trim().optional().nullable(),
-});
+import { ErroNegocio } from "@/lib/chamados/repositorio";
+import { alternarStatusMotivo, consolidarMotivos, salvarMotivo } from "@/lib/motivos/servico";
+import type { TipoSemelhanca } from "@/lib/motivos/normalizacao";
 
 export type SimilaridadeResultado = {
   id: string;
   codigo: string;
   nome: string;
+  filtro: string | null;
+  tipo: TipoSemelhanca;
   similaridade: number;
 };
 
@@ -27,208 +23,77 @@ export type EstadoSalvarMotivo = {
   requerConfirmacao?: boolean;
 };
 
-function normalizarTexto(texto: string): string {
-  return texto
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim();
-}
-
-export async function verificarSimilaridade(nome: string): Promise<SimilaridadeResultado[]> {
-  if (!nome || nome.trim().length < 3) return [];
-
-  const perfil = await obterPerfilAtual();
-  const normalizado = normalizarTexto(nome);
-
-  return await comUsuario({ usuario_id: perfil.id, papel: perfil.papel }, async (req) => {
-    req.input("termo", sql.VarChar(255), `%${normalizado}%`);
-    const q = await req.query(`
-        SELECT TOP 5
-          CAST(id AS NVARCHAR(50)) AS id,
-          codigo,
-          nome,
-          1.0 AS similaridade
-        FROM dados.motivos
-        WHERE nome_normalizado LIKE @termo OR @termo LIKE '%' + nome_normalizado + '%'
-      `);
-    return q.recordset;
-  });
-}
+const revalidar = () => {
+  revalidatePath("/motivos");
+  revalidatePath("/chamados");
+  revalidatePath("/chamados/novo");
+};
 
 export async function salvarMotivoAction(
-  _estadoAnterior: EstadoSalvarMotivo,
+  _estado: EstadoSalvarMotivo,
   formData: FormData
 ): Promise<EstadoSalvarMotivo> {
   const perfil = await obterPerfilAtual();
-  const id = formData.get("id") ? String(formData.get("id")) : undefined;
-  const nome = String(formData.get("nome") || "");
-  const filtroBruto = formData.get("filtro");
-  const filtro = filtroBruto ? String(filtroBruto).trim() : null;
-  const confirmacaoForcada = formData.get("confirmacao_forcada") === "true";
-
-  const parseResult = motivoSchema.safeParse({ id, nome, filtro });
-  if (!parseResult.success) {
-    return { erro: parseResult.error.issues[0]?.message || "Nome inválido." };
-  }
-
-  const nomeLimpo = parseResult.data.nome;
-  const nomeNormalizado = normalizarTexto(nomeLimpo);
-  const filtroLimpo = parseResult.data.filtro || null;
-
-  // Se não for edição e não foi confirmação forçada, verifica similaridade
-  if (!id && !confirmacaoForcada) {
-    const similares = await verificarSimilaridade(nomeLimpo);
-    if (similares.length > 0) {
+  const t = (k: string) => (typeof formData.get(k) === "string" ? String(formData.get(k)) : null);
+  try {
+    const r = await salvarMotivo(perfil, {
+      id: t("id") || null,
+      nome: t("nome") ?? "",
+      filtro: t("filtro"),
+      descricao: t("descricao"),
+      confirmarSemelhante: t("confirmacao_forcada") === "true",
+    });
+    if (!r.ok) {
       return {
-        requerConfirmacao: true,
-        similares,
-        erro: `Identificamos ${similares.length} motivo(s) similar(es) no catálogo. Verifique antes de cadastrar.`,
+        erro: r.mensagem,
+        requerConfirmacao: !r.semelhantes.some((s) => s.tipo === "duplicado_exato"),
+        similares: r.semelhantes.map((s) => ({
+          id: s.motivo.id,
+          codigo: s.motivo.codigo,
+          nome: s.motivo.nome,
+          filtro: s.motivo.filtro,
+          tipo: s.tipo,
+          similaridade: s.similaridade,
+        })),
       };
     }
-  }
-
-  try {
-    const motivoId = await comTransacao(
-      { usuario_id: perfil.id, papel: perfil.papel },
-      async (req) => {
-        // Verifica se a coluna filtro existe na tabela dados.motivos
-        const checkCol = await req.query(`
-          SELECT 1 FROM sys.columns 
-          WHERE object_id = OBJECT_ID('dados.motivos') AND name = 'filtro'
-        `);
-        const temColunaFiltro = checkCol.recordset.length > 0;
-
-        // Se for edição de um motivo existente
-        if (id) {
-          req.input("id", sql.VarChar(50), id);
-          req.input("nomeNormalizado", sql.VarChar(255), nomeNormalizado);
-
-          // Verifica duplicata em outro motivo
-          const dup = await req.query(`
-            SELECT id FROM dados.motivos 
-            WHERE nome_normalizado = @nomeNormalizado AND id <> @id
-          `);
-          if (dup.recordset.length > 0) {
-            throw new Error("Já existe outro motivo com este mesmo nome no catálogo.");
-          }
-
-          req.input("nome", sql.NVarChar(255), nomeLimpo);
-          if (temColunaFiltro) {
-            req.input("filtro", sql.NVarChar(500), filtroLimpo);
-            await req.query(`
-              UPDATE dados.motivos
-              SET nome = @nome,
-                  filtro = @filtro
-              WHERE id = @id
-            `);
-          } else {
-            await req.query(`
-              UPDATE dados.motivos
-              SET nome = @nome
-              WHERE id = @id
-            `);
-          }
-
-          return id;
-        }
-
-        // Se for novo cadastro: Verifica duplicata exata
-        req.input("nomeNormalizado", sql.VarChar(255), nomeNormalizado);
-        const dup = await req.query(`
-          SELECT id FROM dados.motivos WHERE nome_normalizado = @nomeNormalizado
-        `);
-        if (dup.recordset.length > 0) {
-          throw new Error("Já existe exatamente este mesmo motivo cadastrado no catálogo.");
-        }
-
-        // Obtém próximo número sequencial
-        const qNum = await req.query(`
-          SELECT ISNULL(MAX(numero), 0) + 1 AS proximo FROM dados.motivos WITH (UPDLOCK, HOLDLOCK)
-        `);
-        const proximoNumero = qNum.recordset[0]?.proximo || 1;
-
-        req.input("numero", sql.Int, proximoNumero);
-        req.input("nome", sql.NVarChar(255), nomeLimpo);
-        req.input("criado_por", sql.VarChar(50), perfil.id);
-
-        if (temColunaFiltro) {
-          req.input("filtro", sql.NVarChar(500), filtroLimpo);
-          const qInsert = await req.query(`
-            DECLARE @out TABLE (id UNIQUEIDENTIFIER);
-
-            INSERT INTO dados.motivos (
-              numero,
-              nome,
-              filtro,
-              ativo,
-              criado_por
-            )
-            OUTPUT inserted.id INTO @out(id)
-            VALUES (
-              @numero,
-              @nome,
-              @filtro,
-              1,
-              @criado_por
-            );
-
-            SELECT CAST(id AS NVARCHAR(50)) AS id FROM @out;
-          `);
-          return qInsert.recordset[0]?.id;
-        } else {
-          const qInsert = await req.query(`
-            DECLARE @out TABLE (id UNIQUEIDENTIFIER);
-
-            INSERT INTO dados.motivos (
-              numero,
-              nome,
-              ativo,
-              criado_por
-            )
-            OUTPUT inserted.id INTO @out(id)
-            VALUES (
-              @numero,
-              @nome,
-              1,
-              @criado_por
-            );
-
-            SELECT CAST(id AS NVARCHAR(50)) AS id FROM @out;
-          `);
-          return qInsert.recordset[0]?.id;
-        }
-      }
-    );
-
-    revalidatePath("/motivos");
-    revalidatePath("/chamados");
-    revalidatePath("/chamados/novo");
-    return { sucesso: true, motivoId };
-  } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : "Erro ao salvar motivo.";
-    return { erro: msg };
+    revalidar();
+    return { sucesso: true, motivoId: r.id };
+  } catch (e) {
+    if (e instanceof ErroNegocio) return { erro: e.message };
+    console.error("[MOTIVOS] Falha ao salvar:", e instanceof Error ? e.message : e);
+    return { erro: "Erro ao salvar motivo." };
   }
 }
 
 export async function alternarStatusMotivoAction(id: string, ativo: boolean) {
   const perfil = await obterPerfilAtual();
-
   try {
-    await comUsuario({ usuario_id: perfil.id, papel: perfil.papel }, async (req) => {
-      req.input("id", sql.VarChar(50), id);
-      req.input("ativo", sql.Bit, ativo ? 1 : 0);
-      await req.query(`
-          UPDATE dados.motivos
-          SET ativo = @ativo
-          WHERE id = @id
-        `);
-    });
-
-    revalidatePath("/motivos");
+    await alternarStatusMotivo(perfil, id, ativo);
+    revalidar();
     return { sucesso: true };
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Falha ao alterar status do motivo.";
-    return { sucesso: false, erro: msg };
+  } catch (e) {
+    return {
+      sucesso: false,
+      erro: e instanceof ErroNegocio ? e.message : "Falha ao alterar status do motivo.",
+    };
+  }
+}
+
+export async function consolidarMotivosAction(
+  origemId: string,
+  destinoId: string,
+  justificativa: string
+) {
+  const perfil = await obterPerfilAtual();
+  try {
+    const n = await consolidarMotivos(perfil, origemId, destinoId, justificativa);
+    revalidar();
+    return { sucesso: true as const, chamadosMovidos: n };
+  } catch (e) {
+    return {
+      sucesso: false as const,
+      erro: e instanceof ErroNegocio ? e.message : "Falha ao consolidar motivos.",
+    };
   }
 }

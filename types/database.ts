@@ -1,5 +1,6 @@
 export type PapelUsuario = "admin" | "coordenador" | "atendente";
-export type SituacaoChamado = "aguardando" | "concluido" | "encerrado" | "rascunho";
+export type { Situacao as SituacaoChamado } from "@/lib/chamados/situacoes";
+import type { Situacao as SituacaoChamado } from "@/lib/chamados/situacoes";
 export type PrioridadeChamado = "normal" | "priorizar";
 
 export interface Polo {
@@ -54,10 +55,15 @@ export interface Motivo {
   nome: string;
   nome_normalizado: string;
   filtro?: string | null;
+  descricao?: string | null;
   ativo: boolean;
   criado_por?: string | null;
   criado_em: string;
   total_chamados?: number;
+  consolidado_para_id?: string | null;
+  consolidado_para_codigo?: string | null;
+  consolidado_em?: string | null;
+  consolidacao_justificativa?: string | null;
 }
 
 export interface ArquivoChamado {
@@ -84,12 +90,31 @@ export interface Chamado {
   descricao?: string | null;
   situacao: SituacaoChamado;
   prioridade: PrioridadeChamado;
+  /** Data civil AAAA-MM-DD (sem fuso). */
   data_solicitacao: string;
+  /** Data civil AAAA-MM-DD do prazo efetivo. */
   prazo: string;
+  prazo_calculado?: string | null;
+  prazo_ajuste_manual?: boolean;
+  prazo_ajuste_justificativa?: string | null;
+  prazo_ajustado_por_nome?: string | null;
+  prazo_ajustado_em?: string | null;
+  /** Instante ISO UTC. */
   data_conclusao?: string | null;
   chamado_vinculado_id?: string | null;
   observacao?: string | null;
   importado: boolean;
+  eh_teste?: boolean;
+  responsavel_id?: string | null;
+  responsavel_nome?: string | null;
+  responsavel_ativo?: boolean | null;
+  resolucao?: string | null;
+  motivo_encerramento?: string | null;
+  ultima_interacao_em?: string | null;
+  proxima_acao?: string | null;
+  proxima_acao_em?: string | null;
+  status_externo?: string | null;
+  reaberturas?: number;
   polo_id?: string | null;
   polo_nome?: string | null;
   polo_cidade?: string | null;
@@ -120,6 +145,19 @@ export interface LogAuditoria {
   criado_em: string;
 }
 
+export interface EventoChamado {
+  id: number;
+  tipo: string;
+  situacao_anterior?: string | null;
+  situacao_nova?: string | null;
+  responsavel_anterior_nome?: string | null;
+  responsavel_novo_nome?: string | null;
+  texto?: string | null;
+  criado_por_nome?: string | null;
+  criado_em: string;
+}
+
+/** @deprecated substituído por LinhaRanking (lib/indicadores/pontuacao.ts). */
 export interface RankingItem {
   posicao: number;
   usuario_id: string;

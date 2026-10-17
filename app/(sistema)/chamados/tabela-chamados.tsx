@@ -22,19 +22,23 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { format, parseISO, startOfDay, differenceInCalendarDays } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { excluirChamadoAction } from "./actions";
+import { formatarDataCivil, hojeCivil, diferencaDiasCorridos } from "@/lib/datas";
+import { classificarPrazo } from "@/lib/sla";
+import { ROTULO_SITUACAO, SITUACOES, ehPendente } from "@/lib/chamados/situacoes";
+import { filtrosParaQuery, type FiltrosChamados } from "@/lib/chamados/filtros-comuns";
+import { SituacaoBadge } from "@/components/ui/situacao-badge";
+import { CpfDisplay } from "@/components/ui/cpf-display";
+import { formatarTelefone } from "@/lib/utils/telefone";
 import { CustomSelect, type CustomSelectOption } from "@/components/ui/custom-select";
 import { CustomCheckbox } from "@/components/ui/custom-checkbox";
 import { CustomDatePicker } from "@/components/ui/custom-date-picker";
-import { formatarCpf } from "@/lib/utils/cpf";
 import { FiltroColunaExcel } from "@/components/ui/filtro-coluna-excel";
 
-export type TipoFiltroPrazo = "todos" | "vencidos" | "vence_hoje" | "vence_2dias" | "pendentes";
+export type TipoFiltroPrazo = "todos" | "vencidos" | "vence_hoje" | "vence_em_breve" | "pendentes";
 
 export interface InfoPrazo {
-  tipo: "vencido" | "vence_hoje" | "vence_2dias" | "no_prazo" | "finalizado";
+  tipo: "vencido" | "vence_hoje" | "vence_em_breve" | "no_prazo" | "finalizado";
   dias: number | null;
   textoBadge: string;
   subtexto: string;
@@ -43,8 +47,9 @@ export interface InfoPrazo {
   bgLinha: string;
 }
 
-export function obterInfoPrazo(prazoIso: string, situacao: string): InfoPrazo {
-  if (situacao === "concluido" || situacao === "encerrado") {
+/** Classificação visual do prazo pela regra única (lib/sla), sobre datas civis e sem fuso. */
+export function obterInfoPrazo(prazo: string, situacao: string, hojeRef?: string): InfoPrazo {
+  if (!ehPendente(situacao)) {
     return {
       tipo: "finalizado",
       dias: null,
@@ -57,24 +62,11 @@ export function obterInfoPrazo(prazoIso: string, situacao: string): InfoPrazo {
     };
   }
 
-  if (situacao === "rascunho") {
-    return {
-      tipo: "finalizado",
-      dias: null,
-      textoBadge: "Rascunho",
-      subtexto: "Chamado em rascunho",
-      badgeClasse:
-        "bg-zinc-100 text-zinc-700 border-zinc-300 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700 font-medium",
-      bordaTabela: "border-l-4 border-l-zinc-400",
-      bgLinha: "bg-zinc-50/20 hover:bg-zinc-50/40 dark:bg-zinc-900/20",
-    };
-  }
+  const hoje = hojeRef ?? hojeCivil();
+  const diff = diferencaDiasCorridos(hoje, prazo);
+  const classe = classificarPrazo(prazo, hoje);
 
-  const hoje = startOfDay(new Date());
-  const dataPrazo = startOfDay(parseISO(prazoIso));
-  const diff = differenceInCalendarDays(dataPrazo, hoje);
-
-  if (diff < 0) {
+  if (classe === "vencido") {
     const diasAtras = Math.abs(diff);
     return {
       tipo: "vencido",
@@ -88,7 +80,7 @@ export function obterInfoPrazo(prazoIso: string, situacao: string): InfoPrazo {
     };
   }
 
-  if (diff === 0) {
+  if (classe === "vence_hoje") {
     return {
       tipo: "vence_hoje",
       dias: 0,
@@ -101,9 +93,9 @@ export function obterInfoPrazo(prazoIso: string, situacao: string): InfoPrazo {
     };
   }
 
-  if (diff === 1 || diff === 2) {
+  if (classe === "vence_em_breve") {
     return {
-      tipo: "vence_2dias",
+      tipo: "vence_em_breve",
       dias: diff,
       textoBadge: diff === 1 ? "Vence amanhã (1d)" : "Faltam 2 dias",
       subtexto: "Prazo próximo",
@@ -127,25 +119,13 @@ export function obterInfoPrazo(prazoIso: string, situacao: string): InfoPrazo {
 }
 
 interface TabelaChamadosProps {
-  chamados: (Chamado & {
-    motivos?: Pick<Motivo, "id" | "codigo" | "nome">;
-    perfis?: Pick<Perfil, "id" | "nome_completo">;
-  })[];
+  chamados: (Chamado & { motivo_codigo?: string | null; motivo_nome?: string | null })[];
   motivos: Motivo[];
   polos?: Polo[];
   perfilAtual: Perfil;
-  filtros: {
-    busca?: string;
-    situacao?: string;
-    prioridade?: string;
-    motivo_id?: string;
-    polo_id?: string;
-    data_inicio?: string;
-    data_fim?: string;
-    reincidentes?: string;
-    escopo?: string;
-    filtro_prazo?: string;
-  };
+  filtros: FiltrosChamados;
+  resumo: { pendentes: number; vencidos: number; vence_hoje: number; vence_em_breve: number };
+  paginacao: { pagina: number; porPagina: number; total: number };
 }
 
 export function TabelaChamados({
@@ -154,6 +134,8 @@ export function TabelaChamados({
   polos = [],
   perfilAtual,
   filtros,
+  resumo,
+  paginacao,
 }: TabelaChamadosProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -161,7 +143,7 @@ export function TabelaChamados({
   const [isPending, startTransition] = useTransition();
 
   const ehAdmin = perfilAtual.papel === "admin";
-  const [escopo, setEscopo] = useState(filtros.escopo || (ehAdmin ? "todos" : "meus"));
+  const [escopo, setEscopo] = useState<string>(filtros.escopo);
 
   // Estados locais dos filtros
   const [busca, setBusca] = useState(filtros.busca || "");
@@ -169,47 +151,35 @@ export function TabelaChamados({
   const [prioridade, setPrioridade] = useState(filtros.prioridade || "todos");
   const [motivoId, setMotivoId] = useState(filtros.motivo_id || "todos");
   const [poloId, setPoloId] = useState(filtros.polo_id || "todos");
-  const [dataInicio, setDataInicio] = useState(filtros.data_inicio || "");
-  const [dataFim, setDataFim] = useState(filtros.data_fim || "");
-  const [apenasReincidentes, setApenasReincidentes] = useState(filtros.reincidentes === "true");
+  const [dataInicio, setDataInicio] = useState(filtros.abertura_de || "");
+  const [dataFim, setDataFim] = useState(filtros.abertura_ate || "");
+  const [apenasReincidentes, setApenasReincidentes] = useState(!!filtros.reincidentes);
   const [filtroPrazo, setFiltroPrazo] = useState<TipoFiltroPrazo>(
-    (filtros.filtro_prazo as TipoFiltroPrazo) || "todos"
+    filtros.situacao === "pendentes" && !filtros.filtro_prazo
+      ? "pendentes"
+      : (filtros.filtro_prazo as TipoFiltroPrazo) || "todos"
   );
 
   // Estado do modal de confirmação de exclusão
   const [chamadoExcluir, setChamadoExcluir] = useState<Chamado | null>(null);
   const [mensagemErro, setMensagemErro] = useState<string | null>(null);
 
-  const hoje = startOfDay(new Date());
+  const hoje = hojeCivil();
+  const urlAtual = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
+  const comVolta = (url: string) => `${url}?voltar=${encodeURIComponent(urlAtual)}`;
 
-  // Contagens para o Painel Operacional de Prazos (baseado no conjunto atual carregado)
-  const totalVencidos = chamados.filter(
-    (c) =>
-      c.situacao === "aguardando" &&
-      differenceInCalendarDays(startOfDay(parseISO(c.prazo)), hoje) < 0
-  ).length;
-
-  const totalVenceHoje = chamados.filter(
-    (c) =>
-      c.situacao === "aguardando" &&
-      differenceInCalendarDays(startOfDay(parseISO(c.prazo)), hoje) === 0
-  ).length;
-
-  const totalVence2Dias = chamados.filter((c) => {
-    if (c.situacao !== "aguardando") return false;
-    const diff = differenceInCalendarDays(startOfDay(parseISO(c.prazo)), hoje);
-    return diff === 1 || diff === 2;
-  }).length;
-
-  const totalPendentes = chamados.filter((c) => c.situacao === "aguardando").length;
+  // Contadores calculados no servidor sobre TODOS os chamados dos filtros (não só a página)
+  const totalVencidos = resumo.vencidos;
+  const totalVenceHoje = resumo.vence_hoje;
+  const totalVence2Dias = resumo.vence_em_breve;
+  const totalPendentes = resumo.pendentes;
 
   // Opções formatadas para os CustomSelects
   const opcoesSituacao: CustomSelectOption[] = [
     { value: "todos", label: "Todas as situações" },
-    { value: "aguardando", label: "Aguardando (Em andamento)" },
-    { value: "concluido", label: "Concluído (Resolvido)" },
-    { value: "encerrado", label: "Encerrado (Sem resolução)" },
-    { value: "rascunho", label: "Rascunho" },
+    { value: "pendentes", label: "Todas as pendentes" },
+    { value: "finalizados", label: "Todas as finalizadas" },
+    ...SITUACOES.map((s) => ({ value: s, label: ROTULO_SITUACAO[s] })),
   ];
 
   const opcoesPrioridade: CustomSelectOption[] = [
@@ -240,27 +210,8 @@ export function TabelaChamados({
           })),
         ];
 
-  // Filtro de alunos reincidentes no client-side
-  const contagemPorAluno = chamados.reduce<Record<string, number>>((acc, c) => {
-    const nomeNorm = c.aluno_nome.trim().toLowerCase();
-    acc[nomeNorm] = (acc[nomeNorm] || 0) + 1;
-    return acc;
-  }, {});
-
-  const chamadosComReincidencia = apenasReincidentes
-    ? chamados.filter((c) => (contagemPorAluno[c.aluno_nome.trim().toLowerCase()] || 0) > 1)
-    : chamados;
-
-  // Aplicação do filtro de prazos rápidos selecionados no painel
-  const chamadosFiltrados = chamadosComReincidencia.filter((c) => {
-    if (filtroPrazo === "todos") return true;
-    const info = obterInfoPrazo(c.prazo, c.situacao);
-    if (filtroPrazo === "vencidos") return info.tipo === "vencido";
-    if (filtroPrazo === "vence_hoje") return info.tipo === "vence_hoje";
-    if (filtroPrazo === "vence_2dias") return info.tipo === "vence_2dias";
-    if (filtroPrazo === "pendentes") return c.situacao === "aguardando";
-    return true;
-  });
+  // Reincidência e prazo são filtrados no servidor (mesma regra da exportação)
+  const chamadosFiltrados = chamados;
 
   // Estado para filtros estilo Excel em colunas específicas
   const [filtrosExcel, setFiltrosExcel] = useState<{
@@ -319,7 +270,7 @@ export function TabelaChamados({
   const itensMotivo = useMemo(() => {
     const contagem: Record<string, number> = {};
     chamadosFiltrados.forEach((c) => {
-      const val = c.motivos ? `${c.motivos.codigo} — ${c.motivos.nome}`.trim() : "Outros";
+      const val = c.motivo_codigo ? `${c.motivo_codigo} — ${c.motivo_nome}`.trim() : "Outros";
       contagem[val] = (contagem[val] || 0) + 1;
     });
     return Object.entries(contagem)
@@ -345,7 +296,7 @@ export function TabelaChamados({
         if (!filtrosExcel.contato.has(val)) return false;
       }
       if (filtrosExcel.motivo && filtrosExcel.motivo.size > 0) {
-        const val = c.motivos ? `${c.motivos.codigo} — ${c.motivos.nome}`.trim() : "Outros";
+        const val = c.motivo_codigo ? `${c.motivo_codigo} — ${c.motivo_nome}`.trim() : "Outros";
         if (!filtrosExcel.motivo.has(val)) return false;
       }
       return true;
@@ -407,11 +358,11 @@ export function TabelaChamados({
     const proximo = filtroPrazo === novoFiltro ? "todos" : novoFiltro;
     setFiltroPrazo(proximo);
     const params = new URLSearchParams(searchParams.toString());
-    if (proximo !== "todos") {
-      params.set("filtro_prazo", proximo);
-    } else {
-      params.delete("filtro_prazo");
-    }
+    params.delete("pagina");
+    params.delete("filtro_prazo");
+    if (proximo === "pendentes") params.set("situacao", "pendentes");
+    else if (params.get("situacao") === "pendentes") params.delete("situacao");
+    if (proximo !== "todos" && proximo !== "pendentes") params.set("filtro_prazo", proximo);
     startTransition(() => {
       router.push(`${pathname}?${params.toString()}`);
     });
@@ -436,16 +387,19 @@ export function TabelaChamados({
     if (poloId !== "todos") params.set("polo_id", poloId);
     else params.delete("polo_id");
 
-    if (dataInicio) params.set("data_inicio", dataInicio);
-    else params.delete("data_inicio");
-
-    if (dataFim) params.set("data_fim", dataFim);
-    else params.delete("data_fim");
+    params.delete("data_inicio");
+    params.delete("data_fim");
+    params.delete("pagina");
+    if (dataInicio) params.set("abertura_de", dataInicio);
+    else params.delete("abertura_de");
+    if (dataFim) params.set("abertura_ate", dataFim);
+    else params.delete("abertura_ate");
 
     if (apenasReincidentes) params.set("reincidentes", "true");
     else params.delete("reincidentes");
 
-    if (filtroPrazo !== "todos") params.set("filtro_prazo", filtroPrazo);
+    if (filtroPrazo !== "todos" && filtroPrazo !== "pendentes")
+      params.set("filtro_prazo", filtroPrazo);
     else params.delete("filtro_prazo");
 
     startTransition(() => {
@@ -471,6 +425,14 @@ export function TabelaChamados({
     startTransition(() => {
       router.push(`${pathname}?escopo=${padraoEscopo}`);
     });
+  };
+
+  const totalPaginas = Math.max(1, Math.ceil(paginacao.total / paginacao.porPagina));
+  const irParaPagina = (pg: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (pg > 1) params.set("pagina", String(pg));
+    else params.delete("pagina");
+    startTransition(() => router.push(`${pathname}?${params.toString()}`));
   };
 
   const handleConfirmarExclusao = async () => {
@@ -520,10 +482,10 @@ export function TabelaChamados({
                   ? "bg-acento text-white shadow-xs"
                   : "text-texto-suave hover:text-texto hover:bg-superficie/60"
               }`}
-              title="Exibir chamados abertos por você"
+              title="Chamados sob sua responsabilidade"
             >
               <User className="h-3.5 w-3.5" />
-              <span>Meus Chamados</span>
+              <span>Sob minha responsabilidade</span>
             </button>
             <button
               type="button"
@@ -533,7 +495,7 @@ export function TabelaChamados({
                   ? "bg-acento text-white shadow-xs"
                   : "text-texto-suave hover:text-texto hover:bg-superficie/60"
               }`}
-              title="Exibir todos os chamados da unidade"
+              title="Todos os chamados que você pode ver"
             >
               <Users className="h-3.5 w-3.5" />
               <span>Todos os Chamados</span>
@@ -541,16 +503,16 @@ export function TabelaChamados({
           </div>
 
           <Link
-            href={`/chamados/exportar?${searchParams.toString()}`}
+            href={`/chamados/exportar?${filtrosParaQuery({ ...filtros, pagina: 1 })}`}
             className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg border border-borda bg-superficie text-xs font-semibold text-texto hover:bg-fundo transition shadow-2xs shrink-0"
-            title="Exportar dados filtrados em CSV"
+            title="Exporta todos os chamados destes filtros (não só a página)"
           >
             <Download className="h-3.5 w-3.5 text-texto-suave" />
             <span className="hidden sm:inline">Exportar CSV</span>
           </Link>
 
           <Link
-            href="/chamados/novo"
+            href={comVolta("/chamados/novo")}
             className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-acento text-xs font-semibold text-white hover:bg-acento-hover transition shadow-2xs shrink-0"
           >
             <Plus className="h-4 w-4" />
@@ -676,9 +638,9 @@ export function TabelaChamados({
           {/* Card 3: Faltam 1 a 2 Dias */}
           <button
             type="button"
-            onClick={() => alternarFiltroPrazo("vence_2dias")}
+            onClick={() => alternarFiltroPrazo("vence_em_breve")}
             className={`group relative flex flex-col justify-between rounded-xl border p-4 text-left transition-all cursor-pointer ${
-              filtroPrazo === "vence_2dias"
+              filtroPrazo === "vence_em_breve"
                 ? "border-amber-500 bg-amber-50 dark:bg-amber-950/40 ring-2 ring-amber-500 shadow-sm"
                 : "border-amber-200/80 bg-amber-50/30 hover:bg-amber-50/70 hover:border-amber-300 dark:border-amber-900/40 dark:bg-amber-950/15 dark:hover:bg-amber-950/30"
             }`}
@@ -687,7 +649,7 @@ export function TabelaChamados({
             <div className="flex items-center justify-between w-full">
               <span className="text-xs font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
                 <CalendarClock className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                <span>Próximos (Até 2 Dias)</span>
+                <span>Vencem em 1 a 2 dias</span>
               </span>
               <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-400">
                 Atenção
@@ -699,13 +661,13 @@ export function TabelaChamados({
                 {totalVence2Dias}
               </span>
               <span className="text-[11px] font-medium text-amber-600/90 dark:text-amber-400/90">
-                faltam 1 ou 2 dias
+                dias corridos
               </span>
             </div>
 
             <div className="mt-2.5 pt-2 border-t border-amber-200/70 dark:border-amber-900/40 flex items-center justify-between text-[11px] text-amber-700 dark:text-amber-300">
               <span className="font-medium">
-                {filtroPrazo === "vence_2dias" ? "✓ Filtro aplicado" : "Isolar chamados"}
+                {filtroPrazo === "vence_em_breve" ? "✓ Filtro aplicado" : "Isolar chamados"}
               </span>
               <span className="font-bold group-hover:translate-x-0.5 transition-transform">→</span>
             </div>
@@ -725,7 +687,7 @@ export function TabelaChamados({
             <div className="flex items-center justify-between w-full">
               <span className="text-xs font-semibold text-sky-800 dark:text-sky-300 flex items-center gap-1.5">
                 <Inbox className="h-4 w-4 text-sky-600 dark:text-sky-400 shrink-0" />
-                <span>Total em Aberto</span>
+                <span>Pendências (estoque)</span>
               </span>
               <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-400">
                 Geral
@@ -737,7 +699,7 @@ export function TabelaChamados({
                 {totalPendentes}
               </span>
               <span className="text-[11px] font-medium text-sky-600/90 dark:text-sky-400/90">
-                aguardando resolução
+                situações não finalizadas
               </span>
             </div>
 
@@ -757,7 +719,7 @@ export function TabelaChamados({
           {/* Busca Textual */}
           <div>
             <label className="block text-xs font-medium text-texto mb-1.5">
-              Buscar (Protocolo, Aluno, CPF)
+              Buscar (Protocolo, Aluno, CPF, RA)
             </label>
             <div className="relative">
               <input
@@ -812,7 +774,7 @@ export function TabelaChamados({
           <div className="flex flex-wrap items-center gap-3">
             {/* Seletores de Datas Estilizados */}
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-texto">Período:</span>
+              <span className="text-xs font-semibold text-texto">Abertura entre:</span>
               <CustomDatePicker
                 value={dataInicio}
                 onChange={(val) => setDataInicio(val)}
@@ -874,7 +836,7 @@ export function TabelaChamados({
           <div className="flex items-center gap-2">
             <Filter className="h-4 w-4 text-acento shrink-0" />
             <span>
-              Filtro ativo nas colunas estilo Excel. Exibindo{" "}
+              Filtro de coluna ativo (somente nesta página). Exibindo{" "}
               <strong className="text-acento font-bold">{chamadosExibicao.length}</strong> de{" "}
               <strong>{chamadosFiltrados.length}</strong> chamados.
             </span>
@@ -995,12 +957,13 @@ export function TabelaChamados({
               {chamadosExibicao.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="py-12 text-center text-xs text-texto-suave">
-                    Nenhum chamado encontrado para os filtros selecionados.
+                    Nenhum chamado encontrado para os filtros selecionados. Ajuste ou limpe os
+                    filtros.
                   </td>
                 </tr>
               ) : (
                 chamadosExibicao.map((c) => {
-                  const infoPrazo = obterInfoPrazo(c.prazo, c.situacao);
+                  const infoPrazo = obterInfoPrazo(c.prazo, c.situacao, hoje);
                   const ehAutor = c.criado_por === perfilAtual.id;
                   const ehAdmin = perfilAtual.papel === "admin";
                   const podeEditar = true;
@@ -1011,7 +974,7 @@ export function TabelaChamados({
                       key={c.id}
                       className={`transition-colors ${infoPrazo.bordaTabela} ${
                         infoPrazo.bgLinha ||
-                        (c.prioridade === "priorizar" && c.situacao === "aguardando"
+                        (c.prioridade === "priorizar" && ehPendente(c.situacao)
                           ? "bg-alerta-fundo/10"
                           : "")
                       }`}
@@ -1019,7 +982,7 @@ export function TabelaChamados({
                       {/* Protocolo */}
                       <td className="font-mono text-xs font-semibold">
                         <Link
-                          href={`/chamados/${c.id}`}
+                          href={comVolta(`/chamados/${c.id}`)}
                           className="text-acento hover:underline flex items-center gap-1"
                           title="Ver detalhes do chamado"
                         >
@@ -1032,7 +995,11 @@ export function TabelaChamados({
                         <div className="font-medium text-texto">{c.aluno_nome}</div>
                         {(c.aluno_cpf || c.aluno_ra) && (
                           <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-texto-suave font-mono whitespace-nowrap">
-                            {c.aluno_cpf && <span>CPF: {formatarCpf(c.aluno_cpf)}</span>}
+                            {c.aluno_cpf && (
+                              <span className="inline-flex items-center gap-1">
+                                CPF: <CpfDisplay cpf={c.aluno_cpf} showToggle={false} />
+                              </span>
+                            )}
                             {c.aluno_cpf && c.aluno_ra && <span className="text-borda">·</span>}
                             {c.aluno_ra && <span>RA: {c.aluno_ra}</span>}
                           </div>
@@ -1041,38 +1008,23 @@ export function TabelaChamados({
 
                       {/* Situação */}
                       <td className="text-center">
-                        <span
-                          className={`inline-flex items-center justify-center h-6 px-2.5 rounded-full text-[11px] font-semibold border ${
-                            c.situacao === "concluido"
-                              ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
-                              : c.situacao === "encerrado"
-                                ? "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"
-                                : c.situacao === "rascunho"
-                                  ? "bg-zinc-100 text-zinc-700 border-zinc-300 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700"
-                                  : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800"
-                          }`}
-                        >
-                          {c.situacao === "concluido"
-                            ? "Concluído"
-                            : c.situacao === "aguardando"
-                              ? "Aguardando"
-                              : c.situacao === "rascunho"
-                                ? "Rascunho"
-                                : "Encerrado"}
-                        </span>
+                        <SituacaoBadge situacao={c.situacao} />
                       </td>
 
                       {/* Contato */}
                       <td className="font-mono text-xs tabular-nums text-texto-suave">
-                        {c.contato_telefone || "—"}
+                        {c.contato_telefone ? formatarTelefone(c.contato_telefone) : "—"}
                       </td>
 
                       {/* Motivo */}
-                      <td className="text-xs text-texto truncate max-w-xs" title={c.motivos?.nome}>
+                      <td
+                        className="text-xs text-texto truncate max-w-xs"
+                        title={c.motivo_nome ?? undefined}
+                      >
                         <span className="font-mono font-medium text-acento mr-1.5">
-                          {c.motivos?.codigo}
+                          {c.motivo_codigo}
                         </span>
-                        <span>{c.motivos?.nome || "—"}</span>
+                        <span>{c.motivo_nome || "—"}</span>
                       </td>
 
                       {/* Polo */}
@@ -1103,12 +1055,12 @@ export function TabelaChamados({
 
                       {/* Data de Solicitação */}
                       <td className="font-mono text-xs tabular-nums text-texto-suave text-right">
-                        {format(parseISO(c.data_solicitacao), "dd/MM/yyyy", { locale: ptBR })}
+                        {formatarDataCivil(c.data_solicitacao)}
                       </td>
 
                       {/* Prazo com Identificador Vermelho / Urgência */}
                       <td className="text-right whitespace-nowrap">
-                        {c.situacao === "aguardando" ? (
+                        {ehPendente(c.situacao) ? (
                           <div className="inline-flex flex-col items-end gap-1">
                             <span
                               className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold border ${infoPrazo.badgeClasse}`}
@@ -1120,7 +1072,7 @@ export function TabelaChamados({
                               {infoPrazo.tipo === "vence_hoje" && (
                                 <Clock className="h-3 w-3 shrink-0 text-rose-600 dark:text-rose-300" />
                               )}
-                              {infoPrazo.tipo === "vence_2dias" && (
+                              {infoPrazo.tipo === "vence_em_breve" && (
                                 <CalendarClock className="h-3 w-3 shrink-0 text-amber-600 dark:text-amber-300" />
                               )}
                               {infoPrazo.tipo === "no_prazo" && (
@@ -1129,26 +1081,26 @@ export function TabelaChamados({
                               <span>{infoPrazo.textoBadge}</span>
                             </span>
                             <span className="font-mono text-[11px] tabular-nums text-texto-suave">
-                              {format(parseISO(c.prazo), "dd/MM/yyyy", { locale: ptBR })}
+                              {formatarDataCivil(c.prazo)}
                             </span>
                           </div>
                         ) : (
                           <div className="font-mono text-xs tabular-nums text-texto-suave">
-                            {format(parseISO(c.prazo), "dd/MM/yyyy", { locale: ptBR })}
+                            {formatarDataCivil(c.prazo)}
                           </div>
                         )}
                       </td>
 
                       {/* Responsável */}
                       <td className="text-xs text-texto">
-                        {formatarResponsavel(c.perfis?.nome_completo)}
+                        {formatarResponsavel(c.responsavel_nome ?? undefined)}
                       </td>
 
                       {/* Ações */}
                       <td className="text-right">
                         <div className="inline-flex items-center gap-1">
                           <Link
-                            href={`/chamados/${c.id}`}
+                            href={comVolta(`/chamados/${c.id}`)}
                             className="btn-tátil rounded-md p-1.5 text-texto-suave hover:bg-fundo hover:text-acento transition"
                             title="Visualizar chamado"
                           >
@@ -1157,7 +1109,7 @@ export function TabelaChamados({
 
                           {podeEditar && (
                             <Link
-                              href={`/chamados/${c.id}/editar`}
+                              href={comVolta(`/chamados/${c.id}/editar`)}
                               className="btn-tátil rounded-md p-1.5 text-texto-suave hover:bg-fundo hover:text-acento transition"
                               title="Editar chamado"
                             >
@@ -1186,6 +1138,38 @@ export function TabelaChamados({
         </div>
       </div>
 
+      <nav
+        aria-label="Paginação"
+        className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-texto-suave"
+      >
+        <span>
+          {paginacao.total === 0
+            ? "Nenhum chamado"
+            : `Exibindo ${(paginacao.pagina - 1) * paginacao.porPagina + 1}–${Math.min(paginacao.pagina * paginacao.porPagina, paginacao.total)} de ${paginacao.total} chamados`}
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={paginacao.pagina <= 1 || isPending}
+            onClick={() => irParaPagina(paginacao.pagina - 1)}
+            className="h-8 px-3 rounded-lg border border-borda bg-superficie font-semibold text-texto disabled:opacity-40"
+          >
+            Anterior
+          </button>
+          <span aria-current="page">
+            Página {paginacao.pagina} de {totalPaginas}
+          </span>
+          <button
+            type="button"
+            disabled={paginacao.pagina >= totalPaginas || isPending}
+            onClick={() => irParaPagina(paginacao.pagina + 1)}
+            className="h-8 px-3 rounded-lg border border-borda bg-superficie font-semibold text-texto disabled:opacity-40"
+          >
+            Próxima
+          </button>
+        </div>
+      </nav>
+
       {/* Cards Responsivos para Mobile */}
       <div className="block sm:hidden space-y-3">
         {chamadosExibicao.length === 0 ? (
@@ -1194,7 +1178,7 @@ export function TabelaChamados({
           </div>
         ) : (
           chamadosExibicao.map((c) => {
-            const infoPrazo = obterInfoPrazo(c.prazo, c.situacao);
+            const infoPrazo = obterInfoPrazo(c.prazo, c.situacao, hoje);
             const ehAutor = c.criado_por === perfilAtual.id;
             const ehAdmin = perfilAtual.papel === "admin";
             const podeExcluir = ehAdmin || ehAutor;
@@ -1206,31 +1190,13 @@ export function TabelaChamados({
               >
                 <div className="flex items-center justify-between">
                   <Link
-                    href={`/chamados/${c.id}`}
+                    href={comVolta(`/chamados/${c.id}`)}
                     className="font-mono font-semibold text-sm text-acento"
                   >
                     {c.protocolo}
                   </Link>
                   <div className="flex items-center gap-1.5">
-                    <span
-                      className={`rounded border px-2 py-0.5 text-[10px] font-medium ${
-                        c.situacao === "concluido"
-                          ? "bg-sucesso-fundo/40 text-sucesso border-sucesso/30"
-                          : c.situacao === "encerrado"
-                            ? "bg-fundo text-texto-suave border-borda"
-                            : c.situacao === "rascunho"
-                              ? "bg-zinc-100 text-zinc-700 border-zinc-300 dark:bg-zinc-800 dark:text-zinc-300"
-                              : "bg-fundo text-texto border-borda"
-                      }`}
-                    >
-                      {c.situacao === "concluido"
-                        ? "Concluído"
-                        : c.situacao === "aguardando"
-                          ? "Aguardando"
-                          : c.situacao === "rascunho"
-                            ? "Rascunho"
-                            : "Encerrado"}
-                    </span>
+                    <SituacaoBadge situacao={c.situacao} />
                     {c.polo_nome && (
                       <span className="rounded border border-borda bg-fundo px-1.5 py-0.5 text-[10px] font-medium text-texto">
                         {c.polo_cidade || c.polo_nome}
@@ -1243,7 +1209,11 @@ export function TabelaChamados({
                   <div className="text-xs font-semibold text-texto">{c.aluno_nome}</div>
                   {(c.aluno_cpf || c.aluno_ra) && (
                     <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-texto-suave font-mono">
-                      {c.aluno_cpf && <span>CPF: {formatarCpf(c.aluno_cpf)}</span>}
+                      {c.aluno_cpf && (
+                        <span className="inline-flex items-center gap-1">
+                          CPF: <CpfDisplay cpf={c.aluno_cpf} showToggle={false} />
+                        </span>
+                      )}
                       {c.aluno_cpf && c.aluno_ra && <span className="text-borda">·</span>}
                       {c.aluno_ra && <span>RA: {c.aluno_ra}</span>}
                     </div>
@@ -1252,9 +1222,9 @@ export function TabelaChamados({
 
                 <div className="text-[11px] text-texto-suave flex items-center justify-between">
                   <span className="truncate max-w-[50%]">
-                    {c.motivos?.codigo} {c.motivos?.nome}
+                    {c.motivo_codigo} {c.motivo_nome}
                   </span>
-                  {c.situacao === "aguardando" ? (
+                  {ehPendente(c.situacao) ? (
                     <span
                       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold border ${infoPrazo.badgeClasse}`}
                     >
@@ -1264,17 +1234,17 @@ export function TabelaChamados({
                       {infoPrazo.tipo === "vence_hoje" && (
                         <Clock className="h-2.5 w-2.5 shrink-0" />
                       )}
-                      {infoPrazo.tipo === "vence_2dias" && (
+                      {infoPrazo.tipo === "vence_em_breve" && (
                         <CalendarClock className="h-2.5 w-2.5 shrink-0" />
                       )}
                       <span>{infoPrazo.textoBadge}</span>
                       <span className="font-mono text-texto-suave font-normal ml-0.5">
-                        ({format(parseISO(c.prazo), "dd/MM")})
+                        ({formatarDataCivil(c.prazo, "curto")})
                       </span>
                     </span>
                   ) : (
                     <span className="font-mono text-texto">
-                      Prazo: {format(parseISO(c.prazo), "dd/MM/yyyy")}
+                      Prazo: {formatarDataCivil(c.prazo)}
                     </span>
                   )}
                 </div>
@@ -1283,19 +1253,19 @@ export function TabelaChamados({
                   <span className="text-[11px] text-texto-suave">
                     Responsável:{" "}
                     <strong className="text-texto font-medium">
-                      {formatarResponsavel(c.perfis?.nome_completo)}
+                      {formatarResponsavel(c.responsavel_nome ?? undefined)}
                     </strong>
                   </span>
 
                   <div className="flex items-center gap-2">
                     <Link
-                      href={`/chamados/${c.id}`}
+                      href={comVolta(`/chamados/${c.id}`)}
                       className="rounded-md border border-borda bg-fundo px-2.5 py-1 text-xs font-medium text-texto"
                     >
                       Ver
                     </Link>
                     <Link
-                      href={`/chamados/${c.id}/editar`}
+                      href={comVolta(`/chamados/${c.id}/editar`)}
                       className="rounded-md bg-acento px-2.5 py-1 text-xs font-semibold text-white"
                     >
                       Editar
