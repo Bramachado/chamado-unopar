@@ -13,8 +13,7 @@ import {
   Building2,
   Tag,
 } from "lucide-react";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { formatarDataCivil } from "@/lib/datas";
 import { type DadosNotificacoesPrazos } from "@/lib/chamados/notificacoes";
 import { obterNotificacoesPrazosAction } from "./actions";
 
@@ -86,13 +85,8 @@ export function MenuNotificacoes({
     return true;
   });
 
-  const formatarDataPrazo = (iso: string) => {
-    try {
-      return format(new Date(iso), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
-    } catch {
-      return iso;
-    }
-  };
+  // Prazo é uma data civil (sem hora): exibido sem conversão de fuso
+  const formatarDataPrazo = (dataCivil: string) => formatarDataCivil(dataCivil);
 
   return (
     <div className="relative" ref={containerRef}>

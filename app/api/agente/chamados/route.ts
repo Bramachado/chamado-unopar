@@ -1,13 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { autenticarAgente, calcularPrazo5DiasUteis, hojeEmBelem } from "@/lib/agente/auth";
+import { autenticarAgente } from "@/lib/agente/auth";
+import { calcularPrazoPadrao } from "@/lib/sla";
+import { ehDataCivilValida, hojeCivil, paraParametroDate, dataCivilDoBanco } from "@/lib/datas";
+import { carregarFeriadosExtras } from "@/lib/feriados";
+import { normalizarTelefone } from "@/lib/utils/telefone";
+import { novaRequisicao } from "@/lib/db/comUsuario";
 import { comUsuario, comTransacao } from "@/lib/db/comUsuario";
 import { sql } from "@/lib/db/pool";
 import { limparCpf, validarCpf } from "@/lib/utils/cpf";
 
 export const dynamic = "force-dynamic";
 
-const SITUACOES = ["rascunho", "aguardando", "concluido", "encerrado"] as const;
+const SITUACOES = [
+  "rascunho",
+  "aguardando",
+  "em_atendimento",
+  "aguardando_aluno",
+  "aguardando_externo",
+  "concluido",
+  "encerrado",
+] as const;
 
 /**
  * GET /api/agente/chamados?situacao=rascunho&limite=50
@@ -29,10 +42,12 @@ export async function GET(request: NextRequest) {
       200
     );
 
-    const chamados = await comUsuario({ usuario_id: perfil.id, papel: perfil.papel }, async (req) => {
-      const q = await req
-        .input("situacao", sql.VarChar(20), situacao)
-        .input("limite", sql.Int, limite).query(`
+    const chamados = await comUsuario(
+      { usuario_id: perfil.id, papel: perfil.papel },
+      async (req) => {
+        const q = await req
+          .input("situacao", sql.VarChar(20), situacao)
+          .input("limite", sql.Int, limite).query(`
           SELECT TOP (@limite)
             CAST(c.id AS NVARCHAR(50)) AS id,
             c.protocolo,
@@ -50,20 +65,27 @@ export async function GET(request: NextRequest) {
             c.observacao,
             c.situacao,
             c.prioridade,
-            c.data_solicitacao,
-            c.prazo,
+            CONVERT(CHAR(10), c.data_solicitacao, 23) AS data_solicitacao,
+            CONVERT(CHAR(10), c.prazo, 23) AS prazo,
             c.criado_por_nome,
             c.atualizado_em
           FROM dados.chamados c
           INNER JOIN dados.motivos m ON m.id = c.motivo_id
           LEFT JOIN dados.polos pol ON pol.id = c.polo_id
-          WHERE c.situacao = @situacao AND c.excluido_em IS NULL
+          WHERE c.situacao = @situacao AND c.excluido_em IS NULL AND c.eh_teste = 0
           ORDER BY c.data_solicitacao ASC, c.criado_em ASC
         `);
-      return q.recordset;
-    });
+        return q.recordset;
+      }
+    );
 
-    return NextResponse.json({ chamados });
+    return NextResponse.json({
+      chamados: chamados.map((c: Record<string, unknown>) => ({
+        ...c,
+        data_solicitacao: dataCivilDoBanco(c.data_solicitacao),
+        prazo: dataCivilDoBanco(c.prazo),
+      })),
+    });
   } catch (error) {
     console.error("[ERRO_API_AGENTE_LISTAR]:", error);
     return NextResponse.json({ erro: "Erro ao listar chamados." }, { status: 500 });
@@ -92,7 +114,14 @@ const criarSchema = z.object({
     .max(20)
     .optional()
     .nullable()
-    .transform((val) => (val ? val.replace(/[^\d+()\-\s]/g, "").slice(0, 20) : null)),
+    .transform((val, ctx) => {
+      const t = normalizarTelefone(val);
+      if (!t.ok) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: t.erro });
+        return null;
+      }
+      return t.valor;
+    }),
   polo_id: z.string().uuid(),
   motivo_id: z.string().uuid(),
   descricao: z.string().trim().min(1),
@@ -100,7 +129,7 @@ const criarSchema = z.object({
   prioridade: z.enum(["normal", "priorizar"] as const).default("normal"),
   data_solicitacao: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .refine(ehDataCivilValida, "Data inválida (use AAAA-MM-DD).")
     .optional(),
   observacao: z.string().trim().optional().nullable(),
 });
@@ -125,11 +154,22 @@ export async function POST(request: NextRequest) {
       );
     }
     const dados = parse.data;
-    const dataSolicitacao = dados.data_solicitacao || hojeEmBelem();
-    const prazo = calcularPrazo5DiasUteis(dataSolicitacao);
+    const hoje = hojeCivil();
+    const dataSolicitacao = dados.data_solicitacao || hoje;
+    if (dataSolicitacao > hoje) {
+      return NextResponse.json(
+        { erro: "A data de abertura não pode ser futura." },
+        { status: 400 }
+      );
+    }
     const sessao = { usuario_id: perfil.id, papel: perfil.papel };
+    let prazo = "";
 
-    const resultado = await comTransacao(sessao, async (req) => {
+    const resultado = await comTransacao(sessao, async (req, tx) => {
+      prazo = calcularPrazoPadrao(
+        dataSolicitacao,
+        await carregarFeriadosExtras(novaRequisicao(tx), dados.polo_id)
+      );
       let protocolo = dados.protocolo?.toUpperCase() || null;
 
       if (protocolo) {
@@ -143,7 +183,7 @@ export async function POST(request: NextRequest) {
         }
       } else {
         const gerado = await req
-          .input("data_solicitacao", sql.Date, new Date(dataSolicitacao))
+          .input("data_solicitacao", sql.Date, paraParametroDate(dataSolicitacao))
           .output("protocolo_gerado", sql.VarChar(20))
           .execute("dados.gerar_protocolo");
         protocolo = gerado.output.protocolo_gerado as string;
@@ -161,8 +201,8 @@ export async function POST(request: NextRequest) {
         .input("descricao", sql.NVarChar(sql.MAX), dados.descricao)
         .input("situacao", sql.VarChar(20), dados.situacao)
         .input("prioridade", sql.VarChar(20), dados.prioridade)
-        .input("data_solicitacao", sql.Date, new Date(dataSolicitacao))
-        .input("prazo", sql.Date, new Date(prazo))
+        .input("data_solicitacao", sql.Date, paraParametroDate(dataSolicitacao))
+        .input("prazo", sql.Date, paraParametroDate(prazo))
         .input("observacao", sql.NVarChar(sql.MAX), dados.observacao || null)
         .input("criado_por", sql.VarChar(50), perfil.id)
         .input("criado_por_nome", sql.NVarChar(200), perfil.nome_completo.slice(0, 200)).query(`
@@ -170,15 +210,18 @@ export async function POST(request: NextRequest) {
 
           INSERT INTO dados.chamados (
             protocolo, aluno_nome, aluno_ra, aluno_cpf, polo_id, contato_telefone,
-            motivo_id, descricao, situacao, prioridade, data_solicitacao, prazo,
-            observacao, criado_por, criado_por_nome
+            motivo_id, descricao, situacao, prioridade, data_solicitacao, prazo, prazo_calculado,
+            observacao, responsavel_id, ultima_interacao_em, criado_por, criado_por_nome
           )
           OUTPUT inserted.id INTO @out(id)
           VALUES (
             @protocolo, @aluno_nome, @aluno_ra, @aluno_cpf, @polo_id, @contato_telefone,
-            @motivo_id, @descricao, @situacao, @prioridade, @data_solicitacao, @prazo,
-            @observacao, @criado_por, @criado_por_nome
+            @motivo_id, @descricao, @situacao, @prioridade, @data_solicitacao, @prazo, @prazo,
+            @observacao, @criado_por, SYSDATETIMEOFFSET(), @criado_por, @criado_por_nome
           );
+
+          INSERT INTO dados.chamado_eventos (chamado_id, tipo, situacao_nova, responsavel_novo, texto, criado_por, criado_por_nome)
+          SELECT id, 'criacao', @situacao, @criado_por, N'Aberto pela API do agente', @criado_por, @criado_por_nome FROM @out;
 
           SELECT CAST(id AS NVARCHAR(50)) AS id FROM @out;
         `);
@@ -193,9 +236,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ chamadoId: resultado.id, protocolo: resultado.protocolo, prazo }, { status: 201 });
+    return NextResponse.json(
+      { chamadoId: resultado.id, protocolo: resultado.protocolo, prazo },
+      { status: 201 }
+    );
   } catch (error) {
-    console.error("[ERRO_API_AGENTE_CRIAR]:", error);
+    console.error("[ERRO_API_AGENTE_CRIAR]:", error instanceof Error ? error.message : error);
     return NextResponse.json({ erro: "Erro ao criar chamado." }, { status: 500 });
   }
 }

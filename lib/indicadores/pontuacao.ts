@@ -13,15 +13,19 @@
  *  Logo 0 ≤ total ≤ 100 sem nenhum limitador artificial.
  *
  * Regras de contagem (cada chamado conta uma única vez, pelo seu ESTADO no fim do cálculo):
- *  - Considera chamados com abertura no período, não excluídos, não marcados como teste e não
- *    importados de planilha.
+ *  - População pontuada: chamados FINALIZADOS no período (dia da conclusão/encerramento no fuso
+ *    institucional dentro do período), não excluídos, não marcados como teste e não importados
+ *    de planilha. É a mesma população do "tempo médio" do Dashboard (lib/indicadores/definicoes),
+ *    por isso os números da mesma pessoa coincidem nas duas telas.
+ *  - Pendentes podem ser informados para exibição (coluna "pendentes"), mas não pontuam.
  *  - Atribuição: responsável atual (ou o criador nos registros antigos sem responsável).
  *    Transferências passam o chamado inteiro para o novo responsável.
- *  - Resolvido (concluido) conta como resolvido; reaberto e resolvido de novo continua contando
- *    uma vez, com a data da última resolução. Reaberto e ainda pendente não conta.
+ *  - Reaberto e resolvido de novo conta uma vez, no período da ÚLTIMA resolução (a data de
+ *    conclusão é limpa na reabertura). Reaberto e ainda pendente não conta.
  *  - Encerrado sem solução conta só no volume (peso 0,5); não entra em prazo nem agilidade.
- *  - Elegibilidade: perfis ativos com papel diferente de admin. Quem não tem chamado no recorte
- *    aparece como "sem chamados", com nota nula, e não entra na média da equipe nem no pódio.
+ *  - Elegibilidade: perfis ativos com papel diferente de admin e com pelo menos um chamado
+ *    finalizado no período. Os demais aparecem como "sem chamados finalizados", com nota nula, e
+ *    não entram na média da equipe nem no pódio.
  */
 
 import { diasUteisEntre, concluidoNoPrazo, type FeriadosExtras } from "../sla";
@@ -165,7 +169,7 @@ export function calcularRanking(
   }
 
   for (const l of porPessoa.values()) {
-    l.elegivel = l.volume_total > 0;
+    l.elegivel = l.resolvidos + l.encerrados > 0;
     l.volume_ponderado = l.resolvidos * PESOS.pesoResolvido + l.encerrados * PESOS.pesoEncerrado;
     l.taxa_prazo = l.resolvidos > 0 ? arred1((l.no_prazo / l.resolvidos) * 100) : null;
     l.tempo_medio_dias_uteis =
