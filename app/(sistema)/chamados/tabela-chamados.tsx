@@ -26,7 +26,7 @@ import { excluirChamadoAction } from "./actions";
 import { formatarDataCivil, hojeCivil, diferencaDiasCorridos } from "@/lib/datas";
 import { classificarPrazo } from "@/lib/sla";
 import { ROTULO_SITUACAO, SITUACOES, ehPendente } from "@/lib/chamados/situacoes";
-import { filtrosParaQuery, type FiltrosChamados } from "@/lib/chamados/filtros";
+import { filtrosParaQuery, type FiltrosChamados } from "@/lib/chamados/filtros-comuns";
 import { SituacaoBadge } from "@/components/ui/situacao-badge";
 import { CpfDisplay } from "@/components/ui/cpf-display";
 import { formatarTelefone } from "@/lib/utils/telefone";
