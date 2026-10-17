@@ -350,3 +350,33 @@ BEGIN
   GRANT EXECUTE ON seg.definir_contexto TO app_chamados;
 END;
 GO
+
+-- Row-Level Security idêntica à produção (exportada em 17/10/2026 por scripts/migrar-producao.ts)
+CREATE OR ALTER FUNCTION seg.fn_leitura_com_contexto()
+RETURNS TABLE
+WITH SCHEMABINDING
+AS RETURN
+  SELECT 1 AS permitido
+  WHERE CAST(SESSION_CONTEXT(N'usuario_id') AS UNIQUEIDENTIFIER) IS NOT NULL;
+GO
+CREATE OR ALTER FUNCTION seg.fn_escrita_chamado(@criado_por UNIQUEIDENTIFIER)
+RETURNS TABLE
+WITH SCHEMABINDING
+AS RETURN
+  SELECT 1 AS permitido
+  WHERE CAST(SESSION_CONTEXT(N'usuario_id') AS UNIQUEIDENTIFIER) IS NOT NULL
+    AND (
+      CAST(SESSION_CONTEXT(N'papel') AS VARCHAR(20)) = 'admin'
+      OR (
+        CAST(SESSION_CONTEXT(N'papel') AS VARCHAR(20)) = 'atendente'
+        AND @criado_por = CAST(SESSION_CONTEXT(N'usuario_id') AS UNIQUEIDENTIFIER)
+      )
+    );
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.security_policies WHERE name = 'pol_chamados')
+  CREATE SECURITY POLICY seg.pol_chamados
+    ADD FILTER PREDICATE seg.fn_leitura_com_contexto() ON dados.chamados,
+    ADD BLOCK PREDICATE seg.fn_escrita_chamado(criado_por) ON dados.chamados AFTER UPDATE,
+    ADD BLOCK PREDICATE seg.fn_escrita_chamado(criado_por) ON dados.chamados BEFORE UPDATE
+    WITH (STATE = ON);
+GO

@@ -516,3 +516,26 @@ test(
     assert.equal(c.responsavel_id?.toLowerCase(), IDS.atendPQB);
   }
 );
+
+test("RLS (0005): mesmo um UPDATE direto no banco fora do escopo é barrado", opcoes, async () => {
+  // atendente de CCJ tentando alterar chamado de PQB sem passar pela aplicação
+  await assert.rejects(
+    comTransacao({ usuario_id: dudaCCJ.id, papel: "atendente", ip: null }, (req) =>
+      req.query(`UPDATE dados.chamados SET observacao = N'x' WHERE id = '${IDS.chAlunoTeste}'`)
+    ),
+    /block predicate/i
+  );
+  // papel "admin" informado na sessão não vale: o papel é lido de dados.perfis
+  await assert.rejects(
+    comTransacao({ usuario_id: dudaCCJ.id, papel: "admin", ip: null }, (req) =>
+      req.query(`UPDATE dados.chamados SET observacao = N'x' WHERE id = '${IDS.chAlunoTeste}'`)
+    ),
+    /block predicate/i
+  );
+  // coordenação do mesmo polo pode (antes era barrada)
+  await comTransacao({ usuario_id: coordPQB.id, papel: "coordenador", ip: null }, (req) =>
+    req.query(
+      `UPDATE dados.chamados SET observacao = N'nota da coordenação' WHERE id = '${IDS.chAlunoTeste}'`
+    )
+  );
+});

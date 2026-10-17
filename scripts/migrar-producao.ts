@@ -15,7 +15,8 @@
  *   - verifica pré-condições (duplicidades exatas de motivos que bloqueariam a 0003).
  *
  * Etapa 2 — aplicar (exige um backup feito há menos de 2 horas na etapa 1):
- *   npx tsx scripts/migrar-producao.ts aplicar
+ *   npx tsx scripts/migrar-producao.ts aplicar            (todas as pendentes)
+ *   npx tsx scripts/migrar-producao.ts aplicar 0004       (só até a 0004)
  */
 import fs from "fs";
 import path from "path";
@@ -158,7 +159,9 @@ async function aplicar(pool: sql.ConnectionPool) {
     );
   }
   console.log(`Backup de referência: ${estado.arquivo} (${Math.round(idadeMin)} min atrás)`);
-  const feitas = await aplicarMigracoes(pool, { incluirBaseline: false });
+  const ate = process.argv[3];
+  if (ate && !/^\d{4}$/.test(ate)) throw new Error("Versão limite inválida (ex.: 0004).");
+  const feitas = await aplicarMigracoes(pool, { incluirBaseline: false, ate });
   console.log(feitas.length ? `Aplicadas: ${feitas.join(", ")}` : "Nenhuma migração pendente.");
   const conf = (
     await pool.request().query(`

@@ -1,4 +1,4 @@
-/** Testa as reversões no banco de TESTES local: desfaz 0004→0001 e reaplica. */
+/** Testa as reversões no banco de TESTES local: desfaz 0005→0001 e reaplica. */
 import fs from "fs";
 import path from "path";
 import sql from "mssql";
@@ -13,6 +13,7 @@ async function main() {
     options: { encrypt: true, trustServerCertificate: true },
   }).connect();
   for (const v of [
+    "0005_rls_escrita_por_polo",
     "0004_seguranca_e_auditoria",
     "0003_motivos_chave_e_consolidacao",
     "0002_fluxo_e_responsavel",
@@ -24,9 +25,12 @@ async function main() {
       await pool.request().batch(lote);
     console.log("revertida", v);
   }
+  // Com RLS, sem contexto de sessão as linhas ficam invisíveis
   const r = await pool
     .request()
-    .query("SELECT COUNT(*) n FROM dados.chamados; SELECT versao FROM dbo.migracoes_aplicadas");
+    .query(
+      "EXEC sp_set_session_context N'usuario_id', 'a0000000-0000-0000-0000-000000000001'; SELECT COUNT(*) n FROM dados.chamados; SELECT versao FROM dbo.migracoes_aplicadas"
+    );
   const conjuntos = r.recordsets as unknown as Record<string, unknown>[][];
   console.log(
     "chamados preservados:",

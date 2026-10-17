@@ -78,7 +78,8 @@ Este documento acompanha o pull request. Ele registra as causas confirmadas no c
 7. **Auditoria expunha dados sensíveis.** A trigger de perfis gravava o `senha_hash` completo, exibido na tela e no CSV. `campos_alterados` nunca era preenchido.
 8. **Login:** sem limite de tentativas; informava "conta desativada" antes de conferir a senha; desativar a conta ou trocar a senha não encerrava as sessões abertas; senha mínima de 6 caracteres.
 9. **CSV sem proteção contra fórmulas** (`=`, `+`, `-`, `@`).
-10. **Textos incorretos:**
+10. **Regra de escrita no banco (RLS) mais restrita que o sistema promete.** A política `seg.pol_chamados` (lida durante a preparação da migração) só permite `UPDATE` para papel `admin` ou para a atendente que **criou** o chamado, com o papel tirado do contexto informado pela aplicação. Na produção, a coordenação não altera nenhum chamado, e uma colega do mesmo polo não consegue complementar, transferir ou registrar interação, embora a documentação descreva edição colaborativa. Proposta: migração 0005 (seção 3), que exige decisão.
+11. **Textos incorretos:**
     - "Criptografia de ponta a ponta": o servidor decifra, então é criptografia em repouso.
     - "Trilha imutável": a aplicação só tem `INSERT`, mas administradores do banco podem alterar.
 
@@ -119,7 +120,9 @@ Este documento acompanha o pull request. Ele registra as causas confirmadas no c
 | 0003   | `dados.fn_chave_texto`, chaves calculadas, índice único filtrado, colunas de consolidação. **Para e lista** os grupos se houver duplicidade exata ativa; nada é unido.                                                                  | Chamados já consolidados não voltam sozinhos: o motivo de origem está em `chamado_eventos` e na auditoria.                               |
 | 0004   | Triggers de auditoria (IP, campos alterados, redação), `revelar_credencial` com justificativa, `sessao_valida_desde`, exclusão lógica de anexos, `dados.arquivos_conteudo`, `DENY` na trilha.                                           | Restaura a procedure. **As triggers anteriores precisam ser exportadas da produção antes** (o usuário da aplicação não consegue lê-las). |
 
-As quatro migrações e as quatro reversões foram aplicadas, revertidas e reaplicadas no banco de testes sem perda de chamados (`db/teste/testar-reversao.ts`).
+As cinco migrações e as cinco reversões foram aplicadas, revertidas e reaplicadas no banco de testes, que reproduz a RLS da produção, sem perda de chamados (`db/teste/testar-reversao.ts`). A reversão da 0002 desliga a RLS só durante o `UPDATE` de situações, porque sem contexto de sessão as linhas ficam invisíveis.
+
+**Situação em 17/10/2026:** etapa "preparar" executada na produção, com backup `ChamadosUnopar_antes_migracoes_20261017T035259.bak` verificado e definições exportadas (9 módulos e 3 predicados RLS). As migrações ainda não foram aplicadas.
 
 **Ordem de implantação:**
 
@@ -207,7 +210,8 @@ RELATORIO_ADMIN_ID=<id de um admin> npx tsx scripts/relatorio-inconsistencias.ts
 10. **Formato do RA:** não há regra institucional documentada. Informar o padrão para endurecer a validação.
 11. **Troca de senha:** hoje só administradores trocam a própria senha (regra mantida). Avaliar liberar para todos.
 12. **API do agente (Prisma):** transições agora exigem `resolucao`, `motivo_encerramento` ou `justificativa`, como na tela. Ajustar o agente antes de publicar.
-13. **`PROXIES_CONFIAVEIS=1`** no Easypanel (Traefik), para o IP aparecer na auditoria.
+13. **Regra de escrita do banco (0005):** aprovar o modelo "mesmo polo pode alterar". Sem a 0005, valem as permissões atuais da produção: só admin ou a atendente que criou o chamado alteram.
+14. **`PROXIES_CONFIAVEIS=1`** no Easypanel (Traefik), para o IP aparecer na auditoria.
 
 ---
 

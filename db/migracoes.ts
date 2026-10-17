@@ -27,7 +27,7 @@ export function listarMigracoes(incluirBaseline: boolean): { versao: string; arq
  */
 export async function aplicarMigracoes(
   pool: sql.ConnectionPool,
-  opcoes: { incluirBaseline: boolean; log?: (m: string) => void }
+  opcoes: { incluirBaseline: boolean; ate?: string; log?: (m: string) => void }
 ): Promise<string[]> {
   const log = opcoes.log ?? console.log;
   await pool.request().batch(`
@@ -46,6 +46,7 @@ export async function aplicarMigracoes(
   const feitas: string[] = [];
   for (const m of listarMigracoes(opcoes.incluirBaseline)) {
     if (aplicadas.has(m.versao)) continue;
+    if (opcoes.ate && m.versao > opcoes.ate) break;
     const lotes = dividirEmLotes(fs.readFileSync(m.arquivo, "utf8"));
     const tx = new sql.Transaction(pool);
     await tx.begin();
