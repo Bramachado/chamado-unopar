@@ -86,7 +86,7 @@ export async function autenticarUsuario(
       const msg = errDb2?.message || errDb?.message || "";
       if (msg.includes("Login failed for user")) {
         return {
-          erro: "Falha de autenticação com o banco de dados SQL Server (verifique usuário e senha no painel da Vercel).",
+          erro: "Falha de autenticação com o banco de dados SQL Server (verifique MSSQL_USER e MSSQL_PASSWORD nas variáveis de ambiente).",
         };
       }
       return {
