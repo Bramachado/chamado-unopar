@@ -3,6 +3,7 @@ import { obterPerfilAtual } from "@/lib/auth/perfil";
 import { comUsuario } from "@/lib/db/comUsuario";
 import { sql } from "@/lib/db/pool";
 import { PainelDetalheChamado } from "./painel-detalhe-chamado";
+import { buscarUltimaTarefa } from "@/lib/agente/tarefas";
 import { type ArquivoChamado, type LogAuditoria } from "@/types/database";
 
 interface DetailPageProps {
@@ -138,8 +139,12 @@ export default async function PaginaDetalheChamado({ params }: DetailPageProps) 
         )
         .catch(() => ({ recordset: [] })); // Fallback caso auditoria.logs ainda não esteja populada
 
+      // 6. Última tarefa delegada ao Agente Prisma (se houver)
+      const tarefaAgente = await buscarUltimaTarefa(req, chamado.id);
+
       return {
         chamado,
+        tarefaAgente,
         arquivos: qArquivos.recordset,
         chamadoAnterior,
         chamadosPosteriores: qPosteriores.recordset,
@@ -152,7 +157,8 @@ export default async function PaginaDetalheChamado({ params }: DetailPageProps) 
     notFound();
   }
 
-  const { chamado, arquivos, chamadoAnterior, chamadosPosteriores, logs } = dadosCarregados;
+  const { chamado, tarefaAgente, arquivos, chamadoAnterior, chamadosPosteriores, logs } =
+    dadosCarregados;
 
   const chamadoFormatado = {
     id: chamado.id,
@@ -242,6 +248,7 @@ export default async function PaginaDetalheChamado({ params }: DetailPageProps) 
       chamadosPosteriores={chamadosPosteriores}
       logs={logsFormatados}
       perfilAtual={perfilAtual}
+      tarefaAgente={tarefaAgente}
     />
   );
 }

@@ -28,6 +28,8 @@ import {
 } from "lucide-react";
 import { anexarArquivoAction, excluirArquivoAction, excluirChamadoAction } from "../actions";
 import { formatarCpf } from "@/lib/utils/cpf";
+import { type TarefaAgente } from "@/lib/agente/tarefas-tipos";
+import { CartaoAgente } from "./cartao-agente";
 
 interface PainelDetalheChamadoProps {
   chamado: Chamado & {
@@ -54,6 +56,7 @@ interface PainelDetalheChamadoProps {
     | null;
   logs: LogAuditoria[];
   perfilAtual: Perfil;
+  tarefaAgente?: TarefaAgente | null;
 }
 
 export function PainelDetalheChamado({
@@ -63,6 +66,7 @@ export function PainelDetalheChamado({
   chamadosPosteriores,
   logs,
   perfilAtual,
+  tarefaAgente = null,
 }: PainelDetalheChamadoProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -176,6 +180,13 @@ export function PainelDetalheChamado({
           <span>{mensagemErro}</span>
         </div>
       )}
+
+      <CartaoAgente
+        chamadoId={chamado.id}
+        protocolo={chamado.protocolo}
+        situacao={chamado.situacao}
+        tarefa={tarefaAgente}
+      />
 
       {/* Cartão de Detalhes Principais */}
       <div className="rounded-xl border border-borda bg-superficie p-6 shadow-sm space-y-5">
