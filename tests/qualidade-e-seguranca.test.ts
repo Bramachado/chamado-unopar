@@ -141,3 +141,18 @@ test("autorização por papel e polo", () => {
   assert.equal(poloPermitidoParaGravacao(atendPQB, "CCJ"), "PQB");
   assert.equal(poloPermitidoParaGravacao(admin, "CCJ"), "CCJ");
 });
+
+test("cofre: sem CRED_ENCRYPTION_KEY não há chave padrão embutida no código", async () => {
+  const { obterChaveCriptografia, cifrarSenha, decifrarSenha } =
+    await import("../lib/crypto/cofre");
+  const anterior = process.env.CRED_ENCRYPTION_KEY;
+  delete process.env.CRED_ENCRYPTION_KEY;
+  try {
+    assert.throws(() => obterChaveCriptografia(), /não configurada/);
+  } finally {
+    if (anterior !== undefined) process.env.CRED_ENCRYPTION_KEY = anterior;
+  }
+  const chave = Buffer.alloc(32, 3).toString("base64");
+  const c = cifrarSenha("senha-do-pad", chave);
+  assert.equal(decifrarSenha(c.senhaCifrada, c.iv, c.authTag, chave), "senha-do-pad");
+});

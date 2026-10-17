@@ -4,7 +4,13 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 import { getPool, resetPool, sql } from "@/lib/db/pool";
+import { headers } from "next/headers";
 import { criarSessao, destruirSessao } from "@/lib/auth/jwt";
+import { ipDoCliente } from "@/lib/auth/ip";
+import { registrarFalha, registrarSucesso, segundosDeBloqueio } from "@/lib/auth/limite-tentativas";
+
+// Hash de referência para comparar quando o e-mail não existe (tempo de resposta uniforme).
+const HASH_FICTICIO = bcrypt.hashSync("referencia-de-tempo-sem-usuario", 12);
 
 const loginSchema = z.object({
   email: z.string().email("Informe um endereço de e-mail válido."),
@@ -33,6 +39,14 @@ export async function autenticarUsuario(
   }
 
   const { email, senha } = validacao.data;
+  const ip = ipDoCliente(await headers());
+  const chavesLimite = [`email:${email.toLowerCase().trim()}`, ...(ip ? [`ip:${ip}`] : [])];
+  const bloqueio = segundosDeBloqueio(chavesLimite);
+  if (bloqueio > 0) {
+    return {
+      erro: `Muitas tentativas de acesso. Aguarde ${Math.ceil(bloqueio / 60)} minuto(s) e tente novamente.`,
+    };
+  }
   let perfil: any = null;
 
   try {
@@ -99,27 +113,24 @@ export async function autenticarUsuario(
   const mensagemErroGenerico =
     "E-mail ou senha incorretos. Verifique suas credenciais e tente novamente.";
 
-  if (!perfil) {
+  const hashValido = typeof perfil?.senha_hash === "string" && perfil.senha_hash.startsWith("$2");
+  const senhaValida = await bcrypt.compare(senha, hashValido ? perfil.senha_hash : HASH_FICTICIO);
+
+  if (!perfil || !hashValido || !senhaValida) {
+    registrarFalha(chavesLimite);
+    if (perfil && !hashValido) {
+      return {
+        erro: "Senha inicial ainda não definida para este usuário. Solicite à administração a definição da senha.",
+      };
+    }
     return { erro: mensagemErroGenerico };
   }
 
-  // Verifica se a conta está ativa
+  // Só informa que a conta está desativada depois de a senha conferir
   if (!perfil.ativo) {
     return { erro: "Esta conta foi desativada pela coordenação ou administração." };
   }
-
-  // Senhas com valor provisório exigem definição inicial
-  if (!perfil.senha_hash || perfil.senha_hash === "PROVISORIO_TROCAR_VIA_APP") {
-    return {
-      erro: "Senha inicial ainda não definida para este usuário. Solicite à administração a definição da senha.",
-    };
-  }
-
-  const senhaValida = await bcrypt.compare(senha, perfil.senha_hash);
-
-  if (!senhaValida) {
-    return { erro: mensagemErroGenerico };
-  }
+  registrarSucesso(chavesLimite);
 
   await criarSessao({
     id: perfil.id,

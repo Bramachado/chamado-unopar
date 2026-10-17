@@ -896,3 +896,79 @@ export async function excluirChamado(
     }
   );
 }
+
+/**
+ * Reatribui em lote as pendências cujo responsável atual é `origemId` (ex.: conta desativada)
+ * para `destinoId`, dentro do escopo de quem executa. Cada chamado recebe um evento de
+ * transferência com a justificativa; tudo numa única transação.
+ */
+export async function reatribuirPendencias(
+  perfil: PerfilServico,
+  origemId: string,
+  destinoId: string,
+  justificativa: string,
+  opcoes: { ip?: string | null } = {}
+): Promise<number> {
+  if (perfil.papel !== "admin" && perfil.papel !== "coordenador") {
+    throw new ErroNegocio(
+      "Apenas administração e coordenação podem reatribuir em lote.",
+      {},
+      "proibido"
+    );
+  }
+  if (justificativa.trim().length < 10) {
+    throw new ErroNegocio("Informe o motivo da reatribuição (mínimo de 10 caracteres).");
+  }
+  if (origemId.toLowerCase() === destinoId.toLowerCase()) {
+    throw new ErroNegocio("Escolha um responsável diferente do atual.");
+  }
+  return comTransacao(
+    { usuario_id: perfil.id, papel: perfil.papel, ip: opcoes.ip },
+    async (_req, tx) => {
+      const dest = await novaRequisicao(tx).input("id", sql.UniqueIdentifier, destinoId).query(`
+      SELECT ativo, papel, CAST(polo_id AS NVARCHAR(50)) AS polo_id FROM dados.perfis WHERE id = @id`);
+      const d = dest.recordset[0];
+      if (!d) throw new ErroNegocio("Responsável de destino não encontrado.");
+      const reqLista = novaRequisicao(tx).input("origem", sql.UniqueIdentifier, origemId);
+      let filtroPolo = "";
+      if (perfil.papel !== "admin") {
+        if (!perfil.polo_id)
+          throw new ErroNegocio("Perfil sem polo não pode reatribuir em lote.", {}, "proibido");
+        reqLista.input("polo", sql.UniqueIdentifier, perfil.polo_id);
+        filtroPolo = " AND polo_id = @polo";
+      }
+      const pend = await reqLista.query(`
+      SELECT CAST(id AS NVARCHAR(50)) AS id, CAST(polo_id AS NVARCHAR(50)) AS polo_id
+      FROM dados.chamados WITH (UPDLOCK, ROWLOCK)
+      WHERE excluido_em IS NULL AND COALESCE(responsavel_id, criado_por) = @origem
+        AND situacao IN ('rascunho','aguardando','em_atendimento','aguardando_aluno','aguardando_externo')${filtroPolo}`);
+      for (const c of pend.recordset) {
+        if (
+          !podeSerResponsavel(
+            { ativo: Boolean(d.ativo), papel: d.papel, polo_id: d.polo_id },
+            c.polo_id
+          )
+        ) {
+          throw new ErroNegocio(
+            "O novo responsável precisa estar ativo e no mesmo polo dos chamados."
+          );
+        }
+        await novaRequisicao(tx)
+          .input("id", sql.UniqueIdentifier, c.id)
+          .input("resp", sql.UniqueIdentifier, destinoId)
+          .input("usuario", sql.UniqueIdentifier, perfil.id)
+          .input("usuario_nome", sql.NVarChar(200), perfil.nome_completo.slice(0, 200)).query(`
+          UPDATE dados.chamados SET responsavel_id = @resp, atualizado_por = @usuario,
+            atualizado_por_nome = @usuario_nome, atualizado_em = SYSDATETIMEOFFSET()
+          WHERE id = @id`);
+        await registrarEvento(tx, perfil, c.id, {
+          tipo: "transferencia",
+          responsavel_anterior: origemId,
+          responsavel_novo: destinoId,
+          texto: `Reatribuição em lote: ${justificativa.trim()}`,
+        });
+      }
+      return pend.recordset.length;
+    }
+  );
+}

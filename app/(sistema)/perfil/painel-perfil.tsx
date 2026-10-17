@@ -35,6 +35,7 @@ export function PainelPerfil({ perfil, historicoAcessos }: PainelPerfilProps) {
   const [isPending, startTransition] = useTransition();
 
   // Estados de formulário
+  const [senhaAtualSistema, setSenhaAtualSistema] = useState("");
   const [novaSenhaSistema, setNovaSenhaSistema] = useState("");
   const [confirmaSenhaSistema, setConfirmaSenhaSistema] = useState("");
   const [novaSenhaExterna, setNovaSenhaExterna] = useState("");
@@ -175,8 +176,8 @@ export function PainelPerfil({ perfil, historicoAcessos }: PainelPerfilProps) {
     setMsgSucesso(null);
     setMsgErro(null);
 
-    if (novaSenhaSistema.length < 6) {
-      setMsgErro("A nova senha deve ter no mínimo 6 caracteres.");
+    if (novaSenhaSistema.length < 8) {
+      setMsgErro("A nova senha deve ter no mínimo 8 caracteres.");
       return;
     }
 
@@ -186,11 +187,12 @@ export function PainelPerfil({ perfil, historicoAcessos }: PainelPerfilProps) {
     }
 
     startTransition(async () => {
-      const res = await alterarMinhaSenhaAction(novaSenhaSistema);
+      const res = await alterarMinhaSenhaAction(senhaAtualSistema, novaSenhaSistema);
       if (!res.sucesso) {
         setMsgErro(res.erro || "Erro ao atualizar senha.");
       } else {
-        setMsgSucesso("Sua senha de acesso ao sistema foi atualizada com sucesso.");
+        setMsgSucesso("Senha atualizada. Sessões abertas em outros dispositivos foram encerradas.");
+        setSenhaAtualSistema("");
         setNovaSenhaSistema("");
         setConfirmaSenhaSistema("");
       }
@@ -359,6 +361,23 @@ export function PainelPerfil({ perfil, historicoAcessos }: PainelPerfilProps) {
 
             <form onSubmit={handleTrocarSenhaSistema} className="space-y-4">
               <div>
+                <label
+                  htmlFor="senha-atual"
+                  className="block text-xs font-medium text-texto mb-1.5"
+                >
+                  Senha atual
+                </label>
+                <input
+                  id="senha-atual"
+                  type="password"
+                  required
+                  autoComplete="current-password"
+                  value={senhaAtualSistema}
+                  onChange={(e) => setSenhaAtualSistema(e.target.value)}
+                  className="w-full rounded-lg border border-borda bg-fundo px-3 py-2 text-xs text-texto focus:border-acento focus:outline-none"
+                />
+              </div>
+              <div>
                 <label className="block text-xs font-medium text-texto mb-1.5">
                   Nova Senha (mínimo 8 caracteres)
                 </label>
@@ -414,8 +433,10 @@ export function PainelPerfil({ perfil, historicoAcessos }: PainelPerfilProps) {
             </div>
 
             <p className="text-xs text-texto-suave leading-relaxed">
-              Armazenada com criptografia de ponta a ponta (AES-256-GCM). Permite que
-              administradores tenham acesso de contingência sob auditoria rigorosa.
+              Senha do PAD/AVA, independente da senha de acesso a este sistema. Fica cifrada no
+              servidor (AES-256-GCM, criptografia em repouso — não é criptografia de ponta a ponta:
+              o servidor consegue decifrá-la). A administração pode revelá-la mediante
+              reautenticação e justificativa, e cada consulta fica registrada.
             </p>
 
             <form onSubmit={handleSalvarSenhaExterna} className="space-y-4">
@@ -499,7 +520,7 @@ export function PainelPerfil({ perfil, historicoAcessos }: PainelPerfilProps) {
                       {a.admin_nome || "Administrador"}
                     </td>
                     <td className="font-mono text-xs text-texto-suave tabular-nums">
-                      {a.ip || "127.0.0.1"}
+                      {a.ip || "não registrado"}
                     </td>
                   </tr>
                 ))}

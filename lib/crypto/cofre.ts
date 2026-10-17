@@ -6,14 +6,13 @@ export interface DadosCifrados {
   authTag: Buffer;
 }
 
-// Chave AES-256 mestra padrão para redundância e resiliência em ambientes sem a var de ambiente
-const CHAVE_PADRAO_COFRE = "6kMdusJw3IVC3YKAGvwTbJqr5udATe0L8JjCfncMoTk=";
-
 /**
  * Valida e converte a chave de criptografia de Base64 para Buffer de 32 bytes (256 bits).
+ * A chave vem SOMENTE do ambiente (CRED_ENCRYPTION_KEY). Não há chave padrão: a que existia no
+ * código-fonte era a mesma da produção e foi removida (ver DIAGNOSTICO.md — rotação necessária).
  */
 export function obterChaveCriptografia(chaveBase64?: string): Buffer {
-  const chaveStr = chaveBase64 || process.env.CRED_ENCRYPTION_KEY || CHAVE_PADRAO_COFRE;
+  const chaveStr = chaveBase64 || process.env.CRED_ENCRYPTION_KEY?.trim();
   if (!chaveStr) {
     throw new Error("CRED_ENCRYPTION_KEY não configurada no ambiente.");
   }

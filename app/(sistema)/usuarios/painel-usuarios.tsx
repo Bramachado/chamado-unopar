@@ -6,6 +6,7 @@ import {
   revelarSenhaExternaAction,
   alternarStatusUsuarioAction,
   criarOuEditarUsuarioAction,
+  reatribuirPendenciasAction,
 } from "./actions";
 import {
   Eye,
@@ -22,15 +23,21 @@ import {
 } from "lucide-react";
 import { CustomSelect, type CustomSelectOption } from "@/components/ui/custom-select";
 import { AvatarUsuario } from "@/components/ui/avatar-usuario";
+import { formatarInstante } from "@/lib/datas";
 
 interface UsuarioComCredencial extends Perfil {
   tem_credencial_externa?: boolean;
+  pendencias?: number;
 }
 
 interface PainelUsuariosProps {
   usuarios: UsuarioComCredencial[];
   polos?: Polo[];
-  acessosRecentes: (CredencialAcesso & { perfil_alvo_nome?: string; admin_nome?: string })[];
+  acessosRecentes: (CredencialAcesso & {
+    perfil_alvo_nome?: string;
+    admin_nome?: string;
+    justificativa?: string | null;
+  })[];
   perfilAtualId: string;
 }
 
@@ -47,6 +54,20 @@ export function PainelUsuarios({
     null
   );
   const [tempoRestante, setTempoRestante] = useState<number>(0);
+  const [revelacaoPendente, setRevelacaoPendente] = useState<{ id: string; nome: string } | null>(
+    null
+  );
+  const [senhaConfirmacao, setSenhaConfirmacao] = useState("");
+  const [justificativaRevelacao, setJustificativaRevelacao] = useState("");
+  const [reatribuindo, setReatribuindo] = useState<{
+    id: string;
+    nome: string;
+    pendencias: number;
+    polo_id: string | null;
+  } | null>(null);
+  const [destinoReatribuicao, setDestinoReatribuicao] = useState("");
+  const [motivoReatribuicao, setMotivoReatribuicao] = useState("");
+  const [processando, setProcessando] = useState(false);
   const [copiado, setCopiado] = useState(false);
 
   // Estados do modal de criação/edição
@@ -77,15 +98,43 @@ export function PainelUsuarios({
     return undefined;
   }, [tempoRestante, senhaRevelada]);
 
-  const handleRevelarSenha = async (perfilId: string) => {
+  const handleRevelarSenha = async () => {
+    if (!revelacaoPendente) return;
     setMensagemErro(null);
-    const res = await revelarSenhaExternaAction(perfilId);
+    setProcessando(true);
+    const res = await revelarSenhaExternaAction(revelacaoPendente.id, {
+      senhaAtual: senhaConfirmacao,
+      justificativa: justificativaRevelacao,
+    });
+    setProcessando(false);
+    setSenhaConfirmacao("");
     if (!res.sucesso) {
       setMensagemErro(res.erro || "Falha ao obter senha do cofre.");
     } else {
-      setSenhaRevelada({ perfilId, senha: res.senhaPlana });
+      setSenhaRevelada({ perfilId: revelacaoPendente.id, senha: res.senhaPlana });
       setTempoRestante(30);
+      setRevelacaoPendente(null);
+      setJustificativaRevelacao("");
     }
+  };
+
+  const handleReatribuir = async () => {
+    if (!reatribuindo) return;
+    setProcessando(true);
+    const res = await reatribuirPendenciasAction(
+      reatribuindo.id,
+      destinoReatribuicao,
+      motivoReatribuicao
+    );
+    setProcessando(false);
+    if (!res.sucesso) {
+      setMensagemErro(res.erro);
+      return;
+    }
+    setMensagemSucesso(`${res.quantidade} pendência(s) de ${reatribuindo.nome} reatribuída(s).`);
+    setReatribuindo(null);
+    setDestinoReatribuicao("");
+    setMotivoReatribuicao("");
   };
 
   const handleConfirmarAlternarStatus = async () => {
@@ -97,9 +146,12 @@ export function PainelUsuarios({
     if (!res.sucesso) {
       setMensagemErro(res.erro || "Falha ao alterar status da conta.");
     } else {
+      const pend = "pendencias" in res ? (res.pendencias ?? 0) : 0;
       setMensagemSucesso(
         usuarioDesativando.ativo
-          ? `A conta de ${usuarioDesativando.nome} foi desativada com sucesso.`
+          ? `A conta de ${usuarioDesativando.nome} foi desativada e as sessões abertas foram encerradas.${
+              pend > 0 ? ` Ela ainda é responsável por ${pend} pendência(s): use "Reatribuir".` : ""
+            }`
           : `A conta de ${usuarioDesativando.nome} foi reativada com sucesso.`
       );
     }
@@ -239,7 +291,8 @@ export function PainelUsuarios({
               <th className="w-40">Polo / Unidade</th>
               <th className="w-32 text-center">Papel</th>
               <th className="w-24 text-center">Status</th>
-              <th className="w-36 text-center">Cofre de Senha</th>
+              <th className="w-28 text-center">Pendências</th>
+              <th className="w-36 text-center">Credencial externa</th>
               <th className="w-32 text-right">Ações</th>
             </tr>
           </thead>
@@ -296,11 +349,39 @@ export function PainelUsuarios({
                       {u.ativo ? "Ativo" : "Inativo"}
                     </span>
                   </td>
+                  <td className="text-center text-xs">
+                    {(u.pendencias ?? 0) > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setReatribuindo({
+                            id: u.id,
+                            nome: u.nome_completo,
+                            pendencias: u.pendencias ?? 0,
+                            polo_id: u.polo_id ?? null,
+                          })
+                        }
+                        className={`h-7 px-2.5 rounded-lg border text-[11px] font-semibold ${
+                          u.ativo
+                            ? "border-borda bg-fundo text-texto"
+                            : "border-erro/40 bg-erro-fundo text-erro"
+                        }`}
+                        title="Reatribuir as pendências deste responsável"
+                      >
+                        {u.pendencias} · Reatribuir
+                      </button>
+                    ) : (
+                      <span className="text-texto-suave">0</span>
+                    )}
+                  </td>
                   <td className="text-center">
                     {u.tem_credencial_externa ? (
                       <button
                         type="button"
-                        onClick={() => handleRevelarSenha(u.id)}
+                        onClick={() => {
+                          setMensagemErro(null);
+                          setRevelacaoPendente({ id: u.id, nome: u.nome_completo });
+                        }}
                         className={`btn-tátil inline-flex items-center gap-1 h-7 px-2.5 rounded-lg text-[11px] font-semibold transition ${
                           revelandoEsta
                             ? "bg-[#1D4ED8] text-white shadow-xs"
@@ -382,23 +463,24 @@ export function PainelUsuarios({
                   <th>Responsável pelo Acesso</th>
                   <th>Conta Consultada</th>
                   <th>Endereço IP</th>
+                  <th>Justificativa</th>
                 </tr>
               </thead>
               <tbody>
                 {acessosRecentes.map((a) => (
                   <tr key={a.id}>
-                    <td
-                      suppressHydrationWarning
-                      className="font-mono text-xs tabular-nums text-texto-suave"
-                    >
-                      {a.data_hora ? new Date(a.data_hora).toLocaleString("pt-BR") : "—"}
+                    <td className="font-mono text-xs tabular-nums text-texto-suave">
+                      {formatarInstante(a.data_hora)}
                     </td>
                     <td className="text-xs font-medium text-texto">
                       {a.admin_nome || "Administrador"}
                     </td>
                     <td className="text-xs text-acento font-medium">{a.perfil_alvo_nome || "—"}</td>
                     <td className="font-mono text-xs text-texto-suave tabular-nums">
-                      {a.ip || "127.0.0.1"}
+                      {a.ip || "não registrado"}
+                    </td>
+                    <td className="text-xs text-texto-suave">
+                      {a.justificativa || "— (anterior à exigência)"}
                     </td>
                   </tr>
                 ))}
@@ -407,6 +489,162 @@ export function PainelUsuarios({
           </div>
         )}
       </div>
+
+      {revelacaoPendente && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="titulo-revelar"
+            className="w-full max-w-md rounded-lg border border-borda bg-superficie p-6 space-y-4 shadow-xl"
+          >
+            <h3
+              id="titulo-revelar"
+              className="text-sm font-semibold text-texto flex items-center gap-2"
+            >
+              <Shield className="h-5 w-5 text-alerta" aria-hidden="true" /> Revelar credencial
+              externa de {revelacaoPendente.nome}
+            </h3>
+            <p className="text-xs text-texto-suave">
+              Confirme sua senha e registre o motivo. A consulta fica registrada com data, IP e
+              justificativa.
+            </p>
+            <div className="space-y-3 text-xs">
+              <div>
+                <label htmlFor="senha-confirmacao" className="block font-medium text-texto mb-1">
+                  Sua senha de acesso
+                </label>
+                <input
+                  id="senha-confirmacao"
+                  type="password"
+                  autoComplete="current-password"
+                  value={senhaConfirmacao}
+                  onChange={(e) => setSenhaConfirmacao(e.target.value)}
+                  className="w-full rounded-lg border border-borda bg-fundo px-3 py-2 text-xs text-texto focus:border-acento focus:outline-none"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="justificativa-revelacao"
+                  className="block font-medium text-texto mb-1"
+                >
+                  Justificativa (mínimo 10 caracteres)
+                </label>
+                <textarea
+                  id="justificativa-revelacao"
+                  rows={2}
+                  value={justificativaRevelacao}
+                  onChange={(e) => setJustificativaRevelacao(e.target.value)}
+                  className="w-full rounded-lg border border-borda bg-fundo px-3 py-2 text-xs text-texto focus:border-acento focus:outline-none"
+                />
+              </div>
+              {mensagemErro && (
+                <p role="alert" className="font-semibold text-erro">
+                  {mensagemErro}
+                </p>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 border-t border-borda pt-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setRevelacaoPendente(null);
+                  setSenhaConfirmacao("");
+                  setMensagemErro(null);
+                }}
+                className="h-9 px-4 rounded-lg border border-borda bg-superficie text-xs font-semibold text-texto"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={
+                  processando || !senhaConfirmacao || justificativaRevelacao.trim().length < 10
+                }
+                onClick={handleRevelarSenha}
+                className="h-9 px-5 rounded-lg bg-acento text-xs font-semibold text-white disabled:opacity-50"
+              >
+                {processando ? "Verificando..." : "Revelar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {reatribuindo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="titulo-reatribuir"
+            className="w-full max-w-md rounded-lg border border-borda bg-superficie p-6 space-y-4 shadow-xl"
+          >
+            <h3 id="titulo-reatribuir" className="text-sm font-semibold text-texto">
+              Reatribuir {reatribuindo.pendencias} pendência(s) de {reatribuindo.nome}
+            </h3>
+            <div className="space-y-3 text-xs">
+              <div>
+                <label htmlFor="destino-reatribuicao" className="block font-medium text-texto mb-1">
+                  Novo responsável
+                </label>
+                <select
+                  id="destino-reatribuicao"
+                  value={destinoReatribuicao}
+                  onChange={(e) => setDestinoReatribuicao(e.target.value)}
+                  className="w-full rounded-lg border border-borda bg-fundo px-3 py-2 text-xs text-texto"
+                >
+                  <option value="">Selecione...</option>
+                  {usuarios
+                    .filter(
+                      (x) =>
+                        x.ativo &&
+                        x.id !== reatribuindo.id &&
+                        (x.papel === "admin" ||
+                          !reatribuindo.polo_id ||
+                          x.polo_id === reatribuindo.polo_id)
+                    )
+                    .map((x) => (
+                      <option key={x.id} value={x.id}>
+                        {x.nome_completo}
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="motivo-reatribuicao" className="block font-medium text-texto mb-1">
+                  Motivo (registrado em cada chamado)
+                </label>
+                <textarea
+                  id="motivo-reatribuicao"
+                  rows={2}
+                  value={motivoReatribuicao}
+                  onChange={(e) => setMotivoReatribuicao(e.target.value)}
+                  className="w-full rounded-lg border border-borda bg-fundo px-3 py-2 text-xs text-texto"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-borda pt-3">
+              <button
+                type="button"
+                onClick={() => setReatribuindo(null)}
+                className="h-9 px-4 rounded-lg border border-borda bg-superficie text-xs font-semibold text-texto"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={
+                  processando || !destinoReatribuicao || motivoReatribuicao.trim().length < 10
+                }
+                onClick={handleReatribuir}
+                className="h-9 px-5 rounded-lg bg-acento text-xs font-semibold text-white disabled:opacity-50"
+              >
+                {processando ? "Reatribuindo..." : "Reatribuir"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de Criação / Edição de Usuário */}
       {modalAberto && (
@@ -601,7 +839,7 @@ function ModalFormularioUsuario({
               <span>
                 {usuario
                   ? "Nova Senha (deixe em branco para manter a atual)"
-                  : "Senha de Acesso (mínimo 6 caracteres) *"}
+                  : "Senha de Acesso (mínimo 8 caracteres) *"}
               </span>
             </label>
             <input
@@ -610,14 +848,15 @@ function ModalFormularioUsuario({
               value={senha}
               onChange={(e) => setSenha(e.target.value)}
               placeholder={
-                usuario ? "Nova senha (opcional, mínimo 6 caracteres)" : "Mínimo 6 caracteres"
+                usuario ? "Nova senha (opcional, mínimo 8 caracteres)" : "Mínimo 8 caracteres"
               }
-              minLength={6}
+              minLength={8}
               className="w-full rounded-lg border border-borda bg-fundo px-3.5 py-2 text-xs text-texto focus:border-acento focus:outline-none"
             />
             <p className="text-[11px] text-texto-suave mt-1.5 leading-relaxed">
-              Esta senha servirá para o acesso do membro ao sistema e será armazenada de forma
-              segura e cifrada (AES-256-GCM) no cofre para visualização exclusiva do Administrador.
+              Senha de acesso a este sistema: guardada apenas como hash (bcrypt) e não pode ser
+              recuperada por ninguém. Redefini-la encerra as sessões abertas do membro. A senha do
+              PAD/AVA é cadastrada separadamente no cofre (tela Perfil).
             </p>
           </div>
 

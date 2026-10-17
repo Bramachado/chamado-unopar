@@ -451,3 +451,68 @@ test(
     assert.equal(excluido, null);
   }
 );
+
+test("cofre: revelar credencial exige justificativa e registra o acesso", opcoes, async () => {
+  const { cifrarSenha } = await import("../../lib/crypto/cofre");
+  const c = cifrarSenha("senha-pad-teste");
+  await comTransacao({ usuario_id: admin.id, papel: "admin", ip: null }, (req) =>
+    req
+      .input("p", sql.UniqueIdentifier, IDS.atendPQB)
+      .input("s", sql.VarBinary(sql.MAX), c.senhaCifrada)
+      .input("i", sql.VarBinary(16), c.iv)
+      .input("t", sql.VarBinary(16), c.authTag)
+      .query(
+        "INSERT INTO dados.credenciais_externas (perfil_id, senha_cifrada, iv, auth_tag) VALUES (@p, @s, @i, @t)"
+      )
+  );
+  const revelar = (perfil: PerfilTeste, justificativa: string | null) =>
+    comTransacao({ usuario_id: perfil.id, papel: perfil.papel, ip: "200.10.20.30" }, (req) =>
+      req
+        .input("perfil_alvo", sql.UniqueIdentifier, IDS.atendPQB)
+        .input("ip", sql.VarChar(45), "200.10.20.30")
+        .input("justificativa", sql.NVarChar(500), justificativa)
+        .execute("dados.revelar_credencial")
+    );
+  await assert.rejects(revelar(admin, null), /justificativa/i);
+  await assert.rejects(revelar(biaPQB, "motivo suficiente aqui"), /administradoras/i);
+  const r = await revelar(admin, "Suporte ao acesso do PAD solicitado pela aluna");
+  assert.equal(r.recordset.length, 1);
+  const log = await comTransacao({ usuario_id: admin.id, papel: "admin", ip: null }, (req) =>
+    req.query("SELECT TOP 1 ip, justificativa FROM auditoria.credencial_acessos ORDER BY id DESC")
+  );
+  assert.equal(log.recordset[0].ip, "200.10.20.30");
+  assert.match(log.recordset[0].justificativa, /PAD/);
+  // a trilha do cofre não guarda o valor cifrado
+  const aud = await comTransacao({ usuario_id: admin.id, papel: "admin", ip: null }, (req) =>
+    req.query(
+      "SELECT TOP 1 dados_depois FROM auditoria.logs WHERE tabela = 'credenciais_externas' ORDER BY id DESC"
+    )
+  );
+  assert.match(aud.recordset[0].dados_depois, /\[redigido\]/);
+});
+
+test(
+  "reatribuição em lote das pendências de conta desativada, com evento por chamado",
+  opcoes,
+  async () => {
+    await assert.rejects(
+      repo.reatribuirPendencias(biaPQB, IDS.desativadaPQB, IDS.atendPQB, "motivo suficiente"),
+      /administração e coordenação/
+    );
+    // o chamado da Eva já foi transferido em teste anterior; cria outra pendência dela para o lote
+    await comTransacao({ usuario_id: admin.id, papel: "admin", ip: null }, (req) =>
+      req.query(
+        `UPDATE dados.chamados SET responsavel_id = '${IDS.desativadaPQB}' WHERE id = '${IDS.chDesativada}'`
+      )
+    );
+    const n = await repo.reatribuirPendencias(
+      coordPQB,
+      IDS.desativadaPQB,
+      IDS.atendPQB,
+      "Desligamento da Eva em outubro"
+    );
+    assert.equal(n, 1);
+    const c = (await carregar(admin, IDS.chDesativada))!;
+    assert.equal(c.responsavel_id?.toLowerCase(), IDS.atendPQB);
+  }
+);
