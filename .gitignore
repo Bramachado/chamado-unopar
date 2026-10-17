@@ -29,3 +29,7 @@ Thumbs.db
 # Armazenamento de anexos e cache build
 anexos_storage/
 *.tsbuildinfo
+
+# Credenciais de migração e artefatos exportados da produção
+.env.migracao.local
+db/producao/
