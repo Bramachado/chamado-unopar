@@ -398,49 +398,45 @@ Exemplo: `CS20260902-7481`.
 
 ### 6.2. Cálculo de Prazo Regulamentar (SLA)
 
-O prazo padrão é de **5 dias úteis**, calculados a partir da data de solicitação:
+Implementação única em `lib/sla.ts` (formulário, servidor, API do agente, indicadores):
 
-```typescript
-function calcularPrazoSLA(dataInicio: Date, diasUteis: number = 5): Date {
-  let atual = new Date(dataInicio);
-  let adicionados = 0;
-  while (adicionados < diasUteis) {
-    atual.setDate(atual.getDate() + 1);
-    const diaSemana = atual.getDay();
-    if (diaSemana !== 0 && diaSemana !== 6) {
-      adicionados++;
-    }
-  }
-  return atual;
-}
-```
+- 5 dias úteis contados a partir do dia seguinte à abertura (o dia da abertura não conta).
+- Sábados, domingos, feriados nacionais (inclui Sexta-feira Santa e 20/11) e os cadastrados em
+  `dados.feriados` (estaduais, municipais, institucionais) não são dias úteis.
+- Prazo automático (`prazo_calculado`) ou ajuste manual com justificativa auditada.
+- Abertura não pode ser futura; prazo não pode ser anterior à abertura (validado no servidor).
+- "No prazo" = dia da conclusão no fuso institucional ≤ prazo. Mudar de situação não pausa o prazo.
+- Datas de abertura/prazo são datas civis (sem fuso); instantes ficam em UTC e são exibidos no
+  fuso institucional (`NEXT_PUBLIC_FUSO_INSTITUCIONAL`). Ver `lib/datas.ts`.
 
-### 6.3. Fórmula de Pontuação do Ranking
+### 6.3. Fórmula de Pontuação do Ranking (versão 2026-10)
 
-A pontuação de cada atendente é ponderada por 3 critérios:
-$$\text{Pontuação Total} = \text{Pontos}_{\text{Volume}} + \text{Pontos}_{\text{Prazo}} + \text{Pontos}_{\text{Agilidade}}$$
+Implementação única em `lib/indicadores/pontuacao.ts`, sobre os chamados finalizados no período,
+atribuídos ao responsável atual (sem testes e sem importados):
 
-1. **Volume Efetivo de Soluções (Peso 40%):**
-   $$\text{Pontos}_{\text{Volume}} = \min(40, \text{Chamados Resolvidos} \times 2.67)$$
-2. **Cumprimento do Prazo (Peso 40%):**
-   $$\text{Pontos}_{\text{Prazo}} = \left(\frac{\text{Resolvidos no Prazo}}{\text{Total Resolvidos}}\right) \times 40$$
-3. **Agilidade de Atendimento (Peso 20%):**
-   - Média $\le 1.0\text{ dia} \rightarrow 20\text{ pts}$
-   - Média $\le 2.0\text{ dias} \rightarrow 15\text{ pts}$
-   - Média $\le 3.0\text{ dias} \rightarrow 10\text{ pts}$
-   - Média $> 3.0\text{ dias} \rightarrow 5\text{ pts}$
+1. **Volume (até 40):** 40 × volume ponderado ÷ maior volume ponderado da equipe
+   (resolvido = 1; encerrado sem solução = 0,5).
+2. **Prazo (até 40):** 40 × resolvidos no prazo ÷ resolvidos.
+3. **Agilidade (até 20):** média de dias úteis até a resolução: ≤ 1 → 20; ≤ 2 → 15; ≤ 3 → 10;
+   > 3 → 5; sem resolvidos → 0.
+
+Nota = soma dos componentes (0–100 por construção). Indicadores operacionais:
+`lib/indicadores/definicoes.ts`. Diagnóstico completo das mudanças: `DIAGNOSTICO.md`.
 
 ---
 
 ## 7. Segurança e Criptografia do Cofre
 
-O cofre de senhas (`lib/crypto/cofre.ts`) utiliza o padrão da indústria **AES-256-GCM** (Galois/Counter Mode), que oferece confidencialidade e integridade garantida por assinatura criptográfica:
+O cofre (`lib/crypto/cofre.ts`) guarda apenas credenciais de sistemas externos (PAD/AVA) com
+**AES-256-GCM** — criptografia em repouso no servidor (não é ponta a ponta: o servidor decifra).
+A senha de acesso a este sistema é guardada só como hash bcrypt e não é recuperável. Revelar uma
+credencial exige reautenticação e justificativa, registradas em `auditoria.credencial_acessos`.
 
 ```typescript
 import crypto from "crypto";
 
 const ALGORITMO = "aes-256-gcm";
-const CHAVE_MESTRA = Buffer.from(process.env.ENCRYPTION_MASTER_KEY!, "hex"); // 32 bytes (256 bits)
+const CHAVE_MESTRA = Buffer.from(process.env.CRED_ENCRYPTION_KEY!, "base64"); // 32 bytes (256 bits)
 
 export function cifrarSenha(textoPuro: string) {
   const iv = crypto.randomBytes(16); // Vetor de inicialização aleatório
@@ -512,11 +508,12 @@ NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=sua-chave-anon-publica
 SUPABASE_SERVICE_ROLE_KEY=sua-chave-service-role-secreta
 
-# Chave Mestra do Cofre (64 caracteres hexadecimais = 32 bytes / 256 bits)
-ENCRYPTION_MASTER_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+# Chave do cofre (32 bytes em base64) — obrigatória, sem valor padrão
+CRED_ENCRYPTION_KEY=
 
-# Fuso Horário e Idioma
-TZ=America/Sao_Paulo
+# Fuso institucional e proxies confiáveis (ver .env.example)
+NEXT_PUBLIC_FUSO_INSTITUCIONAL=America/Sao_Paulo
+PROXIES_CONFIAVEIS=1
 NEXT_PUBLIC_DEFAULT_THEME=claro
 ```
 
@@ -531,8 +528,10 @@ npm install
 # 2. Executar em ambiente de desenvolvimento
 npm run dev
 
-# 3. Validar tipagem TypeScript
+# 3. Validar tipagem e testes
 npx tsc --noEmit
+npm test                 # regras de negócio (sem banco)
+npm run test:integracao  # banco de TESTES local (ver db/teste/preparar.ts)
 
 # 4. Compilar para produção
 npm run build
